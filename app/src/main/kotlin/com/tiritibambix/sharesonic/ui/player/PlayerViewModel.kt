@@ -114,7 +114,7 @@ class PlayerViewModel(
                 it.copy(queueIndex = index, currentSong = song, coverArtUrl = coverUrl)
             }
         }
-        controller?.seekToMediaItem(index, 0)
+        controller?.seekTo(index, 0L)
     }
 
     fun playPause() {
