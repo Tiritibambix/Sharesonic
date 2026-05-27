@@ -27,6 +27,14 @@ interface SubsonicApiService {
         @Query("musicFolderId") musicFolderId: String? = null
     ): SubsonicEnvelope
 
+    @GET("search3.view")
+    suspend fun search3(
+        @Query("query") query: String,
+        @Query("songCount") songCount: Int = 50,
+        @Query("albumCount") albumCount: Int = 20,
+        @Query("artistCount") artistCount: Int = 10
+    ): SubsonicEnvelope
+
     /** Binary stream — used to build cover-art URLs only, not called directly. */
     @Streaming
     @GET("getCoverArt.view")

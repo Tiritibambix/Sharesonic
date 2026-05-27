@@ -16,6 +16,7 @@ import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -225,6 +226,45 @@ private fun NowPlayingPage(state: PlayerState, viewModel: PlayerViewModel) {
                 }
             }
 
+            Spacer(Modifier.height(4.dp))
+
+            // ── Seek bar ─────────────────────────────────────────────────
+            if (state.durationMs > 0L) {
+                var dragging by remember { mutableStateOf(false) }
+                var dragValue by remember { mutableFloatStateOf(0f) }
+
+                val sliderValue = if (dragging) dragValue
+                    else (state.currentPositionMs.toFloat() / state.durationMs.toFloat()).coerceIn(0f, 1f)
+
+                Slider(
+                    value = sliderValue,
+                    onValueChange = { v ->
+                        dragging = true
+                        dragValue = v
+                    },
+                    onValueChangeFinished = {
+                        viewModel.seekTo((dragValue * state.durationMs).toLong())
+                        dragging = false
+                    },
+                    modifier = Modifier.fillMaxWidth()
+                )
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween
+                ) {
+                    Text(
+                        formatMs(if (dragging) (dragValue * state.durationMs).toLong() else state.currentPositionMs),
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                    Text(
+                        formatMs(state.durationMs),
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+            }
+
             Spacer(Modifier.height(8.dp))
 
             // Share button
@@ -252,6 +292,21 @@ private fun NowPlayingPage(state: PlayerState, viewModel: PlayerViewModel) {
                     "← Swipe for queue",
                     style = MaterialTheme.typography.labelSmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f)
+                )
+            }
+
+            // ── File path ────────────────────────────────────────────────
+            state.currentSong?.path?.let { path ->
+                Spacer(Modifier.height(8.dp))
+                HorizontalDivider()
+                Spacer(Modifier.height(4.dp))
+                Text(
+                    text = path,
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.45f),
+                    maxLines = 2,
+                    overflow = TextOverflow.Ellipsis,
+                    modifier = Modifier.fillMaxWidth()
                 )
             }
         }
@@ -353,5 +408,12 @@ private fun QueuePage(state: PlayerState, viewModel: PlayerViewModel) {
 private fun formatDuration(seconds: Int): String {
     val m = seconds / 60
     val s = seconds % 60
+    return "%d:%02d".format(m, s)
+}
+
+private fun formatMs(ms: Long): String {
+    val totalSeconds = ms / 1000
+    val m = totalSeconds / 60
+    val s = totalSeconds % 60
     return "%d:%02d".format(m, s)
 }

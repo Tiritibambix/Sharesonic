@@ -7,6 +7,7 @@ import com.tiritibambix.sharesonic.data.api.models.IndexesBody
 import com.tiritibambix.sharesonic.data.api.models.MusicFolderDto
 import com.tiritibambix.sharesonic.data.api.models.ShareDto
 import com.tiritibambix.sharesonic.data.api.models.RandomSongsContainer
+import com.tiritibambix.sharesonic.data.api.models.SearchResult3
 
 sealed class Result<out T> {
     data class Success<T>(val data: T) : Result<T>()
@@ -64,6 +65,17 @@ class SubsonicRepository(private val api: SubsonicApiService) {
             val body = api.getRandomSongs(size, musicFolderId).response
             if (body.status == "ok")
                 Result.Success(body.randomSongs?.song ?: emptyList())
+            else Result.Error(body.error?.message ?: "Server error")
+        } catch (e: Exception) {
+            Result.Error(e.message ?: "Network error")
+        }
+    }
+
+    suspend fun search(query: String): Result<SearchResult3> {
+        return try {
+            val body = api.search3(query).response
+            if (body.status == "ok")
+                Result.Success(body.searchResult3 ?: SearchResult3())
             else Result.Error(body.error?.message ?: "Server error")
         } catch (e: Exception) {
             Result.Error(e.message ?: "Network error")

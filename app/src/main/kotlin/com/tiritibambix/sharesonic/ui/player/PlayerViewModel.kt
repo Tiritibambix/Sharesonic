@@ -17,6 +17,7 @@ import com.tiritibambix.sharesonic.data.api.models.EntryDto
 import com.tiritibambix.sharesonic.data.settings.ServerSettings
 import com.tiritibambix.sharesonic.data.settings.SettingsRepository
 import com.tiritibambix.sharesonic.playback.PlaybackService
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.first
@@ -29,6 +30,8 @@ data class PlayerState(
     val queueIndex: Int = 0,
     val isPlaying: Boolean = false,
     val coverArtUrl: String? = null,
+    val currentPositionMs: Long = 0L,
+    val durationMs: Long = 0L,
     val shareUrl: String? = null,
     val shareLoading: Boolean = false,
     val shareError: String? = null
@@ -59,6 +62,25 @@ class PlayerViewModel(
         viewModelScope.launch {
             cachedSettings = settingsRepo.settings.first()
         }
+        startPositionPolling()
+    }
+
+    private fun startPositionPolling() {
+        viewModelScope.launch {
+            while (true) {
+                delay(500)
+                val ctrl = controller ?: continue
+                val pos = ctrl.currentPosition.coerceAtLeast(0L)
+                val dur = ctrl.duration.takeIf { it > 0L } ?: 0L
+                val playing = ctrl.isPlaying
+                _state.update { it.copy(currentPositionMs = pos, durationMs = dur, isPlaying = playing) }
+            }
+        }
+    }
+
+    fun seekTo(positionMs: Long) {
+        controller?.seekTo(positionMs)
+        _state.update { it.copy(currentPositionMs = positionMs) }
     }
 
     fun playSong(song: EntryDto) {

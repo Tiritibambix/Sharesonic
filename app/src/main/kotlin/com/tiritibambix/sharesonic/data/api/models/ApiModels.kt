@@ -15,6 +15,7 @@ data class SubsonicBody(
     val indexes: IndexesBody? = null,
     val directory: DirectoryBody? = null,
     val randomSongs: RandomSongsContainer? = null,
+    val searchResult3: SearchResult3? = null,
     val shares: SharesContainer? = null,
     val error: SubsonicError? = null
 )
@@ -31,20 +32,15 @@ data class MusicFolderDto(val id: String = "", val name: String = "")
 
 data class IndexesBody(
     val index: List<IndexGroup> = emptyList(),
-    // loose files at library root (rare but possible)
     val child: List<EntryDto> = emptyList()
 )
 
 data class IndexGroup(
     val name: String = "",
-    // In folder-browsing mode these "artists" are top-level directories
     val artist: List<TopLevelDir> = emptyList()
 )
 
-data class TopLevelDir(
-    val id: String = "",
-    val name: String = ""
-)
+data class TopLevelDir(val id: String = "", val name: String = "")
 
 // ── Directory browsing ─────────────────────────────────────────────────────────
 
@@ -57,7 +53,6 @@ data class DirectoryBody(
 
 data class EntryDto(
     val id: String = "",
-    // directories expose "title"; songs expose "title" or fall back to "name"
     val title: String? = null,
     val name: String? = null,
     val artist: String? = null,
@@ -68,7 +63,9 @@ data class EntryDto(
     val contentType: String? = null,
     val coverArt: String? = null,
     val track: Int? = null,
-    val year: Int? = null
+    val year: Int? = null,
+    /** Relative path within the library, e.g. "Artist/Album/01 - Song.mp3" */
+    val path: String? = null
 ) {
     val displayName: String get() = title ?: name ?: id
 }
@@ -76,6 +73,14 @@ data class EntryDto(
 // ── Random songs (shuffle all) ────────────────────────────────────────────────
 
 data class RandomSongsContainer(val song: List<EntryDto> = emptyList())
+
+// ── Search ────────────────────────────────────────────────────────────────────
+
+data class SearchResult3(
+    val song: List<EntryDto> = emptyList(),
+    val album: List<EntryDto> = emptyList(),
+    val artist: List<TopLevelDir> = emptyList()
+)
 
 // ── Shares ─────────────────────────────────────────────────────────────────────
 

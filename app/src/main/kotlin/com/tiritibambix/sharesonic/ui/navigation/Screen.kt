@@ -9,6 +9,7 @@ sealed class Screen(val route: String) {
         const val ARG_NAME = "folderName"
     }
     data object NowPlaying : Screen("nowplaying")
+    data object Search : Screen("search")
     // No URL in the route — share URL is held in AppNavGraph state to avoid
     // Navigation Compose mishandling encoded slashes (%2F) in path segments.
     data object ShareConfirm : Screen("shareconfirm")

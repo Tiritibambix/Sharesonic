@@ -15,6 +15,9 @@ import com.tiritibambix.sharesonic.ui.browser.FolderBrowserViewModelFactory
 import com.tiritibambix.sharesonic.ui.player.NowPlayingScreen
 import com.tiritibambix.sharesonic.ui.player.PlayerViewModel
 import com.tiritibambix.sharesonic.ui.player.PlayerViewModelFactory
+import com.tiritibambix.sharesonic.ui.search.SearchScreen
+import com.tiritibambix.sharesonic.ui.search.SearchViewModel
+import com.tiritibambix.sharesonic.ui.search.SearchViewModelFactory
 import com.tiritibambix.sharesonic.ui.settings.SettingsScreen
 import com.tiritibambix.sharesonic.ui.settings.SettingsViewModel
 import com.tiritibambix.sharesonic.ui.settings.SettingsViewModelFactory
@@ -31,7 +34,7 @@ fun AppNavGraph() {
 
     val playerVm: PlayerViewModel = viewModel(factory = PlayerViewModelFactory(context))
 
-    // Pending share URL — held here so we never embed a raw URL in a nav route.
+    // Pending share URL — held here so no raw URL is embedded in a nav route.
     var pendingShareUrl by remember { mutableStateOf("") }
 
     fun onShareCreated(url: String) {
@@ -46,9 +49,7 @@ fun AppNavGraph() {
                 viewModel = settingsVm,
                 onNavigateToBrowser = {
                     if (settingsVm.settings.value.isConfigured) {
-                        navController.navigate(
-                            Screen.Browser.createRoute("root", "Library")
-                        )
+                        navController.navigate(Screen.Browser.createRoute("root", "Library"))
                     }
                 }
             )
@@ -76,11 +77,10 @@ fun AppNavGraph() {
                 folderName = folderName,
                 viewModel = browserVm,
                 playerViewModel = playerVm,
-                onOpenFolder = { id, name ->
-                    navController.navigate(Screen.Browser.createRoute(id, name))
-                },
+                onOpenFolder = { id, name -> navController.navigate(Screen.Browser.createRoute(id, name)) },
                 onOpenSettings = { navController.navigate(Screen.Settings.route) },
                 onOpenNowPlaying = { navController.navigate(Screen.NowPlaying.route) },
+                onOpenSearch = { navController.navigate(Screen.Search.route) },
                 onShareCreated = ::onShareCreated
             )
         }
@@ -89,6 +89,19 @@ fun AppNavGraph() {
             NowPlayingScreen(
                 viewModel = playerVm,
                 onBack = { navController.popBackStack() },
+                onShareCreated = ::onShareCreated
+            )
+        }
+
+        composable(Screen.Search.route) {
+            val searchVm: SearchViewModel = viewModel(factory = SearchViewModelFactory(settingsRepo))
+            SearchScreen(
+                viewModel = searchVm,
+                playerViewModel = playerVm,
+                settings = settings,
+                onBack = { navController.popBackStack() },
+                onOpenFolder = { id, name -> navController.navigate(Screen.Browser.createRoute(id, name)) },
+                onOpenNowPlaying = { navController.navigate(Screen.NowPlaying.route) },
                 onShareCreated = ::onShareCreated
             )
         }
