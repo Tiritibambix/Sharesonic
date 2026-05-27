@@ -9,10 +9,7 @@ sealed class Screen(val route: String) {
         const val ARG_NAME = "folderName"
     }
     data object NowPlaying : Screen("nowplaying")
-    data object ShareConfirm : Screen("shareconfirm/{shareUrl}") {
-        fun createRoute(shareUrl: String) = "shareconfirm/${shareUrl.encode()}"
-        const val ARG_URL = "shareUrl"
-    }
+    // No URL in the route — share URL is held in AppNavGraph state to avoid
+    // Navigation Compose mishandling encoded slashes (%2F) in path segments.
+    data object ShareConfirm : Screen("shareconfirm")
 }
-
-private fun String.encode() = java.net.URLEncoder.encode(this, "UTF-8")

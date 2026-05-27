@@ -1,9 +1,6 @@
 package com.tiritibambix.sharesonic.ui.navigation
 
-import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.collectAsState
-import androidx.compose.runtime.getValue
+import androidx.compose.runtime.*
 import androidx.compose.ui.platform.LocalContext
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavType
@@ -22,7 +19,6 @@ import com.tiritibambix.sharesonic.ui.settings.SettingsScreen
 import com.tiritibambix.sharesonic.ui.settings.SettingsViewModel
 import com.tiritibambix.sharesonic.ui.settings.SettingsViewModelFactory
 import com.tiritibambix.sharesonic.ui.share.ShareConfirmScreen
-import java.net.URLDecoder
 
 @Composable
 fun AppNavGraph() {
@@ -33,19 +29,23 @@ fun AppNavGraph() {
     val settingsVm: SettingsViewModel = viewModel(factory = SettingsViewModelFactory(settingsRepo))
     val settings by settingsVm.settings.collectAsState()
 
-    // Shared PlayerViewModel — lives for the whole nav graph
     val playerVm: PlayerViewModel = viewModel(factory = PlayerViewModelFactory(context))
 
-    val startDestination = Screen.Settings.route
+    // Pending share URL — held here so we never embed a raw URL in a nav route.
+    var pendingShareUrl by remember { mutableStateOf("") }
 
-    NavHost(navController = navController, startDestination = startDestination) {
+    fun onShareCreated(url: String) {
+        pendingShareUrl = url
+        navController.navigate(Screen.ShareConfirm.route)
+    }
+
+    NavHost(navController = navController, startDestination = Screen.Settings.route) {
 
         composable(Screen.Settings.route) {
             SettingsScreen(
                 viewModel = settingsVm,
                 onNavigateToBrowser = {
-                    val s = settingsVm.settings.value
-                    if (s.isConfigured) {
+                    if (settingsVm.settings.value.isConfigured) {
                         navController.navigate(
                             Screen.Browser.createRoute("root", "Library")
                         )
@@ -81,9 +81,7 @@ fun AppNavGraph() {
                 },
                 onOpenSettings = { navController.navigate(Screen.Settings.route) },
                 onOpenNowPlaying = { navController.navigate(Screen.NowPlaying.route) },
-                onShareCreated = { url ->
-                    navController.navigate(Screen.ShareConfirm.createRoute(url))
-                }
+                onShareCreated = ::onShareCreated
             )
         }
 
@@ -91,28 +89,19 @@ fun AppNavGraph() {
             NowPlayingScreen(
                 viewModel = playerVm,
                 onBack = { navController.popBackStack() },
-                onShareCreated = { url ->
-                    navController.navigate(Screen.ShareConfirm.createRoute(url))
-                }
+                onShareCreated = ::onShareCreated
             )
         }
 
-        composable(
-            route = Screen.ShareConfirm.route,
-            arguments = listOf(
-                navArgument(Screen.ShareConfirm.ARG_URL) { type = NavType.StringType }
-            )
-        ) { backStackEntry ->
-            val encodedUrl = backStackEntry.arguments?.getString(Screen.ShareConfirm.ARG_URL) ?: ""
-            val shareUrl = URLDecoder.decode(encodedUrl, "UTF-8")
+        composable(Screen.ShareConfirm.route) {
             ShareConfirmScreen(
-                shareUrl = shareUrl,
+                shareUrl = pendingShareUrl,
                 onBack = { navController.popBackStack() }
             )
         }
     }
 
-    // Auto-navigate to browser if already configured
+    // Auto-navigate to browser when already configured
     LaunchedEffect(settings.isConfigured) {
         if (settings.isConfigured &&
             navController.currentDestination?.route == Screen.Settings.route
