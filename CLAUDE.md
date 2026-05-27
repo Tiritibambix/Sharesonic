@@ -23,6 +23,7 @@ The goal is a single app that does three things well:
 * Share link generation: tap a track or folder -> generate a `server/share/XXXXXXXXXX` public URL via the Subsonic `createShare` endpoint -> Android share sheet opens with that URL ready to send
 * Settings screen: server URL, username, password, connection test button
 * Offline-safe: graceful error handling when the server is unreachable
+* Playlist management: create, edit, delete playlists, add/remove tracks
 
 ### Must Not Have
 
@@ -67,6 +68,7 @@ The goal is a single app that does three things well:
 * `createShare` — generate a public share link (key feature)
 * `getShares` — list existing shares (optional)
 * `deleteShare` — delete a share (optional)
+* `scrobble` — report track playback to Navidrome (call on track start, and again at 50% of track duration)
 
 Reference: https://www.subsonic.org/pages/api.jsp
 Navidrome Subsonic compatibility: https://www.navidrome.org/docs/developers/subsonic-api/
@@ -99,8 +101,6 @@ Do not copy code blindly — understand the logic and rewrite it cleanly in the 
 ## Out of Scope for v1
 
 * Offline caching / download for offline playback
-* Playlist management
-* Scrobbling (Last.fm, ListenBrainz)
 * Multiple server profiles
 * Lyrics display
 * Android Auto support
