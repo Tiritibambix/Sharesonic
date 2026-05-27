@@ -30,13 +30,13 @@ sealed interface ShareState {
 
 /**
  * folderId encoding:
- *   "root"      → getMusicFolders (list of libraries)
- *   "mf_{id}"   → getIndexes(musicFolderId=id) (top-level dirs inside a library)
- *   "{id}"      → getMusicDirectory(id) (any sub-directory)
+ *   "root"    → getMusicFolders   (library list)
+ *   "mf_{id}" → getIndexes        (top-level dirs inside library id)
+ *   "{id}"    → getMusicDirectory (any sub-directory)
  */
 class FolderBrowserViewModel(
     private val settingsRepo: SettingsRepository,
-    private val folderId: String
+    val folderId: String
 ) : ViewModel() {
 
     private val _state = MutableStateFlow<BrowserState>(BrowserState.Loading)
@@ -44,6 +44,14 @@ class FolderBrowserViewModel(
 
     private val _shareState = MutableStateFlow<ShareState>(ShareState.Idle)
     val shareState: StateFlow<ShareState> = _shareState
+
+    /** Cover-art URL builder — set once settings are loaded. */
+    private var _settings: ServerSettings? = null
+
+    fun coverArtUrl(coverArtId: String, size: Int = 64): String? {
+        val s = _settings ?: return null
+        return SubsonicClient.coverArtUrl(s, coverArtId, size)
+    }
 
     init { load() }
 
@@ -55,83 +63,112 @@ class FolderBrowserViewModel(
                 _state.update { BrowserState.Error("Server not configured") }
                 return@launch
             }
+            _settings = settings
             val repo = buildRepo(settings)
             when {
-                folderId == "root" -> loadRootFolders(repo)
-                folderId.startsWith("mf_") -> loadIndexes(repo, folderId.removePrefix("mf_"))
-                else -> loadDirectory(repo, folderId)
+                folderId == "root"            -> loadRootFolders(repo)
+                folderId.startsWith("mf_")    -> loadIndexes(repo, folderId.removePrefix("mf_"))
+                else                          -> loadDirectory(repo, folderId)
             }
         }
     }
 
-    /** Step 1 — list music libraries */
     private suspend fun loadRootFolders(repo: SubsonicRepository) {
-        when (val result = repo.getMusicFolders()) {
+        when (val r = repo.getMusicFolders()) {
             is Result.Success -> {
-                val entries = result.data.map { folder ->
-                    EntryDto(id = "mf_${folder.id}", title = folder.name, isDir = true)
-                }
+                val entries = r.data.map { EntryDto(id = "mf_${it.id}", title = it.name, isDir = true) }
                 _state.update { BrowserState.Ready(entries) }
             }
-            is Result.Error -> _state.update { BrowserState.Error(result.message) }
+            is Result.Error -> _state.update { BrowserState.Error(r.message) }
         }
     }
 
-    /** Step 2 — list top-level directories inside a library via getIndexes */
     private suspend fun loadIndexes(repo: SubsonicRepository, musicFolderId: String) {
-        when (val result = repo.getIndexes(musicFolderId)) {
+        when (val r = repo.getIndexes(musicFolderId)) {
             is Result.Success -> {
-                // Flatten all index groups → top-level directories
-                val entries = result.data.index
-                    .flatMap { group -> group.artist }
-                    .map { dir -> EntryDto(id = dir.id, title = dir.name, isDir = true) }
-                // Also include any loose files at the library root
-                val looseFiles = result.data.child
-                _state.update { BrowserState.Ready(entries + looseFiles) }
+                val dirs = r.data.index
+                    .flatMap { it.artist }
+                    .map { EntryDto(id = it.id, title = it.name, isDir = true) }
+                val loose = r.data.child
+                _state.update { BrowserState.Ready(dirs + loose) }
             }
-            is Result.Error -> _state.update { BrowserState.Error(result.message) }
+            is Result.Error -> _state.update { BrowserState.Error(r.message) }
         }
     }
 
-    /** Step 3+ — navigate inside any sub-directory */
     private suspend fun loadDirectory(repo: SubsonicRepository, id: String) {
-        when (val result = repo.getMusicDirectory(id)) {
-            is Result.Success -> _state.update { BrowserState.Ready(result.data.child) }
-            is Result.Error -> _state.update { BrowserState.Error(result.message) }
+        when (val r = repo.getMusicDirectory(id)) {
+            is Result.Success -> _state.update { BrowserState.Ready(r.data.child) }
+            is Result.Error   -> _state.update { BrowserState.Error(r.message) }
         }
     }
 
     fun refresh() = load()
 
-    fun shareEntry(entryId: String) {
-        // Strip mf_ prefix if somehow a library root is shared (shouldn't happen)
-        val realId = if (entryId.startsWith("mf_")) entryId.removePrefix("mf_") else entryId
-        _shareState.update { ShareState.Loading }
-        viewModelScope.launch {
-            val settings = settingsRepo.settings.first()
-            val repo = buildRepo(settings)
-            when (val result = repo.createShare(realId)) {
-                is Result.Success -> _shareState.update { ShareState.Done(result.data.url) }
-                is Result.Error -> _shareState.update { ShareState.Error(result.message) }
-            }
-        }
-    }
+    // ── Shuffle ───────────────────────────────────────────────────────────────
 
-    fun clearShareState() = _shareState.update { ShareState.Idle }
-
-    fun collectShuffled(
-        directoryId: String,
+    /**
+     * Shuffle the current level:
+     * - root / mf_*  → getRandomSongs (fast, server-side random, large set)
+     * - sub-directory → recursive collect + local shuffle
+     */
+    fun shuffleCurrent(
         onReady: (List<EntryDto>) -> Unit,
         onError: (String) -> Unit
     ) {
         viewModelScope.launch {
             val settings = settingsRepo.settings.first()
             val repo = buildRepo(settings)
-            val songs = repo.collectSongs(directoryId)
-            if (songs.isEmpty()) onError("No songs found")
-            else onReady(songs.shuffled())
+
+            when {
+                folderId == "root" -> {
+                    // Shuffle entire library via getRandomSongs
+                    when (val r = repo.getRandomSongs(size = 200)) {
+                        is Result.Success -> {
+                            if (r.data.isEmpty()) onError("No songs found")
+                            else onReady(r.data.shuffled())
+                        }
+                        is Result.Error -> onError(r.message)
+                    }
+                }
+                folderId.startsWith("mf_") -> {
+                    // Shuffle a whole library — getRandomSongs filtered by folder
+                    val musicFolderId = folderId.removePrefix("mf_")
+                    when (val r = repo.getRandomSongs(size = 200, musicFolderId = musicFolderId)) {
+                        is Result.Success -> {
+                            if (r.data.isEmpty()) onError("No songs found")
+                            else onReady(r.data.shuffled())
+                        }
+                        is Result.Error -> onError(r.message)
+                    }
+                }
+                else -> {
+                    // Shuffle a specific sub-directory recursively
+                    val songs = repo.collectSongs(folderId)
+                    if (songs.isEmpty()) onError("No songs found")
+                    else onReady(songs.shuffled())
+                }
+            }
         }
     }
+
+    // ── Share ─────────────────────────────────────────────────────────────────
+
+    fun shareEntry(entryId: String) {
+        val realId = entryId.removePrefix("mf_")
+        _shareState.update { ShareState.Loading }
+        viewModelScope.launch {
+            val settings = settingsRepo.settings.first()
+            when (val r = buildRepo(settings).createShare(realId)) {
+                is Result.Success -> _shareState.update { ShareState.Done(r.data.url) }
+                is Result.Error   -> _shareState.update { ShareState.Error(r.message) }
+            }
+        }
+    }
+
+    fun clearShareState() = _shareState.update { ShareState.Idle }
+
+    // ── Helpers ───────────────────────────────────────────────────────────────
 
     private suspend fun buildRepo(settings: ServerSettings): SubsonicRepository {
         val api = SubsonicClient.build(settings.serverUrl, settings.username, settings.password)

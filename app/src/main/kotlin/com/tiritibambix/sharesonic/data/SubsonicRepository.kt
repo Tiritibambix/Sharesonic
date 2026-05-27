@@ -6,6 +6,7 @@ import com.tiritibambix.sharesonic.data.api.models.EntryDto
 import com.tiritibambix.sharesonic.data.api.models.IndexesBody
 import com.tiritibambix.sharesonic.data.api.models.MusicFolderDto
 import com.tiritibambix.sharesonic.data.api.models.ShareDto
+import com.tiritibambix.sharesonic.data.api.models.RandomSongsContainer
 
 sealed class Result<out T> {
     data class Success<T>(val data: T) : Result<T>()
@@ -52,6 +53,18 @@ class SubsonicRepository(private val api: SubsonicApiService) {
             if (body.status == "ok" && body.directory != null)
                 Result.Success(body.directory)
             else Result.Error(body.error?.message ?: "Empty directory")
+        } catch (e: Exception) {
+            Result.Error(e.message ?: "Network error")
+        }
+    }
+
+    /** Fetch up to [size] random songs from the whole library (shuffle-all). */
+    suspend fun getRandomSongs(size: Int = 200, musicFolderId: String? = null): Result<List<EntryDto>> {
+        return try {
+            val body = api.getRandomSongs(size, musicFolderId).response
+            if (body.status == "ok")
+                Result.Success(body.randomSongs?.song ?: emptyList())
+            else Result.Error(body.error?.message ?: "Server error")
         } catch (e: Exception) {
             Result.Error(e.message ?: "Network error")
         }

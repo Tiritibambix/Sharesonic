@@ -1,8 +1,10 @@
 package com.tiritibambix.sharesonic.data.api
 
 import com.tiritibambix.sharesonic.data.api.models.SubsonicEnvelope
+import okhttp3.ResponseBody
 import retrofit2.http.GET
 import retrofit2.http.Query
+import retrofit2.http.Streaming
 
 interface SubsonicApiService {
 
@@ -17,6 +19,21 @@ interface SubsonicApiService {
 
     @GET("getMusicDirectory.view")
     suspend fun getMusicDirectory(@Query("id") id: String): SubsonicEnvelope
+
+    /** Returns up to [size] random songs, optionally filtered by [musicFolderId]. */
+    @GET("getRandomSongs.view")
+    suspend fun getRandomSongs(
+        @Query("size") size: Int = 200,
+        @Query("musicFolderId") musicFolderId: String? = null
+    ): SubsonicEnvelope
+
+    /** Binary stream — used to build cover-art URLs only, not called directly. */
+    @Streaming
+    @GET("getCoverArt.view")
+    suspend fun getCoverArt(
+        @Query("id") id: String,
+        @Query("size") size: Int = 256
+    ): ResponseBody
 
     @GET("createShare.view")
     suspend fun createShare(

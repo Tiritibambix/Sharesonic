@@ -14,6 +14,7 @@ data class SubsonicBody(
     val musicFolders: MusicFoldersContainer? = null,
     val indexes: IndexesBody? = null,
     val directory: DirectoryBody? = null,
+    val randomSongs: RandomSongsContainer? = null,
     val shares: SharesContainer? = null,
     val error: SubsonicError? = null
 )
@@ -71,6 +72,10 @@ data class EntryDto(
 ) {
     val displayName: String get() = title ?: name ?: id
 }
+
+// ── Random songs (shuffle all) ────────────────────────────────────────────────
+
+data class RandomSongsContainer(val song: List<EntryDto> = emptyList())
 
 // ── Shares ─────────────────────────────────────────────────────────────────────
 

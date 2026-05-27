@@ -28,6 +28,7 @@ data class PlayerState(
     val queue: List<EntryDto> = emptyList(),
     val queueIndex: Int = 0,
     val isPlaying: Boolean = false,
+    val coverArtUrl: String? = null,
     val shareUrl: String? = null,
     val shareLoading: Boolean = false,
     val shareError: String? = null
@@ -43,6 +44,7 @@ class PlayerViewModel(
 
     private var controllerFuture: ListenableFuture<MediaController>? = null
     private var controller: MediaController? = null
+    private var cachedSettings: ServerSettings? = null
 
     init {
         val sessionToken = SessionToken(
@@ -53,15 +55,27 @@ class PlayerViewModel(
         controllerFuture?.addListener({
             controller = controllerFuture?.get()
         }, MoreExecutors.directExecutor())
+
+        viewModelScope.launch {
+            cachedSettings = settingsRepo.settings.first()
+        }
     }
 
     fun playSong(song: EntryDto) {
-        _state.update { it.copy(currentSong = song, queue = listOf(song), queueIndex = 0, isPlaying = true) }
         viewModelScope.launch {
-            val settings = settingsRepo.settings.first()
+            val settings = settings()
             val url = streamUrl(settings, song.id)
-            val item = MediaItem.fromUri(url)
-            controller?.setMediaItem(item)
+            val coverUrl = song.coverArt?.let { SubsonicClient.coverArtUrl(settings, it, 512) }
+            _state.update {
+                it.copy(
+                    currentSong = song,
+                    queue = listOf(song),
+                    queueIndex = 0,
+                    isPlaying = true,
+                    coverArtUrl = coverUrl
+                )
+            }
+            controller?.setMediaItem(MediaItem.fromUri(url))
             controller?.prepare()
             controller?.play()
         }
@@ -69,14 +83,38 @@ class PlayerViewModel(
 
     fun playQueue(songs: List<EntryDto>) {
         if (songs.isEmpty()) return
-        _state.update { it.copy(queue = songs, queueIndex = 0, currentSong = songs[0], isPlaying = true) }
         viewModelScope.launch {
-            val settings = settingsRepo.settings.first()
+            val settings = settings()
+            val first = songs[0]
+            val coverUrl = first.coverArt?.let { SubsonicClient.coverArtUrl(settings, it, 512) }
+            _state.update {
+                it.copy(
+                    queue = songs,
+                    queueIndex = 0,
+                    currentSong = first,
+                    isPlaying = true,
+                    coverArtUrl = coverUrl
+                )
+            }
             val items = songs.map { MediaItem.fromUri(streamUrl(settings, it.id)) }
             controller?.setMediaItems(items)
             controller?.prepare()
             controller?.play()
         }
+    }
+
+    fun jumpTo(index: Int) {
+        val q = _state.value
+        if (index !in q.queue.indices) return
+        val song = q.queue[index]
+        viewModelScope.launch {
+            val settings = settings()
+            val coverUrl = song.coverArt?.let { SubsonicClient.coverArtUrl(settings, it, 512) }
+            _state.update {
+                it.copy(queueIndex = index, currentSong = song, coverArtUrl = coverUrl)
+            }
+        }
+        controller?.seekToMediaItem(index, 0)
     }
 
     fun playPause() {
@@ -87,32 +125,23 @@ class PlayerViewModel(
 
     fun skipNext() {
         val q = _state.value
-        if (q.queueIndex < q.queue.lastIndex) {
-            val next = q.queueIndex + 1
-            _state.update { it.copy(queueIndex = next, currentSong = q.queue[next]) }
-            controller?.seekToNextMediaItem()
-        }
+        if (q.queueIndex < q.queue.lastIndex) jumpTo(q.queueIndex + 1)
     }
 
     fun skipPrev() {
         val q = _state.value
-        if (q.queueIndex > 0) {
-            val prev = q.queueIndex - 1
-            _state.update { it.copy(queueIndex = prev, currentSong = q.queue[prev]) }
-            controller?.seekToPreviousMediaItem()
-        }
+        if (q.queueIndex > 0) jumpTo(q.queueIndex - 1)
     }
 
     fun shareCurrentSong() {
         val song = _state.value.currentSong ?: return
         _state.update { it.copy(shareLoading = true, shareUrl = null, shareError = null) }
         viewModelScope.launch {
-            val settings = settingsRepo.settings.first()
+            val settings = settings()
             val api = SubsonicClient.build(settings.serverUrl, settings.username, settings.password)
-            val repo = SubsonicRepository(api)
-            when (val result = repo.createShare(song.id)) {
+            when (val result = SubsonicRepository(api).createShare(song.id)) {
                 is Result.Success -> _state.update { it.copy(shareLoading = false, shareUrl = result.data.url) }
-                is Result.Error -> _state.update { it.copy(shareLoading = false, shareError = result.message) }
+                is Result.Error   -> _state.update { it.copy(shareLoading = false, shareError = result.message) }
             }
         }
     }
@@ -124,18 +153,14 @@ class PlayerViewModel(
         super.onCleared()
     }
 
-    private fun streamUrl(settings: ServerSettings, id: String): String {
-        val base = settings.serverUrl.trimEnd('/')
-        // Auth params are added by the OkHttp interceptor, but for direct stream URLs
-        // we need them in the URI itself. Build a simple URL with token auth.
-        val salt = (1..12).map { ('a'..'z').random() }.joinToString("")
-        val token = md5(settings.password + salt)
-        return "$base/rest/stream.view?id=$id&u=${settings.username}&t=$token&s=$salt&v=1.16.1&c=Sharesonic&f=json"
-    }
+    private suspend fun settings(): ServerSettings =
+        cachedSettings ?: settingsRepo.settings.first().also { cachedSettings = it }
 
-    private fun md5(input: String): String {
-        val digest = java.security.MessageDigest.getInstance("MD5")
-        return digest.digest(input.toByteArray()).joinToString("") { "%02x".format(it) }
+    private fun streamUrl(settings: ServerSettings, id: String): String {
+        val salt = (1..12).map { ('a'..'z').random() }.joinToString("")
+        val token = SubsonicClient.md5(settings.password + salt)
+        val base = settings.serverUrl.trimEnd('/')
+        return "$base/rest/stream.view?id=$id&u=${settings.username}&t=$token&s=$salt&v=1.16.1&c=Sharesonic&f=json"
     }
 }
 
