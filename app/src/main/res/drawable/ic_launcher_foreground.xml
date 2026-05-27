@@ -1,69 +1,54 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!--
-  Sharesonic launcher icon foreground.
-  Design: quarter-note whose beam is replaced by the Android share symbol
-  (three dots connected by two lines) — music note meets share link.
-  Canvas 108×108 dp, safe zone 18–90 dp (72 dp square).
--->
 <vector xmlns:android="http://schemas.android.com/apk/res/android"
     android:width="108dp"
     android:height="108dp"
     android:viewportWidth="108"
     android:viewportHeight="108">
 
-    <!-- ── Note head (filled oval) ────────────────────────────────────── -->
+    <!-- Note head — tilted oval, lower-left, doubles as share source node -->
+    <group
+        android:translateX="30"
+        android:translateY="78"
+        android:rotation="-22">
+        <path
+            android:fillColor="#EDE0FF"
+            android:pathData="M -11,0 C -11,-4 -6,-7 0,-7 C 6,-7 11,-4 11,0 C 11,4 6,7 0,7 C -6,7 -11,4 -11,0 Z"/>
+    </group>
+
+    <!-- Stem — thin, from note to hub -->
     <path
         android:fillColor="#EDE0FF"
-        android:pathData="M33,76
-            C33,71 39,67 46,67
-            C53,67 59,71 59,76
-            C59,81 53,85 46,85
-            C39,85 33,81 33,76 Z"/>
+        android:pathData="M39,73 L39,42 L42,42 L42,73 Z"/>
 
-    <!-- ── Stem ───────────────────────────────────────────────────────── -->
+    <!-- Hub dot — top of stem, center share node -->
     <path
         android:fillColor="#EDE0FF"
-        android:pathData="M57,76 L57,41 L62,41 L62,76 Z"/>
+        android:pathData="M40.5,42 m-5.5,0 a5.5,5.5 0 1,0 11,0 a5.5,5.5 0 1,0 -11,0"/>
 
-    <!-- ── Lines from stem-top to share dots ─────────────────────────── -->
+    <!-- Line: hub to upper-right dot -->
     <path
-        android:fillColor="#00000000"
         android:strokeColor="#EDE0FF"
-        android:strokeWidth="4"
+        android:strokeWidth="2.5"
         android:strokeLineCap="round"
-        android:pathData="M64,41 L79,27"/>
-    <path
         android:fillColor="#00000000"
+        android:pathData="M46,38 L74,26"/>
+
+    <!-- Line: hub to lower-right dot -->
+    <path
         android:strokeColor="#EDE0FF"
-        android:strokeWidth="4"
+        android:strokeWidth="2.5"
         android:strokeLineCap="round"
-        android:pathData="M64,41 L79,55"/>
+        android:fillColor="#00000000"
+        android:pathData="M46,46 L74,60"/>
 
-    <!-- ── Share top dot ──────────────────────────────────────────────── -->
+    <!-- Upper-right share dot -->
     <path
         android:fillColor="#EDE0FF"
-        android:pathData="M74,27
-            C74,24.24 76.24,22 79,22
-            C81.76,22 84,24.24 84,27
-            C84,29.76 81.76,32 79,32
-            C76.24,32 74,29.76 74,27 Z"/>
+        android:pathData="M80,24 m-5.5,0 a5.5,5.5 0 1,0 11,0 a5.5,5.5 0 1,0 -11,0"/>
 
-    <!-- ── Share middle dot (junction with stem) ─────────────────────── -->
+    <!-- Lower-right share dot -->
     <path
         android:fillColor="#EDE0FF"
-        android:pathData="M59,41
-            C59,38.24 61.24,36 64,36
-            C66.76,36 69,38.24 69,41
-            C69,43.76 66.76,46 64,46
-            C61.24,46 59,43.76 59,41 Z"/>
-
-    <!-- ── Share bottom dot ───────────────────────────────────────────── -->
-    <path
-        android:fillColor="#EDE0FF"
-        android:pathData="M74,55
-            C74,52.24 76.24,50 79,50
-            C81.76,50 84,52.24 84,55
-            C84,57.76 81.76,60 79,60
-            C76.24,60 74,57.76 74,55 Z"/>
+        android:pathData="M80,62 m-5.5,0 a5.5,5.5 0 1,0 11,0 a5.5,5.5 0 1,0 -11,0"/>
 
 </vector>
