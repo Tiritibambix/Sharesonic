@@ -30,9 +30,15 @@ sealed interface ShareState {
 
 /**
  * folderId encoding:
- *   "root"    → getMusicFolders   (library list)
- *   "mf_{id}" → getIndexes        (top-level dirs inside library id)
- *   "{id}"    → getMusicDirectory (any sub-directory)
+ *   "root"    → getMusicFolders          (library list)
+ *   "mf_{id}" → getMusicDirectory(id)    (direct children of library root)
+ *   "{id}"    → getMusicDirectory(id)    (direct children of any sub-directory)
+ *
+ * getIndexes is intentionally NOT used: it flattens the entire artist/folder
+ * hierarchy alphabetically, bypassing intermediate genre/year/artist folders.
+ * getMusicDirectory with a music-folder ID works on Navidrome and returns
+ * only the immediate children of that library's root — proper file-explorer
+ * behaviour, level by level.
  */
 class FolderBrowserViewModel(
     private val settingsRepo: SettingsRepository,
@@ -66,9 +72,8 @@ class FolderBrowserViewModel(
             _settings = settings
             val repo = buildRepo(settings)
             when {
-                folderId == "root"            -> loadRootFolders(repo)
-                folderId.startsWith("mf_")    -> loadIndexes(repo, folderId.removePrefix("mf_"))
-                else                          -> loadDirectory(repo, folderId)
+                folderId == "root" -> loadRootFolders(repo)
+                else               -> loadDirectory(repo, folderId.removePrefix("mf_"))
             }
         }
     }
@@ -78,19 +83,6 @@ class FolderBrowserViewModel(
             is Result.Success -> {
                 val entries = r.data.map { EntryDto(id = "mf_${it.id}", title = it.name, isDir = true) }
                 _state.update { BrowserState.Ready(entries) }
-            }
-            is Result.Error -> _state.update { BrowserState.Error(r.message) }
-        }
-    }
-
-    private suspend fun loadIndexes(repo: SubsonicRepository, musicFolderId: String) {
-        when (val r = repo.getIndexes(musicFolderId)) {
-            is Result.Success -> {
-                val dirs = r.data.index
-                    .flatMap { it.artist }
-                    .map { EntryDto(id = it.id, title = it.name, isDir = true) }
-                val loose = r.data.child
-                _state.update { BrowserState.Ready(dirs + loose) }
             }
             is Result.Error -> _state.update { BrowserState.Error(r.message) }
         }
