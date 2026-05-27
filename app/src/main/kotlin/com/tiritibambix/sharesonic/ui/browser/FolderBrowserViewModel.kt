@@ -30,18 +30,23 @@ sealed interface ShareState {
 
 /**
  * folderId encoding:
- *   "root"    → getMusicFolders           (library list)
- *   "mf_{id}" → getIndexes(musicFolderId) (immediate children of the library root)
- *   "{id}"    → getMusicDirectory(id)     (immediate children of any sub-directory)
+ *   "root"    → getMusicFolders                     (library list)
+ *   "mf_{id}" → rootTraversal(getIndexes entry)     (walk UP to the library root dir)
+ *   "{id}"    → getMusicDirectory(id)               (direct children of any sub-dir)
  *
- * WHY getIndexes for mf_* and NOT getMusicDirectory:
- * getMusicFolders returns integer IDs that live in a separate Navidrome table
- * (music_folders). Passing one of those IDs to getMusicDirectory returns
- * error 70 "Data not found" because it is not a directory ID.
- * getIndexes is the only endpoint that accepts a musicFolderId and returns
- * the immediate top-level directory entries of that library.
+ * WHY the traversal:
+ * - getMusicFolders integer IDs cannot be passed to getMusicDirectory (error 70).
+ * - getIndexes returns artist-level entries (depth 2), skipping genre folders at depth 1.
  *
- * Entries are sorted: directories first (A→Z), then files (A→Z).
+ * The traversal takes ONE entry from getIndexes and repeatedly follows its
+ * parent chain via getMusicDirectory until it reaches the directory whose
+ * parent field is null — that is the library root directory.  getMusicDirectory
+ * on the root returns its DIRECT children (Multitrack, Reggae, Rock, …).
+ *
+ * Cost: depth+1 API calls (typically 3–4). Fallback to flat getIndexes list
+ * if traversal fails.
+ *
+ * Entries are sorted: directories first (A→Z), then loose files (A→Z).
  */
 class FolderBrowserViewModel(
     private val settingsRepo: SettingsRepository,
@@ -76,7 +81,7 @@ class FolderBrowserViewModel(
             val repo = buildRepo(settings)
             when {
                 folderId == "root"         -> loadRootFolders(repo)
-                folderId.startsWith("mf_") -> loadLibraryRoot(repo, folderId.removePrefix("mf_"))
+                folderId.startsWith("mf_") -> loadLibraryRootViaTraversal(repo, folderId.removePrefix("mf_"))
                 else                       -> loadDirectory(repo, folderId)
             }
         }
@@ -92,21 +97,62 @@ class FolderBrowserViewModel(
         }
     }
 
-    /** Level 2: immediate children of a music library root, via getIndexes. */
-    private suspend fun loadLibraryRoot(repo: SubsonicRepository, musicFolderId: String) {
-        when (val r = repo.getIndexes(musicFolderId)) {
-            is Result.Success -> {
-                // Flatten all index groups (A, B, C…) → one sorted list, dirs first
-                val dirs = r.data.index
-                    .flatMap { it.artist }
-                    .map { EntryDto(id = it.id, title = it.name, isDir = true) }
-                    .sortedBy { it.displayName.lowercase() }
-                val loose = r.data.child
-                    .sortedWith(compareByDescending<EntryDto> { it.isDir }
-                        .thenBy { it.displayName.lowercase() })
-                _state.update { BrowserState.Ready(dirs + loose) }
+    /**
+     * Level 2 — find and display the library root's direct children.
+     *
+     * getIndexes gives us artist-level directory IDs. Each directory has a
+     * parent field. Walking parent → parent → … eventually reaches a directory
+     * whose parent is null: that is the library root.
+     * getMusicDirectory on the root returns the real first level (genre folders,
+     * top-level artist folders, etc.) instead of the artist-flat list.
+     *
+     * Fallback: if traversal fails (server, depth, or empty library edge cases)
+     * we display the getIndexes artist list directly.
+     */
+    private suspend fun loadLibraryRootViaTraversal(repo: SubsonicRepository, musicFolderId: String) {
+        val indexResult = repo.getIndexes(musicFolderId)
+        if (indexResult !is Result.Success) {
+            _state.update { BrowserState.Error((indexResult as Result.Error).message) }
+            return
+        }
+
+        val looseFiles = indexResult.data.child
+        val firstEntry = indexResult.data.index.firstOrNull()?.artist?.firstOrNull()
+
+        if (firstEntry == null) {
+            _state.update { BrowserState.Ready(looseFiles) }
+            return
+        }
+
+        // Walk up the parent chain. Stop when parent == null → current IS the root.
+        var currentId = firstEntry.id
+        var rootChildren: List<EntryDto>? = null
+
+        for (depth in 0..10) {
+            val dir = (repo.getMusicDirectory(currentId) as? Result.Success)?.data ?: break
+            val parent = dir.parent
+
+            if (parent.isNullOrEmpty()) {
+                // No parent → current directory IS the library root
+                rootChildren = dir.child
+                break
             }
-            is Result.Error -> _state.update { BrowserState.Error(r.message) }
+            // Move up
+            currentId = parent
+        }
+
+        if (!rootChildren.isNullOrEmpty()) {
+            val sorted = rootChildren
+                .sortedWith(compareByDescending<EntryDto> { it.isDir }
+                    .thenBy { it.displayName.lowercase() })
+            _state.update { BrowserState.Ready(sorted + looseFiles) }
+        } else {
+            // Fallback: show artist list from getIndexes
+            val fallback = indexResult.data.index
+                .flatMap { it.artist }
+                .map { EntryDto(id = it.id, title = it.name, isDir = true) }
+                .sortedBy { it.displayName.lowercase() }
+            _state.update { BrowserState.Ready(fallback + looseFiles) }
         }
     }
 
