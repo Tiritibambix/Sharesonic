@@ -3,6 +3,7 @@ package com.tiritibambix.sharesonic.data
 import com.tiritibambix.sharesonic.data.api.SubsonicApiService
 import com.tiritibambix.sharesonic.data.api.models.DirectoryBody
 import com.tiritibambix.sharesonic.data.api.models.EntryDto
+import com.tiritibambix.sharesonic.data.api.models.IndexesBody
 import com.tiritibambix.sharesonic.data.api.models.MusicFolderDto
 import com.tiritibambix.sharesonic.data.api.models.ShareDto
 
@@ -29,6 +30,17 @@ class SubsonicRepository(private val api: SubsonicApiService) {
             if (body.status == "ok")
                 Result.Success(body.musicFolders?.musicFolder ?: emptyList())
             else Result.Error(body.error?.message ?: "Server error")
+        } catch (e: Exception) {
+            Result.Error(e.message ?: "Network error")
+        }
+    }
+
+    suspend fun getIndexes(musicFolderId: String): Result<IndexesBody> {
+        return try {
+            val body = api.getIndexes(musicFolderId).response
+            if (body.status == "ok" && body.indexes != null)
+                Result.Success(body.indexes)
+            else Result.Error(body.error?.message ?: "Empty index")
         } catch (e: Exception) {
             Result.Error(e.message ?: "Network error")
         }
