@@ -1,5 +1,6 @@
 package com.tiritibambix.sharesonic.ui.player
 
+import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
@@ -28,7 +29,7 @@ import coil.compose.AsyncImage
 private const val PAGE_NOW_PLAYING = 0
 private const val PAGE_QUEUE = 1
 
-@OptIn(ExperimentalMaterial3Api::class)
+@OptIn(ExperimentalMaterial3Api::class, ExperimentalFoundationApi::class)
 @Composable
 fun NowPlayingScreen(
     viewModel: PlayerViewModel,
