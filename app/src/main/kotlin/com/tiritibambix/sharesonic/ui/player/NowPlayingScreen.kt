@@ -2,6 +2,8 @@ package com.tiritibambix.sharesonic.ui.player
 
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
@@ -115,13 +117,16 @@ fun NowPlayingScreen(
 @Composable
 private fun NowPlayingPage(state: PlayerState, viewModel: PlayerViewModel) {
     Column(
-        modifier = Modifier.fillMaxSize(),
+        modifier = Modifier
+            .fillMaxSize()
+            .verticalScroll(rememberScrollState()),
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
-        // Cover art — square, fills width
+        // Cover art — square, max 300 dp so controls always fit on screen
         Box(
             modifier = Modifier
                 .fillMaxWidth()
+                .heightIn(max = 300.dp)
                 .aspectRatio(1f)
         ) {
             if (state.coverArtUrl != null) {

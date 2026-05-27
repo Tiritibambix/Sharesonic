@@ -5,7 +5,9 @@ import android.content.Context
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
+import androidx.media3.common.C
 import androidx.media3.common.MediaItem
+import androidx.media3.common.Player
 import androidx.media3.session.MediaController
 import androidx.media3.session.SessionToken
 import com.google.common.util.concurrent.ListenableFuture
@@ -17,6 +19,7 @@ import com.tiritibambix.sharesonic.data.api.models.EntryDto
 import com.tiritibambix.sharesonic.data.settings.ServerSettings
 import com.tiritibambix.sharesonic.data.settings.SettingsRepository
 import com.tiritibambix.sharesonic.playback.PlaybackService
+import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -46,7 +49,10 @@ class PlayerViewModel(
     val state: StateFlow<PlayerState> = _state
 
     private var controllerFuture: ListenableFuture<MediaController>? = null
-    private var controller: MediaController? = null
+
+    // Resolved once the MediaController is ready — all play commands await this.
+    private val controllerDeferred = CompletableDeferred<MediaController>()
+
     private var cachedSettings: ServerSettings? = null
 
     init {
@@ -56,50 +62,59 @@ class PlayerViewModel(
         )
         controllerFuture = MediaController.Builder(context, sessionToken).buildAsync()
         controllerFuture?.addListener({
-            controller = controllerFuture?.get()
+            val ctrl = try { controllerFuture?.get() } catch (e: Exception) { null }
+            if (ctrl != null) {
+                ctrl.addListener(object : Player.Listener {
+                    override fun onIsPlayingChanged(isPlaying: Boolean) {
+                        _state.update { it.copy(isPlaying = isPlaying) }
+                    }
+                    override fun onMediaItemTransition(mediaItem: MediaItem?, reason: Int) {
+                        val idx = ctrl.currentMediaItemIndex
+                        val queue = _state.value.queue
+                        if (idx in queue.indices) {
+                            _state.update { it.copy(queueIndex = idx, currentSong = queue[idx]) }
+                        }
+                    }
+                })
+                controllerDeferred.complete(ctrl)
+            }
         }, MoreExecutors.directExecutor())
 
-        viewModelScope.launch {
-            cachedSettings = settingsRepo.settings.first()
-        }
+        viewModelScope.launch { cachedSettings = settingsRepo.settings.first() }
         startPositionPolling()
     }
+
+    // ── Position polling ──────────────────────────────────────────────────────
 
     private fun startPositionPolling() {
         viewModelScope.launch {
             while (true) {
                 delay(500)
-                val ctrl = controller ?: continue
+                if (!controllerDeferred.isCompleted) continue
+                val ctrl = controllerDeferred.getCompleted()
                 val pos = ctrl.currentPosition.coerceAtLeast(0L)
-                val dur = ctrl.duration.takeIf { it > 0L } ?: 0L
-                val playing = ctrl.isPlaying
-                _state.update { it.copy(currentPositionMs = pos, durationMs = dur, isPlaying = playing) }
+                val dur = if (ctrl.duration != C.TIME_UNSET && ctrl.duration > 0L)
+                    ctrl.duration else 0L
+                // Only update position/duration — isPlaying is managed by Player.Listener
+                _state.update { it.copy(currentPositionMs = pos, durationMs = dur) }
             }
         }
     }
 
-    fun seekTo(positionMs: Long) {
-        controller?.seekTo(positionMs)
-        _state.update { it.copy(currentPositionMs = positionMs) }
-    }
+    // ── Playback ──────────────────────────────────────────────────────────────
 
     fun playSong(song: EntryDto) {
         viewModelScope.launch {
             val settings = settings()
-            val url = streamUrl(settings, song.id)
             val coverUrl = song.coverArt?.let { SubsonicClient.coverArtUrl(settings, it, 512) }
             _state.update {
-                it.copy(
-                    currentSong = song,
-                    queue = listOf(song),
-                    queueIndex = 0,
-                    isPlaying = true,
-                    coverArtUrl = coverUrl
-                )
+                it.copy(currentSong = song, queue = listOf(song), queueIndex = 0, coverArtUrl = coverUrl)
             }
-            controller?.setMediaItem(MediaItem.fromUri(url))
-            controller?.prepare()
-            controller?.play()
+            val url = streamUrl(settings, song.id)
+            val ctrl = controllerDeferred.await()
+            ctrl.setMediaItem(MediaItem.fromUri(url))
+            ctrl.prepare()
+            ctrl.play()
         }
     }
 
@@ -110,39 +125,33 @@ class PlayerViewModel(
             val first = songs[0]
             val coverUrl = first.coverArt?.let { SubsonicClient.coverArtUrl(settings, it, 512) }
             _state.update {
-                it.copy(
-                    queue = songs,
-                    queueIndex = 0,
-                    currentSong = first,
-                    isPlaying = true,
-                    coverArtUrl = coverUrl
-                )
+                it.copy(queue = songs, queueIndex = 0, currentSong = first, coverArtUrl = coverUrl)
             }
             val items = songs.map { MediaItem.fromUri(streamUrl(settings, it.id)) }
-            controller?.setMediaItems(items)
-            controller?.prepare()
-            controller?.play()
+            val ctrl = controllerDeferred.await()
+            ctrl.setMediaItems(items)
+            ctrl.prepare()
+            ctrl.play()
         }
     }
 
     fun jumpTo(index: Int) {
         val q = _state.value
         if (index !in q.queue.indices) return
-        val song = q.queue[index]
         viewModelScope.launch {
             val settings = settings()
+            val song = q.queue[index]
             val coverUrl = song.coverArt?.let { SubsonicClient.coverArtUrl(settings, it, 512) }
-            _state.update {
-                it.copy(queueIndex = index, currentSong = song, coverArtUrl = coverUrl)
-            }
+            _state.update { it.copy(queueIndex = index, currentSong = song, coverArtUrl = coverUrl) }
+            controllerDeferred.await().seekTo(index, 0L)
         }
-        controller?.seekTo(index, 0L)
     }
 
     fun playPause() {
-        val ctrl = controller ?: return
-        if (ctrl.isPlaying) ctrl.pause() else ctrl.play()
-        _state.update { it.copy(isPlaying = !it.isPlaying) }
+        viewModelScope.launch {
+            val ctrl = controllerDeferred.await()
+            if (ctrl.isPlaying) ctrl.pause() else ctrl.play()
+        }
     }
 
     fun skipNext() {
@@ -154,6 +163,13 @@ class PlayerViewModel(
         val q = _state.value
         if (q.queueIndex > 0) jumpTo(q.queueIndex - 1)
     }
+
+    fun seekTo(positionMs: Long) {
+        _state.update { it.copy(currentPositionMs = positionMs) }
+        viewModelScope.launch { controllerDeferred.await().seekTo(positionMs) }
+    }
+
+    // ── Share ─────────────────────────────────────────────────────────────────
 
     fun shareCurrentSong() {
         val song = _state.value.currentSong ?: return
@@ -170,10 +186,17 @@ class PlayerViewModel(
 
     fun clearShare() = _state.update { it.copy(shareUrl = null, shareError = null) }
 
+    // ── Lifecycle ─────────────────────────────────────────────────────────────
+
     override fun onCleared() {
+        if (controllerDeferred.isCompleted) {
+            controllerDeferred.getCompleted().release()
+        }
         MediaController.releaseFuture(controllerFuture ?: return)
         super.onCleared()
     }
+
+    // ── Helpers ───────────────────────────────────────────────────────────────
 
     private suspend fun settings(): ServerSettings =
         cachedSettings ?: settingsRepo.settings.first().also { cachedSettings = it }
