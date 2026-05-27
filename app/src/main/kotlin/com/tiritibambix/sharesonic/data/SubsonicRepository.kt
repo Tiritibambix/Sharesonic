@@ -37,7 +37,7 @@ class SubsonicRepository(private val api: SubsonicApiService) {
         }
     }
 
-    suspend fun getIndexes(musicFolderId: String): Result<IndexesBody> {
+    suspend fun getIndexes(musicFolderId: String? = null): Result<IndexesBody> {
         return try {
             val body = api.getIndexes(musicFolderId).response
             if (body.status == "ok" && body.indexes != null)

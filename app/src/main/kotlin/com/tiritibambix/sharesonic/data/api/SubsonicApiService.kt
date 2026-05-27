@@ -15,7 +15,7 @@ interface SubsonicApiService {
     suspend fun getMusicFolders(): SubsonicEnvelope
 
     @GET("getIndexes.view")
-    suspend fun getIndexes(@Query("musicFolderId") musicFolderId: String): SubsonicEnvelope
+    suspend fun getIndexes(@Query("musicFolderId") musicFolderId: String? = null): SubsonicEnvelope
 
     @GET("getMusicDirectory.view")
     suspend fun getMusicDirectory(@Query("id") id: String): SubsonicEnvelope

@@ -29,12 +29,13 @@ sealed interface ShareState {
 }
 
 /**
- * folderId encoding:
- *   "root"    → getMusicFolders                     (library list)
- *   "mf_{id}" → loadLibraryRoot: getMusicDirectory(id), fallback getIndexes.child
- *   "{id}"    → getMusicDirectory(id)  (direct children of any sub-directory)
+ * Navigation model (Navidrome Subsonic):
  *
- * Entries are sorted: directories first (A→Z), then loose files (A→Z).
+ *   "root"  → getIndexes()            → flat alphabetical artist list
+ *   "{id}"  → getMusicDirectory(id)   → albums (if artist) or tracks (if album)
+ *
+ * getMusicFolders IDs are not navigable. There is no folder layer above artists.
+ * isDir=true means album (navigable), isDir=false means track (playable).
  */
 class FolderBrowserViewModel(
     private val settingsRepo: SettingsRepository,
@@ -47,7 +48,6 @@ class FolderBrowserViewModel(
     private val _shareState = MutableStateFlow<ShareState>(ShareState.Idle)
     val shareState: StateFlow<ShareState> = _shareState
 
-    /** Cover-art URL builder — set once settings are loaded. */
     private var _settings: ServerSettings? = null
 
     fun coverArtUrl(coverArtId: String, size: Int = 64): String? {
@@ -67,62 +67,26 @@ class FolderBrowserViewModel(
             }
             _settings = settings
             val repo = buildRepo(settings)
-            when {
-                folderId == "root"         -> loadRootFolders(repo)
-                folderId.startsWith("mf_") -> loadLibraryRoot(repo, folderId.removePrefix("mf_"))
-                else                       -> loadDirectory(repo, folderId)
-            }
+            if (folderId == "root") loadArtists(repo)
+            else loadDirectory(repo, folderId)
         }
     }
 
-    private suspend fun loadRootFolders(repo: SubsonicRepository) {
-        when (val r = repo.getMusicFolders()) {
+    /** Root level: all artists from getIndexes, sorted A→Z. */
+    private suspend fun loadArtists(repo: SubsonicRepository) {
+        when (val r = repo.getIndexes()) {
             is Result.Success -> {
-                val entries = r.data.map { EntryDto(id = "mf_${it.id}", title = it.name, isDir = true) }
-                _state.update { BrowserState.Ready(entries) }
+                val artists = r.data.index
+                    .flatMap { it.artist }
+                    .map { EntryDto(id = it.id, title = it.name, isDir = true) }
+                    .sortedBy { it.displayName.lowercase() }
+                _state.update { BrowserState.Ready(artists) }
             }
             is Result.Error -> _state.update { BrowserState.Error(r.message) }
         }
     }
 
-    /**
-     * Level 2 — show the direct contents of a music library root.
-     *
-     * Attempt 1: getMusicDirectory(musicFolderId).
-     *   Works on servers that map the music folder integer ID to a directory.
-     *   If it succeeds with a non-empty child list, use that directly.
-     *
-     * Attempt 2: getIndexes(musicFolderId).child[].
-     *   The child array contains files/dirs that live at the library root level.
-     *   Used when getMusicDirectory fails or returns nothing.
-     *
-     * No artist sampling, no path parsing, no parent guessing.
-     */
-    private suspend fun loadLibraryRoot(repo: SubsonicRepository, musicFolderId: String) {
-        // Attempt 1 — direct getMusicDirectory
-        val direct = repo.getMusicDirectory(musicFolderId)
-        if (direct is Result.Success && direct.data.child.isNotEmpty()) {
-            val sorted = direct.data.child
-                .sortedWith(compareByDescending<EntryDto> { it.isDir }
-                    .thenBy { it.displayName.lowercase() })
-            _state.update { BrowserState.Ready(sorted) }
-            return
-        }
-
-        // Attempt 2 — getIndexes child entries
-        val index = repo.getIndexes(musicFolderId)
-        if (index is Result.Success) {
-            val sorted = index.data.child
-                .sortedWith(compareByDescending<EntryDto> { it.isDir }
-                    .thenBy { it.displayName.lowercase() })
-            _state.update { BrowserState.Ready(sorted) }
-            return
-        }
-
-        _state.update { BrowserState.Error("Could not load library root") }
-    }
-
-    /** Level 3+: immediate children of any sub-directory. */
+    /** Artist or album level: direct children via getMusicDirectory. */
     private suspend fun loadDirectory(repo: SubsonicRepository, id: String) {
         when (val r = repo.getMusicDirectory(id)) {
             is Result.Success -> {
@@ -139,11 +103,6 @@ class FolderBrowserViewModel(
 
     // ── Shuffle ───────────────────────────────────────────────────────────────
 
-    /**
-     * Shuffle the current level:
-     * - root / mf_*  → getRandomSongs (fast, server-side random, large set)
-     * - sub-directory → recursive collect + local shuffle
-     */
     fun shuffleCurrent(
         onReady: (List<EntryDto>) -> Unit,
         onError: (String) -> Unit
@@ -151,35 +110,18 @@ class FolderBrowserViewModel(
         viewModelScope.launch {
             val settings = settingsRepo.settings.first()
             val repo = buildRepo(settings)
-
-            when {
-                folderId == "root" -> {
-                    // Shuffle entire library via getRandomSongs
-                    when (val r = repo.getRandomSongs(size = 200)) {
-                        is Result.Success -> {
-                            if (r.data.isEmpty()) onError("No songs found")
-                            else onReady(r.data.shuffled())
-                        }
-                        is Result.Error -> onError(r.message)
+            if (folderId == "root") {
+                when (val r = repo.getRandomSongs(size = 200)) {
+                    is Result.Success -> {
+                        if (r.data.isEmpty()) onError("No songs found")
+                        else onReady(r.data.shuffled())
                     }
+                    is Result.Error -> onError(r.message)
                 }
-                folderId.startsWith("mf_") -> {
-                    // Shuffle a whole library — getRandomSongs filtered by folder
-                    val musicFolderId = folderId.removePrefix("mf_")
-                    when (val r = repo.getRandomSongs(size = 200, musicFolderId = musicFolderId)) {
-                        is Result.Success -> {
-                            if (r.data.isEmpty()) onError("No songs found")
-                            else onReady(r.data.shuffled())
-                        }
-                        is Result.Error -> onError(r.message)
-                    }
-                }
-                else -> {
-                    // Shuffle a specific sub-directory recursively
-                    val songs = repo.collectSongs(folderId)
-                    if (songs.isEmpty()) onError("No songs found")
-                    else onReady(songs.shuffled())
-                }
+            } else {
+                val songs = repo.collectSongs(folderId)
+                if (songs.isEmpty()) onError("No songs found")
+                else onReady(songs.shuffled())
             }
         }
     }
@@ -187,11 +129,10 @@ class FolderBrowserViewModel(
     // ── Share ─────────────────────────────────────────────────────────────────
 
     fun shareEntry(entryId: String) {
-        val realId = entryId.removePrefix("mf_")
         _shareState.update { ShareState.Loading }
         viewModelScope.launch {
             val settings = settingsRepo.settings.first()
-            when (val r = buildRepo(settings).createShare(realId)) {
+            when (val r = buildRepo(settings).createShare(entryId)) {
                 is Result.Success -> _shareState.update { ShareState.Done(r.data.url) }
                 is Result.Error   -> _shareState.update { ShareState.Error(r.message) }
             }
