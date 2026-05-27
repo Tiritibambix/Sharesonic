@@ -30,15 +30,18 @@ sealed interface ShareState {
 
 /**
  * folderId encoding:
- *   "root"    → getMusicFolders          (library list)
- *   "mf_{id}" → getMusicDirectory(id)    (direct children of library root)
- *   "{id}"    → getMusicDirectory(id)    (direct children of any sub-directory)
+ *   "root"    → getMusicFolders           (library list)
+ *   "mf_{id}" → getIndexes(musicFolderId) (immediate children of the library root)
+ *   "{id}"    → getMusicDirectory(id)     (immediate children of any sub-directory)
  *
- * getIndexes is intentionally NOT used: it flattens the entire artist/folder
- * hierarchy alphabetically, bypassing intermediate genre/year/artist folders.
- * getMusicDirectory with a music-folder ID works on Navidrome and returns
- * only the immediate children of that library's root — proper file-explorer
- * behaviour, level by level.
+ * WHY getIndexes for mf_* and NOT getMusicDirectory:
+ * getMusicFolders returns integer IDs that live in a separate Navidrome table
+ * (music_folders). Passing one of those IDs to getMusicDirectory returns
+ * error 70 "Data not found" because it is not a directory ID.
+ * getIndexes is the only endpoint that accepts a musicFolderId and returns
+ * the immediate top-level directory entries of that library.
+ *
+ * Entries are sorted: directories first (A→Z), then files (A→Z).
  */
 class FolderBrowserViewModel(
     private val settingsRepo: SettingsRepository,
@@ -72,8 +75,9 @@ class FolderBrowserViewModel(
             _settings = settings
             val repo = buildRepo(settings)
             when {
-                folderId == "root" -> loadRootFolders(repo)
-                else               -> loadDirectory(repo, folderId.removePrefix("mf_"))
+                folderId == "root"         -> loadRootFolders(repo)
+                folderId.startsWith("mf_") -> loadLibraryRoot(repo, folderId.removePrefix("mf_"))
+                else                       -> loadDirectory(repo, folderId)
             }
         }
     }
@@ -88,10 +92,34 @@ class FolderBrowserViewModel(
         }
     }
 
+    /** Level 2: immediate children of a music library root, via getIndexes. */
+    private suspend fun loadLibraryRoot(repo: SubsonicRepository, musicFolderId: String) {
+        when (val r = repo.getIndexes(musicFolderId)) {
+            is Result.Success -> {
+                // Flatten all index groups (A, B, C…) → one sorted list, dirs first
+                val dirs = r.data.index
+                    .flatMap { it.artist }
+                    .map { EntryDto(id = it.id, title = it.name, isDir = true) }
+                    .sortedBy { it.displayName.lowercase() }
+                val loose = r.data.child
+                    .sortedWith(compareByDescending<EntryDto> { it.isDir }
+                        .thenBy { it.displayName.lowercase() })
+                _state.update { BrowserState.Ready(dirs + loose) }
+            }
+            is Result.Error -> _state.update { BrowserState.Error(r.message) }
+        }
+    }
+
+    /** Level 3+: immediate children of any sub-directory. */
     private suspend fun loadDirectory(repo: SubsonicRepository, id: String) {
         when (val r = repo.getMusicDirectory(id)) {
-            is Result.Success -> _state.update { BrowserState.Ready(r.data.child) }
-            is Result.Error   -> _state.update { BrowserState.Error(r.message) }
+            is Result.Success -> {
+                val sorted = r.data.child
+                    .sortedWith(compareByDescending<EntryDto> { it.isDir }
+                        .thenBy { it.displayName.lowercase() })
+                _state.update { BrowserState.Ready(sorted) }
+            }
+            is Result.Error -> _state.update { BrowserState.Error(r.message) }
         }
     }
 
