@@ -31,12 +31,8 @@ sealed interface ShareState {
 /**
  * folderId encoding:
  *   "root"    → getMusicFolders                     (library list)
- *   "mf_{id}" → parent-discovery via getIndexes sample (level-1 genre folders)
- *   "{id}"    → getMusicDirectory(id)                (direct children of any sub-dir)
- *
- * See loadLibraryRootViaTraversal() for a full explanation of why simple
- * parent-chain traversal fails (Navidrome exposes dirs above the music root)
- * and how path-based parent discovery solves it.
+ *   "mf_{id}" → loadLibraryRoot: getMusicDirectory(id), fallback getIndexes.child
+ *   "{id}"    → getMusicDirectory(id)  (direct children of any sub-directory)
  *
  * Entries are sorted: directories first (A→Z), then loose files (A→Z).
  */
@@ -73,7 +69,7 @@ class FolderBrowserViewModel(
             val repo = buildRepo(settings)
             when {
                 folderId == "root"         -> loadRootFolders(repo)
-                folderId.startsWith("mf_") -> loadLibraryRootViaTraversal(repo, folderId.removePrefix("mf_"))
+                folderId.startsWith("mf_") -> loadLibraryRoot(repo, folderId.removePrefix("mf_"))
                 else                       -> loadDirectory(repo, folderId)
             }
         }
@@ -90,80 +86,40 @@ class FolderBrowserViewModel(
     }
 
     /**
-     * Level 2 — display the library's direct first-level folders
-     * (e.g. Multitrack, Reggae, Rock, Royalty Free, World).
+     * Level 2 — show the direct contents of a music library root.
      *
-     * WHY NOT parent-chain traversal:
-     * Navidrome exposes directories above the music library root (/mnt, /data…),
-     * so walking up until parent==null overshoots and lands on a near-empty dir.
+     * Attempt 1: getMusicDirectory(musicFolderId).
+     *   Works on servers that map the music folder integer ID to a directory.
+     *   If it succeeds with a non-empty child list, use that directly.
      *
-     * APPROACH — parent discovery via path:
-     * getIndexes returns artist-level entries (depth 2 in genre/artist/album trees).
-     * For one artist per alphabetical group we call getMusicDirectory to get:
-     *   • parent ID   → the level-1 folder's directory ID
-     *   • path of first child (e.g. "Reggae/Bob Marley/Legend/…") → split on "/"
-     *     → first component = level-1 folder name
-     * Deduplicating by parent ID gives exactly the genre/top-level folders.
+     * Attempt 2: getIndexes(musicFolderId).child[].
+     *   The child array contains files/dirs that live at the library root level.
+     *   Used when getMusicDirectory fails or returns nothing.
      *
-     * Cost: 1 getIndexes + at most 1 getMusicDirectory per alphabet group (≤26).
-     * Fallback: show raw getIndexes artist list if path data is unavailable.
+     * No artist sampling, no path parsing, no parent guessing.
      */
-    private suspend fun loadLibraryRootViaTraversal(repo: SubsonicRepository, musicFolderId: String) {
-        val indexResult = repo.getIndexes(musicFolderId)
-        if (indexResult !is Result.Success) {
-            _state.update { BrowserState.Error((indexResult as Result.Error).message) }
+    private suspend fun loadLibraryRoot(repo: SubsonicRepository, musicFolderId: String) {
+        // Attempt 1 — direct getMusicDirectory
+        val direct = repo.getMusicDirectory(musicFolderId)
+        if (direct is Result.Success && direct.data.child.isNotEmpty()) {
+            val sorted = direct.data.child
+                .sortedWith(compareByDescending<EntryDto> { it.isDir }
+                    .thenBy { it.displayName.lowercase() })
+            _state.update { BrowserState.Ready(sorted) }
             return
         }
 
-        val looseFiles = indexResult.data.child
-        val groups = indexResult.data.index
-
-        if (groups.isEmpty()) {
-            _state.update { BrowserState.Ready(looseFiles) }
+        // Attempt 2 — getIndexes child entries
+        val index = repo.getIndexes(musicFolderId)
+        if (index is Result.Success) {
+            val sorted = index.data.child
+                .sortedWith(compareByDescending<EntryDto> { it.isDir }
+                    .thenBy { it.displayName.lowercase() })
+            _state.update { BrowserState.Ready(sorted) }
             return
         }
 
-        // Sample one artist per alphabetical group; collect unique parent folders.
-        val parentFolders = mutableMapOf<String, EntryDto>() // parentId → EntryDto
-
-        for (group in groups) {
-            val sampleArtist = group.artist.firstOrNull() ?: continue
-            val dirResult = repo.getMusicDirectory(sampleArtist.id) as? Result.Success ?: continue
-            val parentId = dirResult.data.parent.takeIf { !it.isNullOrEmpty() } ?: continue
-
-            if (parentId in parentFolders) continue
-
-            // Extract parent name from the path of the first child entry.
-            // e.g. child.path = "Reggae/Bob Marley/Legend" → first component = "Reggae"
-            val parentName = dirResult.data.child
-                .firstOrNull { !it.path.isNullOrEmpty() }
-                ?.path
-                ?.split("/")
-                ?.firstOrNull { it.isNotEmpty() }
-
-            if (parentName != null) {
-                parentFolders[parentId] = EntryDto(id = parentId, title = parentName, isDir = true)
-            } else {
-                // Path not available — fetch the parent directory directly for its name
-                val parentDir = repo.getMusicDirectory(parentId) as? Result.Success
-                if (parentDir != null) {
-                    parentFolders[parentId] = EntryDto(
-                        id = parentId, title = parentDir.data.name, isDir = true
-                    )
-                }
-            }
-        }
-
-        if (parentFolders.isNotEmpty()) {
-            val sorted = parentFolders.values.sortedBy { it.displayName.lowercase() }
-            _state.update { BrowserState.Ready(sorted + looseFiles) }
-        } else {
-            // Fallback: show raw artist list from getIndexes
-            val fallback = groups.flatMap { it.artist }
-                .map { EntryDto(id = it.id, title = it.name, isDir = true) }
-                .sortedBy { it.displayName.lowercase() }
-            _state.update { BrowserState.Ready(fallback + looseFiles) }
-        }
+        _state.update { BrowserState.Error("Could not load library root") }
     }
 
     /** Level 3+: immediate children of any sub-directory. */
