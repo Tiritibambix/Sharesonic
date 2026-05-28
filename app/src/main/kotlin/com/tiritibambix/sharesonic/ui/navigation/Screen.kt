@@ -1,16 +1,39 @@
 package com.tiritibambix.sharesonic.ui.navigation
 
+import java.util.Base64
+
 sealed class Screen(val route: String) {
+
     data object Settings : Screen("settings")
+
     data object Browser : Screen("browser/{folderId}?folderName={folderName}") {
-        fun createRoute(folderId: String, folderName: String) =
-            "browser/$folderId?folderName=$folderName"
-        const val ARG_ID = "folderId"
+        /**
+         * mStream paths like "/Reggae/Bob Marley" contain slashes that would
+         * break Navigation Compose path-segment matching.
+         * Encode with URL-safe Base64 (no padding) so the route stays clean.
+         * The special sentinel "root" is passed as-is.
+         */
+        fun createRoute(folderPath: String, folderName: String): String {
+            val encodedId = if (folderPath == ROOT) ROOT
+                else Base64.getUrlEncoder().withoutPadding()
+                    .encodeToString(folderPath.toByteArray(Charsets.UTF_8))
+            return "browser/$encodedId?folderName=${folderName.urlEncode()}"
+        }
+
+        fun decodePath(folderId: String): String = if (folderId == ROOT) ROOT
+            else String(Base64.getUrlDecoder().decode(folderId), Charsets.UTF_8)
+
+        const val ROOT     = "root"
+        const val ARG_ID   = "folderId"
         const val ARG_NAME = "folderName"
     }
+
     data object NowPlaying : Screen("nowplaying")
+
     data object Search : Screen("search")
-    // No URL in the route — share URL is held in AppNavGraph state to avoid
-    // Navigation Compose mishandling encoded slashes (%2F) in path segments.
+
+    // Share URL held in AppNavGraph state — no URL embedded in route.
     data object ShareConfirm : Screen("shareconfirm")
 }
+
+private fun String.urlEncode() = java.net.URLEncoder.encode(this, "UTF-8")

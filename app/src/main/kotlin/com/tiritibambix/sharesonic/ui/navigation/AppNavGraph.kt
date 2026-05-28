@@ -34,9 +34,7 @@ fun AppNavGraph() {
 
     val playerVm: PlayerViewModel = viewModel(factory = PlayerViewModelFactory(context))
 
-    // Pending share URL — held here so no raw URL is embedded in a nav route.
     var pendingShareUrl by remember { mutableStateOf("") }
-
     fun onShareCreated(url: String) {
         pendingShareUrl = url
         navController.navigate(Screen.ShareConfirm.route)
@@ -49,7 +47,9 @@ fun AppNavGraph() {
                 viewModel = settingsVm,
                 onNavigateToBrowser = {
                     if (settingsVm.settings.value.isConfigured) {
-                        navController.navigate(Screen.Browser.createRoute("root", "Library"))
+                        navController.navigate(
+                            Screen.Browser.createRoute(Screen.Browser.ROOT, "Library")
+                        )
                     }
                 }
             )
@@ -65,19 +65,25 @@ fun AppNavGraph() {
                 }
             )
         ) { backStackEntry ->
-            val folderId = backStackEntry.arguments?.getString(Screen.Browser.ARG_ID) ?: "root"
-            val folderName = backStackEntry.arguments?.getString(Screen.Browser.ARG_NAME) ?: "Library"
+            val rawId = backStackEntry.arguments?.getString(Screen.Browser.ARG_ID)
+                ?: Screen.Browser.ROOT
+            // Decode Base64-encoded mStream path; "root" passes through unchanged.
+            val folderPath = Screen.Browser.decodePath(rawId)
+            val folderName = backStackEntry.arguments?.getString(Screen.Browser.ARG_NAME)
+                ?: "Library"
 
             val browserVm: FolderBrowserViewModel = viewModel(
-                key = "browser_$folderId",
-                factory = FolderBrowserViewModelFactory(settingsRepo, folderId)
+                key = "browser_$rawId",
+                factory = FolderBrowserViewModelFactory(settingsRepo, folderPath)
             )
 
             FolderBrowserScreen(
                 folderName = folderName,
                 viewModel = browserVm,
                 playerViewModel = playerVm,
-                onOpenFolder = { id, name -> navController.navigate(Screen.Browser.createRoute(id, name)) },
+                onOpenFolder = { path, name ->
+                    navController.navigate(Screen.Browser.createRoute(path, name))
+                },
                 onOpenSettings = { navController.navigate(Screen.Settings.route) },
                 onOpenNowPlaying = { navController.navigate(Screen.NowPlaying.route) },
                 onOpenSearch = { navController.navigate(Screen.Search.route) },
@@ -100,7 +106,9 @@ fun AppNavGraph() {
                 playerViewModel = playerVm,
                 settings = settings,
                 onBack = { navController.popBackStack() },
-                onOpenFolder = { id, name -> navController.navigate(Screen.Browser.createRoute(id, name)) },
+                onOpenFolder = { path, name ->
+                    navController.navigate(Screen.Browser.createRoute(path, name))
+                },
                 onOpenNowPlaying = { navController.navigate(Screen.NowPlaying.route) },
                 onShareCreated = ::onShareCreated
             )
@@ -119,7 +127,9 @@ fun AppNavGraph() {
         if (settings.isConfigured &&
             navController.currentDestination?.route == Screen.Settings.route
         ) {
-            navController.navigate(Screen.Browser.createRoute("root", "Library")) {
+            navController.navigate(
+                Screen.Browser.createRoute(Screen.Browser.ROOT, "Library")
+            ) {
                 popUpTo(Screen.Settings.route) { inclusive = false }
             }
         }

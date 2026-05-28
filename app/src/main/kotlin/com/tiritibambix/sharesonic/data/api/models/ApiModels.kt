@@ -2,7 +2,7 @@ package com.tiritibambix.sharesonic.data.api.models
 
 import com.google.gson.annotations.SerializedName
 
-// ── Top-level wrapper ──────────────────────────────────────────────────────────
+// ── Subsonic API wrapper ───────────────────────────────────────────────────────
 
 data class SubsonicEnvelope(
     @SerializedName("subsonic-response") val response: SubsonicBody
@@ -11,9 +11,6 @@ data class SubsonicEnvelope(
 data class SubsonicBody(
     val status: String = "",
     val version: String = "",
-    val musicFolders: MusicFoldersContainer? = null,
-    val indexes: IndexesBody? = null,
-    val directory: DirectoryBody? = null,
     val randomSongs: RandomSongsContainer? = null,
     val searchResult3: SearchResult3? = null,
     val shares: SharesContainer? = null,
@@ -22,35 +19,16 @@ data class SubsonicBody(
 
 data class SubsonicError(val code: Int = 0, val message: String = "")
 
-// ── Music folders ──────────────────────────────────────────────────────────────
+// ── EntryDto — shared by mStream file entries and Subsonic random-songs ────────
 
-data class MusicFoldersContainer(val musicFolder: List<MusicFolderDto> = emptyList())
-
-data class MusicFolderDto(val id: String = "", val name: String = "")
-
-// ── Indexes (top-level folders inside a music library) ────────────────────────
-
-data class IndexesBody(
-    val index: List<IndexGroup> = emptyList(),
-    val child: List<EntryDto> = emptyList()
-)
-
-data class IndexGroup(
-    val name: String = "",
-    val artist: List<TopLevelDir> = emptyList()
-)
-
-data class TopLevelDir(val id: String = "", val name: String = "")
-
-// ── Directory browsing ─────────────────────────────────────────────────────────
-
-data class DirectoryBody(
-    val id: String = "",
-    val name: String = "",
-    val parent: String? = null,
-    val child: List<EntryDto> = emptyList()
-)
-
+/**
+ * For mStream file-explorer entries:
+ *   isDir=true  → id = mStream directory path (for navigation)
+ *   isDir=false → id = Subsonic track ID      (for playback / createShare)
+ *
+ * For Subsonic getRandomSongs entries:
+ *   id = Subsonic track ID
+ */
 data class EntryDto(
     val id: String = "",
     val title: String? = null,
@@ -64,17 +42,16 @@ data class EntryDto(
     val coverArt: String? = null,
     val track: Int? = null,
     val year: Int? = null,
-    /** Relative path within the library, e.g. "Artist/Album/01 - Song.mp3" */
     val path: String? = null
 ) {
     val displayName: String get() = title ?: name ?: id
 }
 
-// ── Random songs (shuffle all) ────────────────────────────────────────────────
+// ── Random songs (Subsonic getRandomSongs) ─────────────────────────────────────
 
 data class RandomSongsContainer(val song: List<EntryDto> = emptyList())
 
-// ── Search ────────────────────────────────────────────────────────────────────
+// ── Search (Subsonic search3) ──────────────────────────────────────────────────
 
 data class SearchResult3(
     val song: List<EntryDto> = emptyList(),
@@ -82,7 +59,9 @@ data class SearchResult3(
     val artist: List<TopLevelDir> = emptyList()
 )
 
-// ── Shares ─────────────────────────────────────────────────────────────────────
+data class TopLevelDir(val id: String = "", val name: String = "")
+
+// ── Shares (Subsonic createShare / getShares) ──────────────────────────────────
 
 data class SharesContainer(val share: List<ShareDto> = emptyList())
 

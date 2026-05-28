@@ -25,7 +25,7 @@ fun SettingsScreen(
 
     Scaffold(
         topBar = {
-            TopAppBar(title = { Text("Sharesonic — Settings") })
+            TopAppBar(title = { Text("Settings — mStream server") })
         }
     ) { padding ->
         Column(
@@ -38,8 +38,8 @@ fun SettingsScreen(
             OutlinedTextField(
                 value = serverUrl,
                 onValueChange = { serverUrl = it },
-                label = { Text("Server URL") },
-                placeholder = { Text("https://music.example.com") },
+                label = { Text("mStream server URL") },
+                placeholder = { Text("https://mstream.example.com") },
                 singleLine = true,
                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Uri),
                 modifier = Modifier.fillMaxWidth()

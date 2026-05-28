@@ -6,21 +6,15 @@ import retrofit2.http.GET
 import retrofit2.http.Query
 import retrofit2.http.Streaming
 
+/**
+ * Subsonic API — used only for playback, sharing, and random-song shuffle.
+ * Folder browsing is handled by the mStream native API (MStreamApiService).
+ */
 interface SubsonicApiService {
 
     @GET("ping.view")
     suspend fun ping(): SubsonicEnvelope
 
-    @GET("getMusicFolders.view")
-    suspend fun getMusicFolders(): SubsonicEnvelope
-
-    @GET("getIndexes.view")
-    suspend fun getIndexes(@Query("musicFolderId") musicFolderId: String? = null): SubsonicEnvelope
-
-    @GET("getMusicDirectory.view")
-    suspend fun getMusicDirectory(@Query("id") id: String): SubsonicEnvelope
-
-    /** Returns up to [size] random songs, optionally filtered by [musicFolderId]. */
     @GET("getRandomSongs.view")
     suspend fun getRandomSongs(
         @Query("size") size: Int = 200,
@@ -35,7 +29,6 @@ interface SubsonicApiService {
         @Query("artistCount") artistCount: Int = 10
     ): SubsonicEnvelope
 
-    /** Binary stream — used to build cover-art URLs only, not called directly. */
     @Streaming
     @GET("getCoverArt.view")
     suspend fun getCoverArt(

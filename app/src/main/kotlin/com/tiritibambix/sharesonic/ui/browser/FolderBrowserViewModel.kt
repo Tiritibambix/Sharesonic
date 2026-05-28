@@ -3,12 +3,15 @@ package com.tiritibambix.sharesonic.ui.browser
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
+import com.tiritibambix.sharesonic.data.MStreamRepository
 import com.tiritibambix.sharesonic.data.Result
 import com.tiritibambix.sharesonic.data.SubsonicRepository
+import com.tiritibambix.sharesonic.data.api.MStreamClient
 import com.tiritibambix.sharesonic.data.api.SubsonicClient
 import com.tiritibambix.sharesonic.data.api.models.EntryDto
 import com.tiritibambix.sharesonic.data.settings.ServerSettings
 import com.tiritibambix.sharesonic.data.settings.SettingsRepository
+import com.tiritibambix.sharesonic.ui.navigation.Screen
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.first
@@ -29,17 +32,19 @@ sealed interface ShareState {
 }
 
 /**
- * Navigation model (Navidrome Subsonic):
+ * Browsing model:
  *
- *   "root"  → getIndexes()            → flat alphabetical artist list
- *   "{id}"  → getMusicDirectory(id)   → albums (if artist) or tracks (if album)
+ *   folderId == "root"  → POST /api/v1/file-explorer  { directory: "" }
+ *                         shows top-level directories
+ *   folderId == path    → POST /api/v1/file-explorer  { directory: path, pullMetadata: true }
+ *                         shows subdirectories + audio files with Subsonic IDs
  *
- * getMusicFolders IDs are not navigable. There is no folder layer above artists.
- * isDir=true means album (navigable), isDir=false means track (playable).
+ * Directory entry.id  = mStream path  (for navigation → next file-explorer call)
+ * File entry.id       = Subsonic trackId (for playback via /rest/stream and createShare)
  */
 class FolderBrowserViewModel(
     private val settingsRepo: SettingsRepository,
-    val folderId: String
+    val folderId: String   // already decoded (Base64 path decoded in AppNavGraph)
 ) : ViewModel() {
 
     private val _state = MutableStateFlow<BrowserState>(BrowserState.Loading)
@@ -66,36 +71,24 @@ class FolderBrowserViewModel(
                 return@launch
             }
             _settings = settings
-            val repo = buildRepo(settings)
-            if (folderId == "root") loadArtists(repo)
-            else loadDirectory(repo, folderId)
-        }
-    }
 
-    /** Root level: all artists from getIndexes, sorted A→Z. */
-    private suspend fun loadArtists(repo: SubsonicRepository) {
-        when (val r = repo.getIndexes()) {
-            is Result.Success -> {
-                val artists = r.data.index
-                    .flatMap { it.artist }
-                    .map { EntryDto(id = it.id, title = it.name, isDir = true) }
-                    .sortedBy { it.displayName.lowercase() }
-                _state.update { BrowserState.Ready(artists) }
+            val token = ensureToken(settings) ?: run {
+                _state.update { BrowserState.Error("Authentication failed — open Settings to reconnect") }
+                return@launch
             }
-            is Result.Error -> _state.update { BrowserState.Error(r.message) }
-        }
-    }
 
-    /** Artist or album level: direct children via getMusicDirectory. */
-    private suspend fun loadDirectory(repo: SubsonicRepository, id: String) {
-        when (val r = repo.getMusicDirectory(id)) {
-            is Result.Success -> {
-                val sorted = r.data.child
-                    .sortedWith(compareByDescending<EntryDto> { it.isDir }
-                        .thenBy { it.displayName.lowercase() })
-                _state.update { BrowserState.Ready(sorted) }
+            val mStream = MStreamRepository(MStreamClient.build(settings.serverUrl))
+            val path = if (folderId == Screen.Browser.ROOT) "" else folderId
+            // pullMetadata=true only for non-root (files need Subsonic IDs)
+            val pullMeta = path.isNotEmpty()
+
+            when (val r = mStream.fileExplorer(token, path, pullMeta)) {
+                is Result.Success -> {
+                    val entries = mStream.toEntries(r.data, path)
+                    _state.update { BrowserState.Ready(entries) }
+                }
+                is Result.Error -> _state.update { BrowserState.Error(r.message) }
             }
-            is Result.Error -> _state.update { BrowserState.Error(r.message) }
         }
     }
 
@@ -109,9 +102,12 @@ class FolderBrowserViewModel(
     ) {
         viewModelScope.launch {
             val settings = settingsRepo.settings.first()
-            val repo = buildRepo(settings)
-            if (folderId == "root") {
-                when (val r = repo.getRandomSongs(size = 200)) {
+            if (folderId == Screen.Browser.ROOT) {
+                // Shuffle whole library via Subsonic getRandomSongs
+                val subsonicRepo = SubsonicRepository(
+                    SubsonicClient.build(settings.serverUrl, settings.username, settings.password)
+                )
+                when (val r = subsonicRepo.getRandomSongs(200)) {
                     is Result.Success -> {
                         if (r.data.isEmpty()) onError("No songs found")
                         else onReady(r.data.shuffled())
@@ -119,7 +115,10 @@ class FolderBrowserViewModel(
                     is Result.Error -> onError(r.message)
                 }
             } else {
-                val songs = repo.collectSongs(folderId)
+                // Collect all audio files recursively under this folder
+                val token = ensureToken(settings) ?: run { onError("Authentication failed"); return@launch }
+                val mStream = MStreamRepository(MStreamClient.build(settings.serverUrl))
+                val songs = mStream.collectSongs(token, folderId)
                 if (songs.isEmpty()) onError("No songs found")
                 else onReady(songs.shuffled())
             }
@@ -132,7 +131,10 @@ class FolderBrowserViewModel(
         _shareState.update { ShareState.Loading }
         viewModelScope.launch {
             val settings = settingsRepo.settings.first()
-            when (val r = buildRepo(settings).createShare(entryId)) {
+            val subsonicRepo = SubsonicRepository(
+                SubsonicClient.build(settings.serverUrl, settings.username, settings.password)
+            )
+            when (val r = subsonicRepo.createShare(entryId)) {
                 is Result.Success -> _shareState.update { ShareState.Done(r.data.url) }
                 is Result.Error   -> _shareState.update { ShareState.Error(r.message) }
             }
@@ -141,11 +143,21 @@ class FolderBrowserViewModel(
 
     fun clearShareState() = _shareState.update { ShareState.Idle }
 
-    // ── Helpers ───────────────────────────────────────────────────────────────
+    // ── Auth helpers ──────────────────────────────────────────────────────────
 
-    private suspend fun buildRepo(settings: ServerSettings): SubsonicRepository {
-        val api = SubsonicClient.build(settings.serverUrl, settings.username, settings.password)
-        return SubsonicRepository(api)
+    /**
+     * Return the stored JWT if valid, or attempt a fresh login.
+     * Persists the new token to DataStore on success.
+     */
+    private suspend fun ensureToken(settings: ServerSettings): String? {
+        if (settings.jwtToken.isNotEmpty()) return settings.jwtToken
+        val mStream = MStreamRepository(MStreamClient.build(settings.serverUrl))
+        val result = mStream.login(settings.username, settings.password)
+        if (result is Result.Success) {
+            settingsRepo.saveToken(result.data)
+            return result.data
+        }
+        return null
     }
 }
 
