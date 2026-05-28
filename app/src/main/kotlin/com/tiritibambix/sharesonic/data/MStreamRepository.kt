@@ -36,7 +36,7 @@ class MStreamRepository(private val api: MStreamApiService) {
     ): Result<FileExplorerResponse> {
         return try {
             val resp = api.fileExplorer(
-                MStreamClient.bearerHeader(token),
+                token,
                 FileExplorerRequest(directory = path, sort = true, pullMetadata = pullMetadata)
             )
             Result.Success(resp)

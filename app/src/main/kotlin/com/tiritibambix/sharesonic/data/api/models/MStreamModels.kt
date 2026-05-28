@@ -11,6 +11,7 @@ data class MStreamLoginRequest(
 
 data class MStreamLoginResponse(
     val token: String? = null,
+    val vpaths: List<String> = emptyList(),
     val err: String? = null
 )
 

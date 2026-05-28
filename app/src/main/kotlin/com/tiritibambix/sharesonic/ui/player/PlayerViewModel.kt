@@ -202,10 +202,8 @@ class PlayerViewModel(
         cachedSettings ?: settingsRepo.settings.first().also { cachedSettings = it }
 
     private fun streamUrl(settings: ServerSettings, id: String): String {
-        val salt = (1..12).map { ('a'..'z').random() }.joinToString("")
-        val token = SubsonicClient.md5(settings.password + salt)
         val base = settings.serverUrl.trimEnd('/')
-        return "$base/rest/stream.view?id=$id&u=${settings.username}&t=$token&s=$salt&v=1.16.1&c=Sharesonic&f=json"
+        return "$base/rest/stream.view?id=$id&u=${settings.username}&p=${settings.password}&v=1.16.1&c=Sharesonic&f=json"
     }
 }
 

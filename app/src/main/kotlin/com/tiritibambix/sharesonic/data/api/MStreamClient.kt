@@ -25,6 +25,4 @@ object MStreamClient {
             .build()
             .create(MStreamApiService::class.java)
     }
-
-    fun bearerHeader(token: String) = "Bearer $token"
 }

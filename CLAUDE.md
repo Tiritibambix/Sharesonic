@@ -65,13 +65,13 @@ Used for **folder browsing only**. Requires JWT bearer token authentication.
 ### Authentication
 
 ```
-POST /api/v1/login
+POST /api/v1/auth/login
 Content-Type: application/json
 { "username": "...", "password": "..." }
-→ { "token": "eyJ..." }
+→ { "token": "eyJ...", "vpaths": [...] }
 ```
 
-All subsequent native API calls send: `Authorization: Bearer <token>`
+All subsequent native API calls send the JWT as: `x-access-token: <token>`
 
 ### File Explorer
 
@@ -99,7 +99,7 @@ The Subsonic API (`/rest/`) is used **only for playback and sharing**, not for b
 * `deleteShare` — delete a share (optional)
 * `getRandomSongs` — server-side random pool for shuffle-all
 
-Subsonic auth: `u=`, `p=` or `t=`/`s=`, `v=1.16.1`, `c=Sharesonic`, `f=json`
+Subsonic auth: `u=<username>`, `p=<plain-text password>`, `v=1.16.1`, `c=Sharesonic`, `f=json`
 
 Reference: https://www.subsonic.org/pages/api.jsp
 

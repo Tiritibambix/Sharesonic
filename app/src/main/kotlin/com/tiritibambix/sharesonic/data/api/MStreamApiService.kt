@@ -10,12 +10,12 @@ import retrofit2.http.POST
 
 interface MStreamApiService {
 
-    @POST("api/v1/login")
+    @POST("api/v1/auth/login")
     suspend fun login(@Body request: MStreamLoginRequest): MStreamLoginResponse
 
     @POST("api/v1/file-explorer")
     suspend fun fileExplorer(
-        @Header("Authorization") authorization: String,
+        @Header("x-access-token") token: String,
         @Body request: FileExplorerRequest
     ): FileExplorerResponse
 }
