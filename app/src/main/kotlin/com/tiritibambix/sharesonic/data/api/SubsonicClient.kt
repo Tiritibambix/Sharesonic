@@ -6,6 +6,7 @@ import okhttp3.OkHttpClient
 import okhttp3.logging.HttpLoggingInterceptor
 import retrofit2.Retrofit
 import retrofit2.converter.gson.GsonConverterFactory
+import java.util.concurrent.TimeUnit
 
 private const val CLIENT_NAME = "Sharesonic"
 private const val API_VERSION = "1.16.1"
@@ -18,6 +19,9 @@ object SubsonicClient {
      */
     fun build(serverUrl: String, username: String, password: String): SubsonicApiService {
         val okHttp = OkHttpClient.Builder()
+            .connectTimeout(30, TimeUnit.SECONDS)
+            .readTimeout(60, TimeUnit.SECONDS)
+            .writeTimeout(30, TimeUnit.SECONDS)
             .addInterceptor { chain ->
                 val original = chain.request()
                 val url = original.url.newBuilder()
