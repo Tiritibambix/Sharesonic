@@ -1,7 +1,5 @@
 package com.tiritibambix.sharesonic.data.api.models
 
-import com.google.gson.annotations.SerializedName
-
 // ── Login ──────────────────────────────────────────────────────────────────────
 
 data class MStreamLoginRequest(
@@ -39,12 +37,12 @@ data class MStreamFile(
     val name: String = "",
     val path: String? = null,
     val type: String? = null,
-    /** Subsonic track ID — present when pullMetadata=true. */
-    val id: String? = null,
-    @SerializedName("track_id") val trackId: String? = null
+    val filepath: String? = null,
+    /** Present when pullMetadata=true. */
+    val metadata: MStreamMetadata? = null
 ) {
     /** The Subsonic-compatible ID to pass to /rest/stream and createShare. */
-    val subsonicId: String? get() = id ?: trackId
+    val subsonicId: String? get() = metadata?.hash
 
     val isAudio: Boolean
         get() = type?.lowercase() in AUDIO_EXTENSIONS
@@ -56,3 +54,10 @@ data class MStreamFile(
         )
     }
 }
+
+data class MStreamMetadata(
+    val hash: String? = null,
+    val title: String? = null,
+    val artist: String? = null,
+    val album: String? = null
+)
