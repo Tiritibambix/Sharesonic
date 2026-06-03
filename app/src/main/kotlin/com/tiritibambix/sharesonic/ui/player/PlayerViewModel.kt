@@ -7,6 +7,7 @@ import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
 import androidx.media3.common.C
 import androidx.media3.common.MediaItem
+import androidx.media3.common.PlaybackException
 import androidx.media3.common.Player
 import androidx.media3.session.MediaController
 import androidx.media3.session.SessionToken
@@ -37,7 +38,8 @@ data class PlayerState(
     val durationMs: Long = 0L,
     val shareUrl: String? = null,
     val shareLoading: Boolean = false,
-    val shareError: String? = null
+    val shareError: String? = null,
+    val playbackError: String? = null
 )
 
 class PlayerViewModel(
@@ -74,6 +76,12 @@ class PlayerViewModel(
                         if (idx in queue.indices) {
                             _state.update { it.copy(queueIndex = idx, currentSong = queue[idx]) }
                         }
+                    }
+                    override fun onPlayerError(error: PlaybackException) {
+                        val msg = error.cause?.message?.takeIf { it.isNotBlank() }
+                            ?: error.message?.takeIf { it.isNotBlank() }
+                            ?: "Playback error (${error.errorCode})"
+                        _state.update { it.copy(playbackError = msg, isPlaying = false) }
                     }
                 })
                 controllerDeferred.complete(ctrl)
@@ -185,6 +193,8 @@ class PlayerViewModel(
     }
 
     fun clearShare() = _state.update { it.copy(shareUrl = null, shareError = null) }
+
+    fun clearPlaybackError() = _state.update { it.copy(playbackError = null) }
 
     // ── Lifecycle ─────────────────────────────────────────────────────────────
 

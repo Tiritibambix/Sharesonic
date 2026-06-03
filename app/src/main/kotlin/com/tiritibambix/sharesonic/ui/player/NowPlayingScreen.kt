@@ -290,6 +290,26 @@ private fun NowPlayingPage(state: PlayerState, viewModel: PlayerViewModel) {
                     style = MaterialTheme.typography.bodySmall)
             }
 
+            // Playback error (stream failed)
+            state.playbackError?.let { err ->
+                Spacer(Modifier.height(4.dp))
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(6.dp),
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Text(
+                        "⚠ $err",
+                        color = MaterialTheme.colorScheme.error,
+                        style = MaterialTheme.typography.bodySmall,
+                        modifier = Modifier.weight(1f)
+                    )
+                    TextButton(onClick = { viewModel.clearPlaybackError() }) {
+                        Text("Dismiss", style = MaterialTheme.typography.labelSmall)
+                    }
+                }
+            }
+
             // Hint: swipe for queue
             if (state.queue.size > 1) {
                 Spacer(Modifier.height(4.dp))
