@@ -98,5 +98,5 @@ data class MStreamShareRequest(
 )
 
 data class MStreamShareResponse(
-    val shareId: String? = null
+    val playlistId: String? = null
 )

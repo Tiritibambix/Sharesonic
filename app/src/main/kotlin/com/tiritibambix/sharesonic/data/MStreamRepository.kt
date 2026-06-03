@@ -99,7 +99,7 @@ class MStreamRepository(private val api: MStreamApiService) {
     suspend fun share(token: String, filepath: String): Result<String> {
         return try {
             val resp = api.share(token, MStreamShareRequest(playlist = listOf(filepath)))
-            val shareId = resp.shareId
+            val shareId = resp.playlistId
             if (!shareId.isNullOrBlank()) Result.Success(shareId)
             else Result.Error("Share failed: no shareId returned")
         } catch (e: Exception) {
