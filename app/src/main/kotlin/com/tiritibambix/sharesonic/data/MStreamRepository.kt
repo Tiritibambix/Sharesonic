@@ -1,13 +1,12 @@
 package com.tiritibambix.sharesonic.data
 
-import android.util.Log
 import com.tiritibambix.sharesonic.data.api.MStreamApiService
-import com.tiritibambix.sharesonic.data.api.MStreamClient
 import com.tiritibambix.sharesonic.data.api.models.EntryDto
 import com.tiritibambix.sharesonic.data.api.models.FileExplorerRequest
 import com.tiritibambix.sharesonic.data.api.models.FileExplorerResponse
 import com.tiritibambix.sharesonic.data.api.models.MStreamFile
 import com.tiritibambix.sharesonic.data.api.models.MStreamLoginRequest
+import com.tiritibambix.sharesonic.data.api.models.MStreamShareRequest
 
 class MStreamRepository(private val api: MStreamApiService) {
 
@@ -28,7 +27,7 @@ class MStreamRepository(private val api: MStreamApiService) {
      *
      * @param token          JWT bearer token
      * @param path           mStream directory path; empty string for root
-     * @param pullMetadata   when true, file entries include their Subsonic track ID
+     * @param pullMetadata   when true, file entries include filepath + audio tags
      */
     suspend fun fileExplorer(
         token: String,
@@ -49,14 +48,10 @@ class MStreamRepository(private val api: MStreamApiService) {
     /**
      * Map a FileExplorerResponse to a list of EntryDto for the browser UI.
      *
-     * Directory entry.id  = mStream path   (used for navigation)
-     * File entry.id       = Subsonic trackId (used for playback / createShare)
+     * Directory entry.id = mStream path      (for navigation)
+     * File entry.id      = mStream filepath  (for native /media/<filepath>?token= streaming)
      *
-     * Only audio files (matched by extension) are included.
-     * Files without a Subsonic ID (pullMetadata was false) are excluded.
-     *
-     * @param response    the raw API response
-     * @param currentPath the path that was queried (used to build paths at root level)
+     * Only audio files with a known filepath (pullMetadata=true) are included.
      */
     fun toEntries(response: FileExplorerResponse, currentPath: String): List<EntryDto> {
         val dirs: List<EntryDto> = response.directories.map { dir ->
@@ -74,7 +69,7 @@ class MStreamRepository(private val api: MStreamApiService) {
 
     /**
      * Recursively collect all playable tracks under [path] for shuffle.
-     * Uses pullMetadata=true so every file has a Subsonic ID.
+     * Uses pullMetadata=true so every file has a filepath for native streaming.
      */
     suspend fun collectSongs(token: String, path: String): List<EntryDto> {
         val result = fileExplorer(token, path, pullMetadata = true)
@@ -94,20 +89,37 @@ class MStreamRepository(private val api: MStreamApiService) {
         return files + nested
     }
 
-    private fun fileToEntryDto(file: MStreamFile): EntryDto? {
-        // TODO: remove this diagnostic block once the correct Subsonic ID field is confirmed
-        Log.d("MStream/ID", buildString {
-            append("file=${file.name} ")
-            append("| top-level id=${file.id} ")
-            append("| track_id=${file.trackId} ")
-            append("| filepath=${file.filepath} ")
-            append("| meta.filepath=${file.metadata?.filepath} ")
-            append("| meta.hash=${file.metadata?.hash} ")
-            append("| meta.meta.hash=${file.metadata?.metadata?.hash} ")
-            append("→ subsonicId=${file.subsonicId}")
-        })
+    /**
+     * Create a public share link for a single track.
+     *
+     * @param token    JWT bearer token
+     * @param filepath Full mStream filepath (e.g. "library/Artist/Album/track.mp3")
+     * @return the shareId — caller builds URL as <serverUrl>/shared/<shareId>
+     */
+    suspend fun share(token: String, filepath: String): Result<String> {
+        return try {
+            val resp = api.share(token, MStreamShareRequest(playlist = listOf(filepath)))
+            val shareId = resp.shareId
+            if (!shareId.isNullOrBlank()) Result.Success(shareId)
+            else Result.Error("Share failed: no shareId returned")
+        } catch (e: Exception) {
+            Result.Error(e.message ?: "Network error")
+        }
+    }
 
-        val id = file.subsonicId ?: return null
-        return EntryDto(id = id, title = file.name, isDir = false, path = file.filepath ?: file.path)
+    private fun fileToEntryDto(file: MStreamFile): EntryDto? {
+        // The full mStream filepath (library + relative path) is our stable identifier.
+        // It is used to build the native stream URL: /media/<filepath>?token=<jwt>
+        val filepath = file.mStreamFilepath ?: return null
+        val meta = file.metadata?.metadata
+        return EntryDto(
+            id = filepath,
+            title = meta?.title?.takeIf { it.isNotBlank() } ?: file.name,
+            artist = meta?.artist,
+            album = meta?.album,
+            coverArt = meta?.albumArt,
+            isDir = false,
+            path = filepath
+        )
     }
 }

@@ -13,8 +13,10 @@ import androidx.media3.session.MediaController
 import androidx.media3.session.SessionToken
 import com.google.common.util.concurrent.ListenableFuture
 import com.google.common.util.concurrent.MoreExecutors
+import com.tiritibambix.sharesonic.data.MStreamRepository
 import com.tiritibambix.sharesonic.data.Result
 import com.tiritibambix.sharesonic.data.SubsonicRepository
+import com.tiritibambix.sharesonic.data.api.MStreamClient
 import com.tiritibambix.sharesonic.data.api.SubsonicClient
 import com.tiritibambix.sharesonic.data.api.models.EntryDto
 import com.tiritibambix.sharesonic.data.settings.ServerSettings
@@ -114,11 +116,11 @@ class PlayerViewModel(
     fun playSong(song: EntryDto) {
         viewModelScope.launch {
             val settings = settings()
-            val coverUrl = song.coverArt?.let { SubsonicClient.coverArtUrl(settings, it, 512) }
+            val coverUrl = coverArtUrl(settings, song)
             _state.update {
                 it.copy(currentSong = song, queue = listOf(song), queueIndex = 0, coverArtUrl = coverUrl)
             }
-            val url = streamUrl(settings, song.id)
+            val url = streamUrl(settings, song)
             val ctrl = controllerDeferred.await()
             ctrl.setMediaItem(MediaItem.fromUri(url))
             ctrl.prepare()
@@ -131,11 +133,11 @@ class PlayerViewModel(
         viewModelScope.launch {
             val settings = settings()
             val first = songs[0]
-            val coverUrl = first.coverArt?.let { SubsonicClient.coverArtUrl(settings, it, 512) }
+            val coverUrl = coverArtUrl(settings, first)
             _state.update {
                 it.copy(queue = songs, queueIndex = 0, currentSong = first, coverArtUrl = coverUrl)
             }
-            val items = songs.map { MediaItem.fromUri(streamUrl(settings, it.id)) }
+            val items = songs.map { MediaItem.fromUri(streamUrl(settings, it)) }
             val ctrl = controllerDeferred.await()
             ctrl.setMediaItems(items)
             ctrl.prepare()
@@ -149,7 +151,7 @@ class PlayerViewModel(
         viewModelScope.launch {
             val settings = settings()
             val song = q.queue[index]
-            val coverUrl = song.coverArt?.let { SubsonicClient.coverArtUrl(settings, it, 512) }
+            val coverUrl = coverArtUrl(settings, song)
             _state.update { it.copy(queueIndex = index, currentSong = song, coverArtUrl = coverUrl) }
             controllerDeferred.await().seekTo(index, 0L)
         }
@@ -184,11 +186,22 @@ class PlayerViewModel(
         _state.update { it.copy(shareLoading = true, shareUrl = null, shareError = null) }
         viewModelScope.launch {
             val settings = settings()
-            val api = SubsonicClient.build(settings.serverUrl, settings.username, settings.password)
-            when (val result = SubsonicRepository(api).createShare(song.id)) {
-                is Result.Success -> _state.update { it.copy(shareLoading = false, shareUrl = result.data.url) }
-                is Result.Error   -> _state.update { it.copy(shareLoading = false, shareError = result.message) }
+            val shareUrl = if (song.id.isSubsonicNumericId()) {
+                // Song from getRandomSongs — has a real Subsonic integer ID
+                val api = SubsonicClient.build(settings.serverUrl, settings.username, settings.password)
+                when (val r = SubsonicRepository(api).createShare(song.id)) {
+                    is Result.Success -> r.data.url
+                    is Result.Error   -> { _state.update { it.copy(shareLoading = false, shareError = r.message) }; return@launch }
+                }
+            } else {
+                // mStream native song — use filepath with native share endpoint
+                val mStream = MStreamRepository(MStreamClient.build(settings.serverUrl))
+                when (val r = mStream.share(settings.jwtToken, song.id)) {
+                    is Result.Success -> settings.serverUrl.trimEnd('/') + "/shared/${r.data}"
+                    is Result.Error   -> { _state.update { it.copy(shareLoading = false, shareError = r.message) }; return@launch }
+                }
             }
+            _state.update { it.copy(shareLoading = false, shareUrl = shareUrl) }
         }
     }
 
@@ -211,11 +224,48 @@ class PlayerViewModel(
     private suspend fun settings(): ServerSettings =
         cachedSettings ?: settingsRepo.settings.first().also { cachedSettings = it }
 
-    private fun streamUrl(settings: ServerSettings, id: String): String {
+    /**
+     * Build the audio stream URL for a song.
+     *
+     * mStream Subsonic IDs are bare integers (e.g. "42") — songs from getRandomSongs.
+     * mStream native songs have a filepath as ID (e.g. "library/Artist/Album/track.mp3").
+     *
+     * - Numeric ID → Subsonic /rest/stream.view (the integer IS the correct DB row ID)
+     * - Filepath ID → native /media/<filepath>?token=<jwt>
+     */
+    private fun streamUrl(settings: ServerSettings, song: EntryDto): String {
         val base = settings.serverUrl.trimEnd('/')
-        return "$base/rest/stream.view?id=$id&u=${settings.username}&p=${settings.password}&v=1.16.1&c=Sharesonic&f=json"
+        return if (song.id.isSubsonicNumericId()) {
+            "$base/rest/stream.view?id=${song.id}&u=${settings.username}&p=${settings.password}&v=1.16.1&c=Sharesonic&f=json"
+        } else {
+            val filepath = song.path ?: song.id
+            val encoded = filepath.trimStart('/')
+                .replace("%", "%25")
+                .replace("#", "%23")
+                .replace("?", "%3F")
+            "$base/media/$encoded?token=${settings.jwtToken}"
+        }
+    }
+
+    /**
+     * Build the cover art URL for a song.
+     *
+     * - Subsonic cover art IDs start with "al-" / "ar-" or are numeric → Subsonic getCoverArt
+     * - mStream native album art IDs are filenames (e.g. "abc123.jpg") → /album-art/<file>?token=<jwt>
+     */
+    private fun coverArtUrl(settings: ServerSettings, song: EntryDto): String? {
+        val id = song.coverArt ?: return null
+        val base = settings.serverUrl.trimEnd('/')
+        return if (id.startsWith("al-") || id.startsWith("ar-") || id.isSubsonicNumericId()) {
+            SubsonicClient.coverArtUrl(settings, id, 512)
+        } else {
+            "$base/album-art/$id?token=${settings.jwtToken}"
+        }
     }
 }
+
+/** Returns true if this string is a mStream Subsonic numeric track ID (bare integer). */
+private fun String.isSubsonicNumericId(): Boolean = isNotBlank() && all { it.isDigit() }
 
 class PlayerViewModelFactory(private val context: Context) : ViewModelProvider.Factory {
     private val settingsRepo = SettingsRepository(context)

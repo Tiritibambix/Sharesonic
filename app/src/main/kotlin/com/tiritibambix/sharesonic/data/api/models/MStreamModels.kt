@@ -35,35 +35,31 @@ data class MStreamDir(
     val path: String? = null
 )
 
+/**
+ * A file entry from /api/v1/file-explorer.
+ *
+ * When pullMetadata=true, the server adds a nested [metadata] object shaped as:
+ *   { "filepath": "library/Artist/Album/track.mp3", "metadata": { ... } }
+ *
+ * The [metadata.filepath] is the **full mStream path** (library name + relative path)
+ * and is the correct identifier for the native /media/<filepath>?token=<jwt> stream URL.
+ *
+ * NOTE: mStream Subsonic IDs are plain integer DB row IDs — they are NOT related
+ * to the [metadata.metadata.hash] field, which is the audio-file content hash.
+ * Do not pass the hash to any Subsonic endpoint.
+ */
 data class MStreamFile(
     val name: String = "",
     val path: String? = null,
     val type: String? = null,
-    val filepath: String? = null,
-    /**
-     * Top-level Subsonic-compatible ID — present in some mStream versions when
-     * pullMetadata=true. This is the canonical Subsonic song ID for /rest/stream
-     * and createShare.
-     */
-    val id: String? = null,
-    @SerializedName("track_id") val trackId: String? = null,
-    /** Present when pullMetadata=true. */
+    /** Present when pullMetadata=true. Contains the full filepath + inner metadata. */
     val metadata: MStreamFileMetaWrapper? = null
 ) {
     /**
-     * The Subsonic-compatible ID to pass to /rest/stream and createShare.
-     *
-     * Priority chain — the first non-blank value wins:
-     *   1. id          — top-level field (documented in CLAUDE.md, canonical)
-     *   2. track_id    — top-level alternative field
-     *   3. metadata.metadata.hash — double-nested hash
-     *   4. metadata.hash          — single-nested hash fallback
+     * The full mStream filepath (e.g. "library/Artist/Album/track.mp3").
+     * Use this to build the native stream URL: /media/<filepath>?token=<jwt>
      */
-    val subsonicId: String? get() =
-        id?.takeIf { it.isNotBlank() }
-        ?: trackId?.takeIf { it.isNotBlank() }
-        ?: metadata?.metadata?.hash?.takeIf { it.isNotBlank() }
-        ?: metadata?.hash?.takeIf { it.isNotBlank() }
+    val mStreamFilepath: String? get() = metadata?.filepath
 
     val isAudio: Boolean
         get() = type?.lowercase() in AUDIO_EXTENSIONS
@@ -76,15 +72,31 @@ data class MStreamFile(
     }
 }
 
+/** Outer wrapper returned by pullMetadata=true on each file entry. */
 data class MStreamFileMetaWrapper(
-    val hash: String? = null,        // single-nested: metadata.hash
     val filepath: String? = null,
-    val metadata: MStreamInnerMetadata? = null  // double-nested: metadata.metadata.hash
+    val metadata: MStreamInnerMetadata? = null
 )
 
+/** Inner metadata object (audio tags + file hash). */
 data class MStreamInnerMetadata(
     val hash: String? = null,
     val title: String? = null,
     val artist: String? = null,
-    val album: String? = null
+    val album: String? = null,
+    @SerializedName("album-art") val albumArt: String? = null
+)
+
+// ── Native share ───────────────────────────────────────────────────────────────
+
+/**
+ * POST /api/v1/share — create a public share link.
+ * The resulting URL is <serverUrl>/shared/<shareId>.
+ */
+data class MStreamShareRequest(
+    val playlist: List<String>
+)
+
+data class MStreamShareResponse(
+    val shareId: String? = null
 )

@@ -55,9 +55,19 @@ class FolderBrowserViewModel(
 
     private var _settings: ServerSettings? = null
 
+    /**
+     * Build a cover art URL.
+     * - Subsonic IDs ("al-N", "ar-N", numeric) → Subsonic getCoverArt endpoint
+     * - mStream album-art filenames → native /album-art/<file>?token=<jwt>
+     */
     fun coverArtUrl(coverArtId: String, size: Int = 64): String? {
         val s = _settings ?: return null
-        return SubsonicClient.coverArtUrl(s, coverArtId, size)
+        return if (coverArtId.startsWith("al-") || coverArtId.startsWith("ar-") || coverArtId.all { it.isDigit() }) {
+            SubsonicClient.coverArtUrl(s, coverArtId, size)
+        } else {
+            val base = s.serverUrl.trimEnd('/')
+            "$base/album-art/$coverArtId?token=${s.jwtToken}"
+        }
     }
 
     init { load() }
@@ -131,12 +141,29 @@ class FolderBrowserViewModel(
         _shareState.update { ShareState.Loading }
         viewModelScope.launch {
             val settings = settingsRepo.settings.first()
-            val subsonicRepo = SubsonicRepository(
-                SubsonicClient.build(settings.serverUrl, settings.username, settings.password)
-            )
-            when (val r = subsonicRepo.createShare(entryId)) {
-                is Result.Success -> _shareState.update { ShareState.Done(r.data.url) }
-                is Result.Error   -> _shareState.update { ShareState.Error(r.message) }
+            if (entryId.all { it.isDigit() }) {
+                // Song from getRandomSongs — has a real Subsonic integer ID
+                val subsonicRepo = SubsonicRepository(
+                    SubsonicClient.build(settings.serverUrl, settings.username, settings.password)
+                )
+                when (val r = subsonicRepo.createShare(entryId)) {
+                    is Result.Success -> _shareState.update { ShareState.Done(r.data.url) }
+                    is Result.Error   -> _shareState.update { ShareState.Error(r.message) }
+                }
+            } else {
+                // mStream native song — use filepath with native share endpoint
+                val token = ensureToken(settings) ?: run {
+                    _shareState.update { ShareState.Error("Authentication failed") }
+                    return@launch
+                }
+                val mStream = MStreamRepository(MStreamClient.build(settings.serverUrl))
+                when (val r = mStream.share(token, entryId)) {
+                    is Result.Success -> {
+                        val url = settings.serverUrl.trimEnd('/') + "/shared/${r.data}"
+                        _shareState.update { ShareState.Done(url) }
+                    }
+                    is Result.Error -> _shareState.update { ShareState.Error(r.message) }
+                }
             }
         }
     }
