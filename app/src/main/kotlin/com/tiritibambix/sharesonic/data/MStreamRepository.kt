@@ -1,5 +1,6 @@
 package com.tiritibambix.sharesonic.data
 
+import android.util.Log
 import com.tiritibambix.sharesonic.data.api.MStreamApiService
 import com.tiritibambix.sharesonic.data.api.MStreamClient
 import com.tiritibambix.sharesonic.data.api.models.EntryDto
@@ -94,7 +95,19 @@ class MStreamRepository(private val api: MStreamApiService) {
     }
 
     private fun fileToEntryDto(file: MStreamFile): EntryDto? {
+        // TODO: remove this diagnostic block once the correct Subsonic ID field is confirmed
+        Log.d("MStream/ID", buildString {
+            append("file=${file.name} ")
+            append("| top-level id=${file.id} ")
+            append("| track_id=${file.trackId} ")
+            append("| filepath=${file.filepath} ")
+            append("| meta.filepath=${file.metadata?.filepath} ")
+            append("| meta.hash=${file.metadata?.hash} ")
+            append("| meta.meta.hash=${file.metadata?.metadata?.hash} ")
+            append("→ subsonicId=${file.subsonicId}")
+        })
+
         val id = file.subsonicId ?: return null
-        return EntryDto(id = id, title = file.name, isDir = false, path = file.path)
+        return EntryDto(id = id, title = file.name, isDir = false, path = file.filepath ?: file.path)
     }
 }

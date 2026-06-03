@@ -1,5 +1,7 @@
 package com.tiritibambix.sharesonic.data.api.models
 
+import com.google.gson.annotations.SerializedName
+
 // ── Login ──────────────────────────────────────────────────────────────────────
 
 data class MStreamLoginRequest(
@@ -38,19 +40,29 @@ data class MStreamFile(
     val path: String? = null,
     val type: String? = null,
     val filepath: String? = null,
+    /**
+     * Top-level Subsonic-compatible ID — present in some mStream versions when
+     * pullMetadata=true. This is the canonical Subsonic song ID for /rest/stream
+     * and createShare.
+     */
+    val id: String? = null,
+    @SerializedName("track_id") val trackId: String? = null,
     /** Present when pullMetadata=true. */
     val metadata: MStreamFileMetaWrapper? = null
 ) {
     /**
      * The Subsonic-compatible ID to pass to /rest/stream and createShare.
      *
-     * mStream returns the ID through one of several structures depending on version;
-     * try each path in order so the correct one is used regardless of nesting depth:
-     *   1. metadata.metadata.hash  — double-nested (reported structure)
-     *   2. metadata.hash           — single-nested fallback
+     * Priority chain — the first non-blank value wins:
+     *   1. id          — top-level field (documented in CLAUDE.md, canonical)
+     *   2. track_id    — top-level alternative field
+     *   3. metadata.metadata.hash — double-nested hash
+     *   4. metadata.hash          — single-nested hash fallback
      */
     val subsonicId: String? get() =
-        metadata?.metadata?.hash?.takeIf { it.isNotBlank() }
+        id?.takeIf { it.isNotBlank() }
+        ?: trackId?.takeIf { it.isNotBlank() }
+        ?: metadata?.metadata?.hash?.takeIf { it.isNotBlank() }
         ?: metadata?.hash?.takeIf { it.isNotBlank() }
 
     val isAudio: Boolean
