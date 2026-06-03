@@ -123,7 +123,7 @@ Sharesonic uses two separate APIs from mStream:
 
 ---
 
-## Roadmap / known limitations (v0.3.0)
+## Roadmap / known limitations (v0.1.0)
 
 - No offline caching or download for offline playback
 - No playlist management
