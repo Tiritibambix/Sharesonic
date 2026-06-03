@@ -38,11 +38,11 @@ data class MStreamFile(
     val path: String? = null,
     val type: String? = null,
     val filepath: String? = null,
-    /** Present when pullMetadata=true. */
-    val metadata: MStreamMetadata? = null
+    /** Present when pullMetadata=true. Double-nested: metadata.metadata.hash */
+    val metadata: MStreamFileMetaWrapper? = null
 ) {
     /** The Subsonic-compatible ID to pass to /rest/stream and createShare. */
-    val subsonicId: String? get() = metadata?.hash
+    val subsonicId: String? get() = metadata?.metadata?.hash
 
     val isAudio: Boolean
         get() = type?.lowercase() in AUDIO_EXTENSIONS
@@ -55,7 +55,12 @@ data class MStreamFile(
     }
 }
 
-data class MStreamMetadata(
+data class MStreamFileMetaWrapper(
+    val filepath: String? = null,
+    val metadata: MStreamInnerMetadata? = null
+)
+
+data class MStreamInnerMetadata(
     val hash: String? = null,
     val title: String? = null,
     val artist: String? = null,
