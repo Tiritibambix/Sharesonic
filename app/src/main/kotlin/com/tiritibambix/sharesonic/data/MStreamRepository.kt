@@ -5,7 +5,10 @@ import com.tiritibambix.sharesonic.data.api.models.EntryDto
 import com.tiritibambix.sharesonic.data.api.models.FileExplorerRequest
 import com.tiritibambix.sharesonic.data.api.models.FileExplorerResponse
 import com.tiritibambix.sharesonic.data.api.models.MStreamFile
+import com.tiritibambix.sharesonic.data.api.models.MStreamFileMetaWrapper
 import com.tiritibambix.sharesonic.data.api.models.MStreamLoginRequest
+import com.tiritibambix.sharesonic.data.api.models.MStreamRandomSongsRequest
+import com.tiritibambix.sharesonic.data.api.models.MStreamShareListItem
 import com.tiritibambix.sharesonic.data.api.models.MStreamShareRequest
 
 class MStreamRepository(private val api: MStreamApiService) {
@@ -130,6 +133,79 @@ class MStreamRepository(private val api: MStreamApiService) {
         }
     }
 
+    // ── Auth ──────────────────────────────────────────────────────────────────
+
+    /**
+     * Refresh the JWT token. Call on app boot when a stored token exists.
+     * On success, the caller should persist the new token via SettingsRepository.saveToken().
+     */
+    suspend fun refreshToken(token: String): Result<String> = try {
+        val resp = api.refreshToken(token)
+        if (!resp.token.isNullOrEmpty()) Result.Success(resp.token)
+        else Result.Error("Token refresh failed")
+    } catch (e: Exception) { Result.Error(e.message ?: "Network error") }
+
+    // ── Random songs ──────────────────────────────────────────────────────────
+
+    /**
+     * Fetch [count] random songs from the library using the native Velvet endpoint.
+     * Makes [count] sequential calls, each passing the server's updated ignore list
+     * so every song is unique. Replaces Subsonic getRandomSongs for shuffle-all.
+     *
+     * Performance: ~30 calls on a LAN ≈ 1.5–2 s.
+     */
+    suspend fun getRandomSongs(token: String, count: Int = 30): Result<List<EntryDto>> {
+        val results = mutableListOf<EntryDto>()
+        var ignoreList = emptyList<Int>()
+        repeat(count) {
+            try {
+                val resp = api.randomSong(token, MStreamRandomSongsRequest(ignoreList = ignoreList))
+                ignoreList = resp.ignoreList
+                val wrapper = resp.songs.firstOrNull() ?: return@repeat
+                fileMetaWrapperToEntryDto(wrapper)?.let { results.add(it) }
+            } catch (_: Exception) { return@repeat }
+        }
+        return if (results.isNotEmpty()) Result.Success(results)
+        else Result.Error("No songs returned")
+    }
+
+    // ── Share list / revoke ───────────────────────────────────────────────────
+
+    /** Fetch the authenticated user's share links. */
+    suspend fun getShareList(token: String): Result<List<MStreamShareListItem>> = try {
+        Result.Success(api.getShareList(token))
+    } catch (e: Exception) { Result.Error(e.message ?: "Network error") }
+
+    /**
+     * Delete every share link whose expiry timestamp is in the past.
+     * Silently ignores network and parse errors — best-effort cleanup only.
+     */
+    suspend fun cleanupExpiredShares(token: String) {
+        try {
+            val shares = api.getShareList(token)
+            val nowSeconds = System.currentTimeMillis() / 1000L
+            shares.forEach { share ->
+                val exp = share.expires ?: return@forEach
+                if (exp < nowSeconds) {
+                    try { api.deleteShare(token, share.playlistId) } catch (_: Exception) {}
+                }
+            }
+        } catch (_: Exception) {}
+    }
+
+    // ── On-demand art ─────────────────────────────────────────────────────────
+
+    /**
+     * Extract embedded album art from any audio file and return the cache filename.
+     * Returns null when no embedded art is found or on network error.
+     * The art URL is: <serverUrl>/album-art/<aaFile>?token=<jwt>
+     */
+    suspend fun getArtFilename(token: String, filepath: String): String? = try {
+        api.getArt(token, filepath).aaFile
+    } catch (_: Exception) { null }
+
+    // ── Private helpers ───────────────────────────────────────────────────────
+
     private fun fileToEntryDto(file: MStreamFile): EntryDto? {
         // The full mStream filepath (library + relative path) is our stable identifier.
         // It is used to build the native stream URL: /media/<filepath>?token=<jwt>
@@ -138,6 +214,25 @@ class MStreamRepository(private val api: MStreamApiService) {
         return EntryDto(
             id = filepath,
             title = meta?.title?.takeIf { it.isNotBlank() } ?: file.name,
+            artist = meta?.artist,
+            album = meta?.album,
+            coverArt = meta?.albumArt,
+            isDir = false,
+            path = filepath
+        )
+    }
+
+    /**
+     * Map a [MStreamFileMetaWrapper] (from /api/v1/db/random-songs) to an [EntryDto].
+     * Uses [MStreamFileMetaWrapper.filepath] as the entry ID — same native filepath
+     * format as file-explorer pullMetadata=true, so streaming and sharing work identically.
+     */
+    private fun fileMetaWrapperToEntryDto(wrapper: MStreamFileMetaWrapper): EntryDto? {
+        val filepath = wrapper.filepath?.takeIf { it.isNotBlank() } ?: return null
+        val meta = wrapper.metadata
+        return EntryDto(
+            id = filepath,
+            title = meta?.title?.takeIf { it.isNotBlank() } ?: filepath.substringAfterLast('/').substringBeforeLast('.'),
             artist = meta?.artist,
             album = meta?.album,
             coverArt = meta?.albumArt,
