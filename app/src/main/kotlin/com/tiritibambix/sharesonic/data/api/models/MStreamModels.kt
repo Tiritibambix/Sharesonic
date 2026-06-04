@@ -91,7 +91,8 @@ data class MStreamInnerMetadata(
 
 /**
  * POST /api/v1/share — create a public share link.
- * The resulting URL is <serverUrl>/shared/<shareId>.
+ * [time] = number of days until expiry; omit for a permanent link.
+ * The resulting URL is <serverUrl>/shared/<playlistId>.
  */
 data class MStreamShareRequest(
     val playlist: List<String>,
@@ -99,5 +100,51 @@ data class MStreamShareRequest(
 )
 
 data class MStreamShareResponse(
-    val playlistId: String? = null
+    val playlistId: String? = null,
+    /** Unix timestamp (seconds) of expiry, or null for permanent links. */
+    val expires: Long? = null
 )
+
+/** One item from GET /api/v1/share/list. */
+data class MStreamShareListItem(
+    val playlistId: String = "",
+    val songCount: Int = 0,
+    /** Unix timestamp (seconds) of expiry, or null for permanent links. */
+    val expires: Long? = null
+)
+
+// ── Native random songs (POST /api/v1/db/random-songs) ────────────────────────
+
+/**
+ * Request body for POST /api/v1/db/random-songs.
+ * The server returns one random song per call; pass the updated [ignoreList]
+ * from each response back on the next call to avoid repeats.
+ */
+data class MStreamRandomSongsRequest(
+    val ignoreList: List<Int> = emptyList(),
+    val ignorePercentage: Float? = null,
+    val ignoreVPaths: List<String>? = null,
+    val filepathPrefix: String? = null
+)
+
+/**
+ * Response from POST /api/v1/db/random-songs.
+ * [songs] contains exactly one entry per call.
+ * [ignoreList] is the input list with the new song's positional index appended;
+ * pass it back on the next call.
+ * Reuses [MStreamFileMetaWrapper] — same shape as pullMetadata=true file-explorer entries.
+ */
+data class MStreamRandomSongsResponse(
+    val songs: List<MStreamFileMetaWrapper> = emptyList(),
+    val ignoreList: List<Int> = emptyList()
+)
+
+// ── Auth refresh ───────────────────────────────────────────────────────────────
+
+/** Response from GET /api/v1/auth/refresh. */
+data class MStreamRefreshResponse(val token: String? = null)
+
+// ── On-demand art ─────────────────────────────────────────────────────────────
+
+/** Response from GET /api/v1/files/art?fp=<filepath>. */
+data class MStreamArtResponse(@SerializedName("aaFile") val aaFile: String? = null)
