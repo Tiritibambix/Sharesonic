@@ -12,7 +12,7 @@ Most music apps are built around curation: playlists you already know, albums yo
 
 Sharesonic is built for the other scenario — the large, chaotic, lovingly disorganised self-hosted library where the best discoveries happen by accident.
 
-- **Shuffle a whole library** — hit shuffle at the root level and let 200 random tracks from your entire collection play back-to-back. You will hear things you forgot you had.
+- **Shuffle a whole library** — hit shuffle at the root level and let random tracks from your entire collection play back-to-back. You will hear things you forgot you had.
 - **Shuffle a folder** — narrow the randomness to a genre, a decade, an artist. Still surprising, still exploratory, with a little more context.
 - **Browse by folder** — the folder tree is the primary navigation mode. Your directory structure, exactly as you organised it on the server.
 - **Share what you find** — when shuffle surfaces something worth passing on, one tap generates a public share link and opens the Android share sheet. Send it to anyone.
@@ -24,7 +24,7 @@ Sharesonic is built for the other scenario — the large, chaotic, lovingly diso
 | Feature | Details |
 |---|---|
 | **Folder browsing** | Navigate your full directory tree from root to individual tracks |
-| **Shuffle library** | Server-side random pick via `getRandomSongs` — up to 200 tracks |
+| **Shuffle library** | Server-side random pick via native Velvet API — 30 tracks, no repeats |
 | **Shuffle folder** | Recursive collect + shuffle on any sub-directory |
 | **Share link** | Native mStream share API → public `server/shared/XXXXXXXXXX` URL → Android share sheet |
 | **Now Playing** | Cover art, seek bar with elapsed/total time, artist · album info |
@@ -44,9 +44,9 @@ Sharesonic is built for the other scenario — the large, chaotic, lovingly diso
 
 ## Server compatibility
 
-Sharesonic is built exclusively for **[mStream](https://mstream.io)**. It uses mStream's native API for browsing, streaming, and sharing, and mStream's Subsonic compatibility layer for library-wide shuffle and search.
+Sharesonic is built for **[mStream Velvet](https://mstream.io)** (v7.x). It uses mStream's native API for browsing, streaming, sharing, and shuffle, and the Subsonic compatibility layer for search only.
 
-It does not support Navidrome, Airsonic, Subsonic, or other Subsonic-compatible servers.
+Generic Subsonic servers (Navidrome, Airsonic, etc.) are not supported yet — planned for a future release.
 
 ---
 
@@ -109,17 +109,20 @@ Sharesonic uses two separate APIs from mStream:
 | Endpoint | Purpose |
 |---|---|
 | `POST /api/v1/auth/login` | JWT authentication |
+| `GET /api/v1/auth/refresh` | Refresh JWT on boot |
 | `POST /api/v1/file-explorer` | Folder browsing + file metadata |
 | `GET /media/<filepath>?token=<jwt>` | Audio streaming |
 | `GET /album-art/<file>?token=<jwt>` | Cover art |
-| `POST /api/v1/share` | Generate public share link |
+| `POST /api/v1/share` | Generate public share link (`time` = days) |
+| `GET /api/v1/share/list` | List own share links |
+| `DELETE /api/v1/share/:id` | Revoke a share link |
+| `POST /api/v1/db/random-songs` | Random song for shuffle (called 30×) |
 
-### Subsonic API (shuffle-all and search only)
+### Subsonic API (search only)
 
 | Endpoint | Purpose |
 |---|---|
-| `getRandomSongs` | Server-side random pool for library shuffle |
-| `search3` | Full-text search |
+| `search3` | Full-text search across songs, albums, artists |
 
 ---
 

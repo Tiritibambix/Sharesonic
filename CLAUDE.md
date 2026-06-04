@@ -69,7 +69,22 @@ Content-Type: application/json
 
 All subsequent native API calls send the JWT as: `x-access-token: <token>`
 
+The app also sends `Authorization: Bearer <token>` on every request (added by an OkHttp
+interceptor) for reverse-proxy compatibility. The server accepts either header.
+
 The token can also be passed as a query parameter: `?token=<jwt>`
+
+### Token refresh
+
+```
+GET /api/v1/auth/refresh
+x-access-token: <token>
+→ { "token": "eyJ..." }
+```
+
+Called once on app boot (in `SettingsViewModel.init`) when a stored JWT exists.
+On success the new token is persisted via `SettingsRepository.saveToken()`.
+Silently ignored on failure — `ensureToken()` will re-login if the token is truly expired.
 
 ### File Explorer
 
@@ -134,27 +149,65 @@ POST /api/v1/share
 x-access-token: <token>
 Content-Type: application/json
 
-{ "playlist": ["library/Artist/Album/track.mp3"] }
+{ "playlist": ["library/Artist/Album/track.mp3"], "time": 14 }
 
-→ { "playlistId": "XXXXXXXXXX", "playlist": [...], "user": "...", "expires": null, "token": "..." }
+→ { "playlistId": "XXXXXXXXXX", "expires": 1748000000, "playlist": [...], "user": "...", "token": "..." }
 ```
+
+* `time` = number of **days** until expiry (omit for a permanent link). **Not** a Unix timestamp.
+* `expires` in the response = Unix timestamp in seconds (or `null` for permanent links).
 
 The public share URL is `<serverUrl>/shared/<playlistId>`.
 
+### Share list and revoke
+
+```
+GET  /api/v1/share/list          → [{ playlistId, songCount, expires }]
+DELETE /api/v1/share/:playlistId → { "success": true }
+```
+
+`cleanupExpiredShares()` in `MStreamRepository` fetches the list and calls DELETE for each share
+whose `expires` is in the past. Called fire-and-forget in `FolderBrowserViewModel.init`.
+
+### Native random songs
+
+```
+POST /api/v1/db/random-songs
+x-access-token: <token>
+Content-Type: application/json
+
+{ "ignoreList": [3, 17, 42], "filepathPrefix": "/Music" }
+
+→ { "songs": [{ "filepath": "Music/Artist/Album/track.flac", "metadata": { ... } }], "ignoreList": [3, 17, 42, 88] }
+```
+
+Returns **one song per call**. The app calls it 30 times sequentially, passing the updated
+`ignoreList` each time, to build a shuffle queue. Songs have `filepath` as identifier —
+identical to `file-explorer` `pullMetadata=true` entries. Replaces Subsonic `getRandomSongs`.
+
+### On-demand art
+
+```
+GET /api/v1/files/art?fp=<filepath>
+→ { "aaFile": "d41d8cd98f.jpg" }   // or { "aaFile": null }
+```
+
+Extracts embedded album art from any audio file. Returns the cache filename for use with
+`GET /album-art/<aaFile>?token=<jwt>`. Implemented in `MStreamRepository.getArtFilename()`
+(data layer only — not yet wired to the UI).
+
 ## Subsonic API Endpoints Used
 
-The Subsonic API (`/rest/`) is used **only for search and library-wide shuffle**.
-It is NOT used for streaming, sharing, or browsing.
+The Subsonic API (`/rest/`) is used **only for search**.
+It is NOT used for streaming, sharing, browsing, or shuffle.
 
 **Important:** mStream Subsonic IDs are plain integer database row IDs (e.g. `42`).
-They are returned by Subsonic endpoints (`getRandomSongs`, `search3`) and are valid
-only with other Subsonic endpoints (`stream.view`, `createShare`).
+They are returned by `search3` and are valid only with other Subsonic endpoints.
 Do NOT use file content hashes as Subsonic IDs.
 
-* `getRandomSongs` — server-side random pool for shuffle-all (returns songs with integer IDs)
-* `search3` — full-text search across songs, albums, artists
-* `createShare` — generate a share URL for songs obtained via Subsonic (`getRandomSongs` results only)
-* `getCoverArt` — cover art for songs/albums obtained via Subsonic
+* `search3` — full-text search across songs, albums, artists (returns integer IDs)
+* `createShare` — generate a share URL for songs obtained via `search3` only
+* `getCoverArt` — cover art for songs/albums obtained via Subsonic search
 
 Subsonic auth: `u=<username>`, `p=<plain-text password>`, `v=1.16.1`, `c=Sharesonic`, `f=json`
 
@@ -167,9 +220,11 @@ Songs have two origins with different identifiers:
 | Origin | `EntryDto.id` | Stream URL | Share |
 |---|---|---|---|
 | `file-explorer` (browsing) | filepath string | `/media/<id>?token=<jwt>` | `POST /api/v1/share` |
-| `getRandomSongs` (shuffle-all) | numeric string (`"42"`) | `/rest/stream.view?id=42&...` | `createShare?id=42` |
+| `db/random-songs` (shuffle-all) | filepath string | `/media/<id>?token=<jwt>` | `POST /api/v1/share` |
+| `search3` (search results) | numeric string (`"42"`) | `/rest/stream.view?id=42&...` | `createShare?id=42` |
 
-The app distinguishes them by checking `id.all { it.isDigit() }`.
+The app distinguishes Subsonic integer IDs by checking `id.all { it.isDigit() }`.
+Shuffle-all songs now use the native filepath path — no integer IDs from shuffle.
 
 ## Build & Distribution
 
