@@ -14,6 +14,17 @@ object MStreamClient {
             .connectTimeout(30, TimeUnit.SECONDS)
             .readTimeout(60, TimeUnit.SECONDS)
             .writeTimeout(30, TimeUnit.SECONDS)
+            // Mirror x-access-token as Authorization: Bearer for reverse-proxy compatibility
+            .addInterceptor { chain ->
+                val original = chain.request()
+                val token = original.header("x-access-token")
+                val request = if (!token.isNullOrEmpty()) {
+                    original.newBuilder()
+                        .addHeader("Authorization", "Bearer $token")
+                        .build()
+                } else original
+                chain.proceed(request)
+            }
             .addInterceptor(HttpLoggingInterceptor().apply {
                 level = HttpLoggingInterceptor.Level.BASIC
             })
