@@ -120,10 +120,8 @@ class MStreamRepository(private val api: MStreamApiService) {
         expiryDays: Int? = null
     ): Result<String> {
         return try {
-            val expirySeconds = expiryDays?.let {
-                (System.currentTimeMillis() / 1000L + it * 86400L).toInt()
-            }
-            val resp = api.share(token, MStreamShareRequest(playlist = filepaths, time = expirySeconds))
+            // Velvet interprets `time` as a number of days (expiresIn: '${time}d')
+            val resp = api.share(token, MStreamShareRequest(playlist = filepaths, time = expiryDays))
             val shareId = resp.playlistId
             if (!shareId.isNullOrBlank()) Result.Success(shareId)
             else Result.Error("Share failed: no shareId returned")
