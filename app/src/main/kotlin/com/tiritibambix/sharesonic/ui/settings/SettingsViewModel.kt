@@ -11,6 +11,7 @@ import com.tiritibambix.sharesonic.data.settings.SettingsRepository
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
@@ -26,6 +27,19 @@ class SettingsViewModel(private val repo: SettingsRepository) : ViewModel() {
 
     val settings: StateFlow<ServerSettings> = repo.settings
         .stateIn(viewModelScope, SharingStarted.Eagerly, ServerSettings())
+
+    init {
+        // On boot, refresh the stored JWT so it stays signed by the current server secret.
+        // Silently ignored on failure — ensureToken() will re-login if the token is truly expired.
+        viewModelScope.launch {
+            val s = repo.settings.first()
+            if (s.isConfigured && s.jwtToken.isNotEmpty()) {
+                val mstr = MStreamRepository(MStreamClient.build(s.serverUrl))
+                val result = mstr.refreshToken(s.jwtToken)
+                if (result is Result.Success) repo.saveToken(result.data)
+            }
+        }
+    }
 
     private val _connectionState = MutableStateFlow<ConnectionState>(ConnectionState.Idle)
     val connectionState: StateFlow<ConnectionState> = _connectionState

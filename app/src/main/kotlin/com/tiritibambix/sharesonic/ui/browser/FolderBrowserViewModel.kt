@@ -41,7 +41,7 @@ sealed interface ShareState {
  *
  * Directory entry.id  = mStream path     (for navigation → next file-explorer call)
  * File entry.id       = mStream filepath (for /media/<filepath>?token= streaming)
- *                     OR numeric string  (Subsonic integer ID from getRandomSongs)
+ *                     OR numeric string  (Subsonic integer ID from search3 results only)
  */
 class FolderBrowserViewModel(
     private val settingsRepo: SettingsRepository,
@@ -73,14 +73,12 @@ class FolderBrowserViewModel(
 
     init {
         load()
-        // Fire-and-forget: delete expired Subsonic shares on each browser open
+        // Fire-and-forget: delete expired native share links on each browser open
         viewModelScope.launch {
             val settings = settingsRepo.settings.first()
             if (!settings.isConfigured) return@launch
-            val subsonicRepo = SubsonicRepository(
-                SubsonicClient.build(settings.serverUrl, settings.username, settings.password)
-            )
-            subsonicRepo.cleanupExpiredShares()
+            val token = ensureToken(settings) ?: return@launch
+            MStreamRepository(MStreamClient.build(settings.serverUrl)).cleanupExpiredShares(token)
         }
     }
 
@@ -125,11 +123,10 @@ class FolderBrowserViewModel(
         viewModelScope.launch {
             val settings = settingsRepo.settings.first()
             if (folderId == Screen.Browser.ROOT) {
-                // Shuffle whole library via Subsonic getRandomSongs
-                val subsonicRepo = SubsonicRepository(
-                    SubsonicClient.build(settings.serverUrl, settings.username, settings.password)
-                )
-                when (val r = subsonicRepo.getRandomSongs(200)) {
+                // Shuffle whole library via native Velvet random-songs endpoint
+                val token = ensureToken(settings) ?: run { onError("Authentication failed"); return@launch }
+                val mStream = MStreamRepository(MStreamClient.build(settings.serverUrl))
+                when (val r = mStream.getRandomSongs(token, count = 30)) {
                     is Result.Success -> {
                         if (r.data.isEmpty()) onError("No songs found")
                         else onReady(r.data.shuffled())
@@ -170,7 +167,7 @@ class FolderBrowserViewModel(
                     }
                 }
                 entry.id.all { it.isDigit() } -> {
-                    // Song from getRandomSongs — has a real Subsonic integer ID
+                    // Song from Subsonic search3 — has an integer ID, share via Subsonic createShare
                     val subsonicRepo = SubsonicRepository(
                         SubsonicClient.build(settings.serverUrl, settings.username, settings.password)
                     )
