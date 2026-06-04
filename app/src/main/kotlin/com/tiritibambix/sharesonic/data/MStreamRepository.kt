@@ -94,11 +94,36 @@ class MStreamRepository(private val api: MStreamApiService) {
      *
      * @param token    JWT bearer token
      * @param filepath Full mStream filepath (e.g. "library/Artist/Album/track.mp3")
-     * @return the shareId — caller builds URL as <serverUrl>/shared/<shareId>
+     * @return the playlistId — caller builds URL as <serverUrl>/shared/<playlistId>
      */
-    suspend fun share(token: String, filepath: String): Result<String> {
+    suspend fun share(token: String, filepath: String): Result<String> =
+        shareFilepaths(token, listOf(filepath))
+
+    /**
+     * Create a public share link for all audio tracks under [path].
+     * Recursively collects every track and creates a single shared playlist
+     * with a 14-day expiry.
+     *
+     * @param token JWT bearer token
+     * @param path  mStream directory path (e.g. "/library/Artist")
+     * @return the playlistId — caller builds URL as <serverUrl>/shared/<playlistId>
+     */
+    suspend fun shareFolder(token: String, path: String): Result<String> {
+        val songs = collectSongs(token, path)
+        if (songs.isEmpty()) return Result.Error("No audio files found in folder")
+        return shareFilepaths(token, songs.map { it.id }, expiryDays = 14)
+    }
+
+    private suspend fun shareFilepaths(
+        token: String,
+        filepaths: List<String>,
+        expiryDays: Int? = null
+    ): Result<String> {
         return try {
-            val resp = api.share(token, MStreamShareRequest(playlist = listOf(filepath)))
+            val expirySeconds = expiryDays?.let {
+                (System.currentTimeMillis() / 1000L + it * 86400L).toInt()
+            }
+            val resp = api.share(token, MStreamShareRequest(playlist = filepaths, time = expirySeconds))
             val shareId = resp.playlistId
             if (!shareId.isNullOrBlank()) Result.Success(shareId)
             else Result.Error("Share failed: no shareId returned")

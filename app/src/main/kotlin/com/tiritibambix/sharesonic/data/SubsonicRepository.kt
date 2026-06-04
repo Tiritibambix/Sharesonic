@@ -55,4 +55,25 @@ class SubsonicRepository(private val api: SubsonicApiService) {
             Result.Error(e.message ?: "Network error")
         }
     }
+
+    /**
+     * Delete every Subsonic share whose expiry date is in the past.
+     * Silently ignores parse and network errors — best-effort cleanup only.
+     */
+    suspend fun cleanupExpiredShares() {
+        try {
+            val body = api.getShares().response
+            if (body.status != "ok") return
+            val shares = body.shares?.share ?: return
+            val now = java.time.Instant.now()
+            shares.forEach { share ->
+                val expires = share.expires ?: return@forEach
+                try {
+                    if (java.time.Instant.parse(expires).isBefore(now)) {
+                        api.deleteShare(share.id)
+                    }
+                } catch (_: Exception) {}
+            }
+        } catch (_: Exception) {}
+    }
 }

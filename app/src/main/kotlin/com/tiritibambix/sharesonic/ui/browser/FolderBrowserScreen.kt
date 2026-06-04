@@ -193,7 +193,7 @@ fun FolderBrowserScreen(
                     TextButton(
                         onClick = {
                             showContextMenu = false
-                            viewModel.shareEntry(entry.id)
+                            viewModel.shareEntry(entry)
                         },
                         modifier = Modifier.fillMaxWidth()
                     ) { Text("🔗  Share link") }

@@ -37,10 +37,11 @@ sealed interface ShareState {
  *   folderId == "root"  → POST /api/v1/file-explorer  { directory: "" }
  *                         shows top-level directories
  *   folderId == path    → POST /api/v1/file-explorer  { directory: path, pullMetadata: true }
- *                         shows subdirectories + audio files with Subsonic IDs
+ *                         shows subdirectories + audio files with native filepaths
  *
- * Directory entry.id  = mStream path  (for navigation → next file-explorer call)
- * File entry.id       = Subsonic trackId (for playback via /rest/stream and createShare)
+ * Directory entry.id  = mStream path     (for navigation → next file-explorer call)
+ * File entry.id       = mStream filepath (for /media/<filepath>?token= streaming)
+ *                     OR numeric string  (Subsonic integer ID from getRandomSongs)
  */
 class FolderBrowserViewModel(
     private val settingsRepo: SettingsRepository,
@@ -70,7 +71,18 @@ class FolderBrowserViewModel(
         }
     }
 
-    init { load() }
+    init {
+        load()
+        // Fire-and-forget: delete expired Subsonic shares on each browser open
+        viewModelScope.launch {
+            val settings = settingsRepo.settings.first()
+            if (!settings.isConfigured) return@launch
+            val subsonicRepo = SubsonicRepository(
+                SubsonicClient.build(settings.serverUrl, settings.username, settings.password)
+            )
+            subsonicRepo.cleanupExpiredShares()
+        }
+    }
 
     private fun load() {
         viewModelScope.launch {
@@ -89,7 +101,7 @@ class FolderBrowserViewModel(
 
             val mStream = MStreamRepository(MStreamClient.build(settings.serverUrl))
             val path = if (folderId == Screen.Browser.ROOT) "" else folderId
-            // pullMetadata=true only for non-root (files need Subsonic IDs)
+            // pullMetadata=true only for non-root so files get filepaths for native streaming
             val pullMeta = path.isNotEmpty()
 
             when (val r = mStream.fileExplorer(token, path, pullMeta)) {
@@ -137,32 +149,50 @@ class FolderBrowserViewModel(
 
     // ── Share ─────────────────────────────────────────────────────────────────
 
-    fun shareEntry(entryId: String) {
+    fun shareEntry(entry: EntryDto) {
         _shareState.update { ShareState.Loading }
         viewModelScope.launch {
             val settings = settingsRepo.settings.first()
-            if (entryId.all { it.isDigit() }) {
-                // Song from getRandomSongs — has a real Subsonic integer ID
-                val subsonicRepo = SubsonicRepository(
-                    SubsonicClient.build(settings.serverUrl, settings.username, settings.password)
-                )
-                when (val r = subsonicRepo.createShare(entryId)) {
-                    is Result.Success -> _shareState.update { ShareState.Done(r.data.url) }
-                    is Result.Error   -> _shareState.update { ShareState.Error(r.message) }
-                }
-            } else {
-                // mStream native song — use filepath with native share endpoint
-                val token = ensureToken(settings) ?: run {
-                    _shareState.update { ShareState.Error("Authentication failed") }
-                    return@launch
-                }
-                val mStream = MStreamRepository(MStreamClient.build(settings.serverUrl))
-                when (val r = mStream.share(token, entryId)) {
-                    is Result.Success -> {
-                        val url = settings.serverUrl.trimEnd('/') + "/shared/${r.data}"
-                        _shareState.update { ShareState.Done(url) }
+            when {
+                entry.isDir -> {
+                    // Folder → collect all tracks, share as playlist with 14-day expiry
+                    val jwt = ensureToken(settings) ?: run {
+                        _shareState.update { ShareState.Error("Authentication failed") }
+                        return@launch
                     }
-                    is Result.Error -> _shareState.update { ShareState.Error(r.message) }
+                    val mStream = MStreamRepository(MStreamClient.build(settings.serverUrl))
+                    when (val r = mStream.shareFolder(jwt, entry.id)) {
+                        is Result.Success -> {
+                            val url = settings.serverUrl.trimEnd('/') + "/shared/${r.data}"
+                            _shareState.update { ShareState.Done(url) }
+                        }
+                        is Result.Error -> _shareState.update { ShareState.Error(r.message) }
+                    }
+                }
+                entry.id.all { it.isDigit() } -> {
+                    // Song from getRandomSongs — has a real Subsonic integer ID
+                    val subsonicRepo = SubsonicRepository(
+                        SubsonicClient.build(settings.serverUrl, settings.username, settings.password)
+                    )
+                    when (val r = subsonicRepo.createShare(entry.id)) {
+                        is Result.Success -> _shareState.update { ShareState.Done(r.data.url) }
+                        is Result.Error   -> _shareState.update { ShareState.Error(r.message) }
+                    }
+                }
+                else -> {
+                    // mStream native song — use filepath with native share endpoint
+                    val jwt = ensureToken(settings) ?: run {
+                        _shareState.update { ShareState.Error("Authentication failed") }
+                        return@launch
+                    }
+                    val mStream = MStreamRepository(MStreamClient.build(settings.serverUrl))
+                    when (val r = mStream.share(jwt, entry.id)) {
+                        is Result.Success -> {
+                            val url = settings.serverUrl.trimEnd('/') + "/shared/${r.data}"
+                            _shareState.update { ShareState.Done(url) }
+                        }
+                        is Result.Error -> _shareState.update { ShareState.Error(r.message) }
+                    }
                 }
             }
         }

@@ -94,7 +94,8 @@ data class MStreamInnerMetadata(
  * The resulting URL is <serverUrl>/shared/<shareId>.
  */
 data class MStreamShareRequest(
-    val playlist: List<String>
+    val playlist: List<String>,
+    val time: Int? = null
 )
 
 data class MStreamShareResponse(
