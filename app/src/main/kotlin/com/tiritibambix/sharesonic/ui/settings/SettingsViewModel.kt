@@ -47,14 +47,15 @@ class SettingsViewModel(private val repo: SettingsRepository) : ViewModel() {
     /** Last JWT obtained from a successful test — included when saving. */
     private var _pendingToken: String = ""
 
-    fun save(serverUrl: String, username: String, password: String) {
+    fun save(serverUrl: String, username: String, password: String, subsonicPassword: String = "") {
         viewModelScope.launch {
             repo.save(
                 ServerSettings(
-                    serverUrl = serverUrl.trim(),
-                    username  = username.trim(),
-                    password  = password,
-                    jwtToken  = _pendingToken.ifEmpty { settings.value.jwtToken }
+                    serverUrl        = serverUrl.trim(),
+                    username         = username.trim(),
+                    password         = password,
+                    jwtToken         = _pendingToken.ifEmpty { settings.value.jwtToken },
+                    subsonicPassword = subsonicPassword
                 )
             )
             _connectionState.update { ConnectionState.Idle }

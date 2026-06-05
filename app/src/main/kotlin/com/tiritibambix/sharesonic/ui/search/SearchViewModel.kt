@@ -47,6 +47,12 @@ class SearchViewModel(private val settingsRepo: SettingsRepository) : ViewModel(
             delay(350) // debounce
             _searchState.update { SearchState.Loading }
             val settings = settingsRepo.settings.first()
+            if (settings.subsonicPassword.isBlank()) {
+                _searchState.update {
+                    SearchState.Error("Subsonic password not configured — set it in Settings")
+                }
+                return@launch
+            }
             val repo = buildRepo(settings)
             when (val r = repo.search(q.trim())) {
                 is Result.Success -> _searchState.update { SearchState.Results(r.data) }
@@ -60,8 +66,8 @@ class SearchViewModel(private val settingsRepo: SettingsRepository) : ViewModel(
         return null // Resolved lazily in screen via remember
     }
 
-    private suspend fun buildRepo(settings: ServerSettings): SubsonicRepository {
-        val api = SubsonicClient.build(settings.serverUrl, settings.username, settings.password)
+    private fun buildRepo(settings: ServerSettings): SubsonicRepository {
+        val api = SubsonicClient.build(settings.serverUrl, settings.username, settings.subsonicPassword)
         return SubsonicRepository(api)
     }
 }
