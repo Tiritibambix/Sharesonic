@@ -2,9 +2,13 @@ package com.tiritibambix.sharesonic.ui.browser
 
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.combinedClickable
+import androidx.compose.foundation.gestures.detectDragGestures
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
@@ -13,12 +17,19 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.hapticfeedback.HapticFeedback
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalHapticFeedback
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import coil.compose.AsyncImage
 import com.tiritibambix.sharesonic.data.api.models.EntryDto
 import com.tiritibambix.sharesonic.ui.player.PlayerViewModel
+import kotlinx.coroutines.launch
 
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalFoundationApi::class)
 @Composable
@@ -40,6 +51,28 @@ fun FolderBrowserScreen(
     var showContextMenu by remember { mutableStateOf(false) }
     var shuffleLoading by remember { mutableStateOf(false) }
     var shuffleError by remember { mutableStateOf<String?>(null) }
+
+    // ── Letter strip state ────────────────────────────────────────────────────
+    val listState = rememberLazyListState()
+    val haptic = LocalHapticFeedback.current
+    var draggingLetter by remember { mutableStateOf<Char?>(null) }
+
+    // Build letter → first-item-index map whenever the entry list changes.
+    // Computed at top level (not inside `when`) to comply with Compose rules.
+    val entries = (state as? BrowserState.Ready)?.entries ?: emptyList()
+    val letterIndex: Map<Char, Int> = remember(entries) {
+        buildMap {
+            entries.forEachIndexed { idx, entry ->
+                val ch = entry.displayName.firstOrNull() ?: return@forEachIndexed
+                val key = if (ch.isLetter()) ch.uppercaseChar() else '#'
+                if (!containsKey(key)) put(key, idx)
+            }
+        }
+    }
+    val letters: List<Char> = remember(letterIndex) { letterIndex.keys.toList() }
+
+    // Reset drag state when the folder changes
+    LaunchedEffect(entries) { draggingLetter = null }
 
     LaunchedEffect(shareState) {
         if (shareState is ShareState.Done) {
@@ -119,32 +152,53 @@ fun FolderBrowserScreen(
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
                     } else {
-                        LazyColumn(
-                            modifier = Modifier.fillMaxSize(),
-                            contentPadding = PaddingValues(bottom = 88.dp) // clear FAB
-                        ) {
-                            items(s.entries, key = { it.id }) { entry ->
-                                EntryRow(
-                                    entry = entry,
-                                    coverArtUrl = entry.coverArt?.let { viewModel.coverArtUrl(it) },
-                                    onClick = {
-                                        if (entry.isDir) onOpenFolder(entry.id, entry.displayName)
-                                        else {
-                                            playerViewModel.playSong(entry)
-                                            onOpenNowPlaying()
-                                        }
-                                    },
-                                    onLongClick = {
-                                        contextEntry = entry
-                                        showContextMenu = true
-                                    }
+                        Box(modifier = Modifier.fillMaxSize()) {
+                            LazyColumn(
+                                state = listState,
+                                modifier = Modifier.fillMaxSize(),
+                                contentPadding = PaddingValues(
+                                    bottom = 88.dp, // clear FAB
+                                    end = if (letters.size >= 2) 28.dp else 0.dp
                                 )
-                                HorizontalDivider(thickness = 0.5.dp)
+                            ) {
+                                items(s.entries, key = { it.id }) { entry ->
+                                    EntryRow(
+                                        entry = entry,
+                                        coverArtUrl = entry.coverArt?.let { viewModel.coverArtUrl(it) },
+                                        onClick = {
+                                            if (entry.isDir) onOpenFolder(entry.id, entry.displayName)
+                                            else {
+                                                playerViewModel.playSong(entry)
+                                                onOpenNowPlaying()
+                                            }
+                                        },
+                                        onLongClick = {
+                                            contextEntry = entry
+                                            showContextMenu = true
+                                        }
+                                    )
+                                    HorizontalDivider(thickness = 0.5.dp)
+                                }
+                            }
+
+                            if (letters.size >= 2) {
+                                LetterStrip(
+                                    letters = letters,
+                                    activeLetter = draggingLetter,
+                                    letterIndex = letterIndex,
+                                    listState = listState,
+                                    haptic = haptic,
+                                    onDragging = { draggingLetter = it },
+                                    modifier = Modifier.align(Alignment.CenterEnd)
+                                )
                             }
                         }
                     }
                 }
             }
+
+            // Floating letter bubble during strip drag
+            draggingLetter?.let { LetterBubble(letter = it) }
 
             if (shareState is ShareState.Loading) {
                 CircularProgressIndicator(modifier = Modifier.align(Alignment.Center))
@@ -311,4 +365,99 @@ private fun formatDuration(seconds: Int): String {
     val m = seconds / 60
     val s = seconds % 60
     return "%d:%02d".format(m, s)
+}
+
+// ── Letter strip ──────────────────────────────────────────────────────────────
+
+/**
+ * Vertical alphabetical fast-scroller overlay.
+ * Touch or drag to jump the list to the first item starting with that letter.
+ * Haptic feedback fires on every letter change.
+ */
+@Composable
+private fun LetterStrip(
+    letters: List<Char>,
+    activeLetter: Char?,
+    letterIndex: Map<Char, Int>,
+    listState: LazyListState,
+    haptic: HapticFeedback,
+    onDragging: (Char?) -> Unit,
+    modifier: Modifier = Modifier
+) {
+    val coroutineScope = rememberCoroutineScope()
+
+    Column(
+        modifier = modifier
+            .width(24.dp)
+            .fillMaxHeight()
+            .padding(vertical = 8.dp)
+            .pointerInput(letters, letterIndex) {
+                var lastLetter: Char? = null
+
+                fun processY(y: Float) {
+                    if (letters.isEmpty() || size.height == 0) return
+                    val idx = ((y / size.height) * letters.size).toInt()
+                        .coerceIn(0, letters.lastIndex)
+                    val letter = letters[idx]
+                    if (letter != lastLetter) {
+                        lastLetter = letter
+                        onDragging(letter)
+                        haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                        letterIndex[letter]?.let { itemIdx ->
+                            coroutineScope.launch { listState.scrollToItem(itemIdx) }
+                        }
+                    }
+                }
+
+                detectDragGestures(
+                    onDragStart = { offset -> lastLetter = null; processY(offset.y) },
+                    onDrag     = { change, _ -> processY(change.position.y) },
+                    onDragEnd  = { lastLetter = null; onDragging(null) },
+                    onDragCancel = { lastLetter = null; onDragging(null) }
+                )
+            },
+        verticalArrangement = Arrangement.SpaceEvenly,
+        horizontalAlignment = Alignment.CenterHorizontally
+    ) {
+        letters.forEach { letter ->
+            Text(
+                text   = letter.toString(),
+                fontSize = 10.sp,
+                fontWeight = if (letter == activeLetter) FontWeight.Bold else FontWeight.Normal,
+                color  = if (letter == activeLetter)
+                    MaterialTheme.colorScheme.primary
+                else
+                    MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f)
+            )
+        }
+    }
+}
+
+// ── Letter bubble ─────────────────────────────────────────────────────────────
+
+/**
+ * Large centred bubble showing the current letter during a strip drag.
+ */
+@Composable
+private fun LetterBubble(letter: Char) {
+    Box(
+        modifier = Modifier.fillMaxSize(),
+        contentAlignment = Alignment.Center
+    ) {
+        Surface(
+            modifier = Modifier.size(64.dp),
+            shape = CircleShape,
+            color = MaterialTheme.colorScheme.primaryContainer,
+            shadowElevation = 8.dp
+        ) {
+            Box(contentAlignment = Alignment.Center) {
+                Text(
+                    text = letter.toString(),
+                    style = MaterialTheme.typography.headlineMedium,
+                    color = MaterialTheme.colorScheme.onPrimaryContainer,
+                    fontWeight = FontWeight.Bold
+                )
+            }
+        }
+    }
 }
