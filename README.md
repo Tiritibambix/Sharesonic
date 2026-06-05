@@ -32,6 +32,7 @@ Sharesonic is built for the other scenario — the large, chaotic, lovingly diso
 | **Search** | Full-text search across songs, albums, artists |
 | **Settings** | Server URL, username, password, one-tap connection test |
 | **Cover art** | Loaded from mStream's native `/album-art/` endpoint |
+| **Scrobbling** | Playback reported to mStream → forwarded to Last.fm + ListenBrainz (no API keys needed) |
 | **Dark theme only** | Deep purple Material You palette — no light mode, no compromise |
 
 ---
@@ -117,12 +118,16 @@ Sharesonic uses two separate APIs from mStream:
 | `GET /api/v1/share/list` | List own share links |
 | `DELETE /api/v1/share/:id` | Revoke a share link |
 | `POST /api/v1/db/random-songs` | Random song for shuffle (called 30×) |
+| `POST /api/v1/lastfm/scrobble-by-filepath` | Scrobble to Last.fm at 50% |
+| `POST /api/v1/listenbrainz/playing-now` | "Now playing" ping to ListenBrainz on track start |
+| `POST /api/v1/listenbrainz/scrobble-by-filepath` | Scrobble to ListenBrainz at 50% |
 
-### Subsonic API (search only)
+### Subsonic API (search + scrobble for search results)
 
 | Endpoint | Purpose |
 |---|---|
 | `search3` | Full-text search across songs, albums, artists |
+| `scrobble` | Scrobble integer-ID songs (from search results) |
 
 ---
 
@@ -130,7 +135,6 @@ Sharesonic uses two separate APIs from mStream:
 
 - No offline caching or download for offline playback
 - No playlist management
-- No scrobbling (Last.fm / ListenBrainz)
 - No multiple server profiles
 - No Android Auto support
 - No lyrics

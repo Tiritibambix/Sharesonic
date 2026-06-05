@@ -196,6 +196,35 @@ Extracts embedded album art from any audio file. Returns the cache filename for 
 `GET /album-art/<aaFile>?token=<jwt>`. Implemented in `MStreamRepository.getArtFilename()`
 (data layer only — not yet wired to the UI).
 
+### Scrobbling
+
+Sharesonic reports playback to mStream, which forwards to the user's configured **Last.fm**
+and **ListenBrainz** accounts. No API keys are needed in the app — mStream uses its own.
+Calls are fire-and-forget; silently ignored if the services are not configured.
+
+**ListenBrainz — "now playing" ping** (sent on track start):
+```
+POST /api/v1/listenbrainz/playing-now
+x-access-token: <token>
+{ "filePath": "Music/Artist/Album/track.mp3" }
+```
+
+**Last.fm scrobble** (sent after 50% of track played):
+```
+POST /api/v1/lastfm/scrobble-by-filepath
+x-access-token: <token>
+{ "filePath": "Music/Artist/Album/track.mp3" }
+```
+
+**ListenBrainz scrobble** (sent after 50% of track played):
+```
+POST /api/v1/listenbrainz/scrobble-by-filepath
+x-access-token: <token>
+{ "filePath": "Music/Artist/Album/track.mp3" }
+```
+
+For Subsonic integer-ID songs (from `search3`), scrobbling uses `scrobble.view` — see below.
+
 ## Subsonic API Endpoints Used
 
 The Subsonic API (`/rest/`) is used **only for search**.
@@ -208,6 +237,7 @@ Do NOT use file content hashes as Subsonic IDs.
 * `search3` — full-text search across songs, albums, artists (returns integer IDs)
 * `createShare` — generate a share URL for songs obtained via `search3` only
 * `getCoverArt` — cover art for songs/albums obtained via Subsonic search
+* `scrobble` — report playback for integer-ID songs (`submission=false` on start, `true` at 50%)
 
 Subsonic auth: `u=<username>`, `p=<plain-text password>`, `v=1.16.1`, `c=Sharesonic`, `f=json`
 
@@ -217,11 +247,11 @@ Reference: https://www.subsonic.org/pages/api.jsp
 
 Songs have two origins with different identifiers:
 
-| Origin | `EntryDto.id` | Stream URL | Share |
-|---|---|---|---|
-| `file-explorer` (browsing) | filepath string | `/media/<id>?token=<jwt>` | `POST /api/v1/share` |
-| `db/random-songs` (shuffle-all) | filepath string | `/media/<id>?token=<jwt>` | `POST /api/v1/share` |
-| `search3` (search results) | numeric string (`"42"`) | `/rest/stream.view?id=42&...` | `createShare?id=42` |
+| Origin | `EntryDto.id` | Stream URL | Share | Scrobble |
+|---|---|---|---|---|
+| `file-explorer` (browsing) | filepath string | `/media/<id>?token=<jwt>` | `POST /api/v1/share` | native LFM + LB |
+| `db/random-songs` (shuffle-all) | filepath string | `/media/<id>?token=<jwt>` | `POST /api/v1/share` | native LFM + LB |
+| `search3` (search results) | numeric string (`"42"`) | `/rest/stream.view?id=42&...` | `createShare?id=42` | `scrobble.view?id=42` |
 
 The app distinguishes Subsonic integer IDs by checking `id.all { it.isDigit() }`.
 Shuffle-all songs now use the native filepath path — no integer IDs from shuffle.
