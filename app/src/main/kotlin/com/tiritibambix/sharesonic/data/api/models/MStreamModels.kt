@@ -148,3 +148,8 @@ data class MStreamRefreshResponse(val token: String? = null)
 
 /** Response from GET /api/v1/files/art?fp=<filepath>. */
 data class MStreamArtResponse(@SerializedName("aaFile") val aaFile: String? = null)
+
+// ── Scrobble ───────────────────────────────────────────────────────────────────
+
+/** Body for Last.fm and ListenBrainz scrobble / playing-now endpoints. */
+data class ScrobbleFilepathRequest(val filePath: String)

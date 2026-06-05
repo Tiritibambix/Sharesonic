@@ -43,6 +43,16 @@ class SubsonicRepository(private val api: SubsonicApiService) {
         }
     }
 
+    /**
+     * Report playback for scrobbling (integer-ID songs from search3).
+     * [submission] = false → "now playing"; true → full scrobble at 50%.
+     * Forwards to Last.fm / ListenBrainz based on the user's mStream settings.
+     * Fire-and-forget — silently ignored on error.
+     */
+    suspend fun scrobble(id: String, submission: Boolean) {
+        try { api.scrobble(id, submission) } catch (_: Exception) {}
+    }
+
     suspend fun createShare(id: String): Result<ShareDto> {
         return try {
             val body = api.createShare(id).response

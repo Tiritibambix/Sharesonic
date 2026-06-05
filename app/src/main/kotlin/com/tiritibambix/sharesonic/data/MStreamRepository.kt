@@ -10,6 +10,7 @@ import com.tiritibambix.sharesonic.data.api.models.MStreamLoginRequest
 import com.tiritibambix.sharesonic.data.api.models.MStreamRandomSongsRequest
 import com.tiritibambix.sharesonic.data.api.models.MStreamShareListItem
 import com.tiritibambix.sharesonic.data.api.models.MStreamShareRequest
+import com.tiritibambix.sharesonic.data.api.models.ScrobbleFilepathRequest
 
 class MStreamRepository(private val api: MStreamApiService) {
 
@@ -203,6 +204,27 @@ class MStreamRepository(private val api: MStreamApiService) {
     suspend fun getArtFilename(token: String, filepath: String): String? = try {
         api.getArt(token, filepath).aaFile
     } catch (_: Exception) { null }
+
+    // ── Scrobble ──────────────────────────────────────────────────────────────
+
+    /**
+     * Send a "now playing" ping to ListenBrainz.
+     * Fire-and-forget — silently ignored if ListenBrainz is not configured in mStream.
+     */
+    suspend fun listenBrainzNowPlaying(token: String, filepath: String) {
+        try { api.listenBrainzNowPlaying(token, ScrobbleFilepathRequest(filepath)) }
+        catch (_: Exception) {}
+    }
+
+    /**
+     * Scrobble to Last.fm and ListenBrainz by filepath.
+     * Fire-and-forget — silently ignored if the services are not configured in mStream.
+     * Call after 50% of track duration has elapsed.
+     */
+    suspend fun scrobble(token: String, filepath: String) {
+        try { api.lastfmScrobble(token, ScrobbleFilepathRequest(filepath)) } catch (_: Exception) {}
+        try { api.listenBrainzScrobble(token, ScrobbleFilepathRequest(filepath)) } catch (_: Exception) {}
+    }
 
     // ── Private helpers ───────────────────────────────────────────────────────
 

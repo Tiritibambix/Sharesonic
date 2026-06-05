@@ -3,6 +3,7 @@ package com.tiritibambix.sharesonic.data.api
 import com.tiritibambix.sharesonic.data.api.models.FileExplorerRequest
 import com.tiritibambix.sharesonic.data.api.models.FileExplorerResponse
 import com.tiritibambix.sharesonic.data.api.models.MStreamArtResponse
+import com.tiritibambix.sharesonic.data.api.models.ScrobbleFilepathRequest
 import com.tiritibambix.sharesonic.data.api.models.MStreamLoginRequest
 import com.tiritibambix.sharesonic.data.api.models.MStreamLoginResponse
 import com.tiritibambix.sharesonic.data.api.models.MStreamRandomSongsRequest
@@ -79,4 +80,27 @@ interface MStreamApiService {
         @Header("x-access-token") token: String,
         @Query("fp") filepath: String
     ): MStreamArtResponse
+
+    // ── Scrobble ──────────────────────────────────────────────────────────────
+
+    /** Scrobble a track to Last.fm (after 50% played). */
+    @POST("api/v1/lastfm/scrobble-by-filepath")
+    suspend fun lastfmScrobble(
+        @Header("x-access-token") token: String,
+        @Body request: ScrobbleFilepathRequest
+    ): ResponseBody
+
+    /** Send a "now playing" ping to ListenBrainz (on track start). */
+    @POST("api/v1/listenbrainz/playing-now")
+    suspend fun listenBrainzNowPlaying(
+        @Header("x-access-token") token: String,
+        @Body request: ScrobbleFilepathRequest
+    ): ResponseBody
+
+    /** Scrobble a track to ListenBrainz (after 50% played). */
+    @POST("api/v1/listenbrainz/scrobble-by-filepath")
+    suspend fun listenBrainzScrobble(
+        @Header("x-access-token") token: String,
+        @Body request: ScrobbleFilepathRequest
+    ): ResponseBody
 }

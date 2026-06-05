@@ -7,7 +7,8 @@ import retrofit2.http.Query
 import retrofit2.http.Streaming
 
 /**
- * Subsonic API — used only for playback, sharing, and random-song shuffle.
+ * Subsonic API — used for search, sharing, scrobbling (integer-ID songs from search3),
+ * and dormant shuffle/cleanup methods reserved for Plan B (generic Subsonic server support).
  * Folder browsing is handled by the mStream native API (MStreamApiService).
  */
 interface SubsonicApiService {
@@ -48,4 +49,15 @@ interface SubsonicApiService {
 
     @GET("deleteShare.view")
     suspend fun deleteShare(@Query("id") id: String): SubsonicEnvelope
+
+    /**
+     * Report playback to the server for Last.fm / ListenBrainz forwarding.
+     * [submission] = false → "now playing" ping; true → full scrobble (sent at 50% of track).
+     * Used only for integer-ID songs from search3.
+     */
+    @GET("scrobble.view")
+    suspend fun scrobble(
+        @Query("id") id: String,
+        @Query("submission") submission: Boolean = true
+    ): SubsonicEnvelope
 }

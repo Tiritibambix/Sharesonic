@@ -59,6 +59,12 @@ class PlayerViewModel(
 
     private var cachedSettings: ServerSettings? = null
 
+    // ── Scrobble tracking ─────────────────────────────────────────────────────
+    /** ID of the last song for which a "now playing" ping was sent. */
+    private var scrobbleNowPlayingFiredFor: String? = null
+    /** ID of the last song for which a 50% scrobble was sent. */
+    private var scrobbleFiredFor: String? = null
+
     init {
         val sessionToken = SessionToken(
             context,
@@ -76,7 +82,14 @@ class PlayerViewModel(
                         val idx = ctrl.currentMediaItemIndex
                         val queue = _state.value.queue
                         if (idx in queue.indices) {
-                            _state.update { it.copy(queueIndex = idx, currentSong = queue[idx]) }
+                            val song = queue[idx]
+                            _state.update { it.copy(queueIndex = idx, currentSong = song) }
+                            // Reset 50% threshold for new track and fire "now playing"
+                            scrobbleFiredFor = null
+                            if (song.id != scrobbleNowPlayingFiredFor) {
+                                scrobbleNowPlayingFiredFor = song.id
+                                fireNowPlaying(song)
+                            }
                         }
                     }
                     override fun onPlayerError(error: PlaybackException) {
@@ -107,6 +120,12 @@ class PlayerViewModel(
                     ctrl.duration else 0L
                 // Only update position/duration — isPlaying is managed by Player.Listener
                 _state.update { it.copy(currentPositionMs = pos, durationMs = dur) }
+                // 50% scrobble threshold
+                val song = _state.value.currentSong
+                if (song != null && dur > 0L && pos >= dur / 2L && scrobbleFiredFor != song.id) {
+                    scrobbleFiredFor = song.id
+                    fireScrobble(song)
+                }
             }
         }
     }
@@ -217,6 +236,52 @@ class PlayerViewModel(
         }
         MediaController.releaseFuture(controllerFuture ?: return)
         super.onCleared()
+    }
+
+    // ── Scrobble ──────────────────────────────────────────────────────────────
+
+    /**
+     * Send a "now playing" notification when a track starts.
+     * - Filepath song → ListenBrainz playing-now via native mStream API
+     * - Integer-ID song (search3) → Subsonic scrobble.view submission=false
+     * Fire-and-forget — silently ignored if services are not configured.
+     */
+    private fun fireNowPlaying(song: EntryDto) {
+        viewModelScope.launch {
+            val settings = settings()
+            if (!settings.isConfigured) return@launch
+            if (song.id.isSubsonicNumericId()) {
+                SubsonicRepository(
+                    SubsonicClient.build(settings.serverUrl, settings.username, settings.password)
+                ).scrobble(song.id, submission = false)
+            } else {
+                val token = settings.jwtToken.ifEmpty { return@launch }
+                MStreamRepository(MStreamClient.build(settings.serverUrl))
+                    .listenBrainzNowPlaying(token, song.id)
+            }
+        }
+    }
+
+    /**
+     * Submit a scrobble when 50% of a track has been played.
+     * - Filepath song → Last.fm + ListenBrainz via native mStream API
+     * - Integer-ID song (search3) → Subsonic scrobble.view submission=true
+     * Fire-and-forget — silently ignored if services are not configured.
+     */
+    private fun fireScrobble(song: EntryDto) {
+        viewModelScope.launch {
+            val settings = settings()
+            if (!settings.isConfigured) return@launch
+            if (song.id.isSubsonicNumericId()) {
+                SubsonicRepository(
+                    SubsonicClient.build(settings.serverUrl, settings.username, settings.password)
+                ).scrobble(song.id, submission = true)
+            } else {
+                val token = settings.jwtToken.ifEmpty { return@launch }
+                MStreamRepository(MStreamClient.build(settings.serverUrl))
+                    .scrobble(token, song.id)
+            }
+        }
     }
 
     // ── Helpers ───────────────────────────────────────────────────────────────
