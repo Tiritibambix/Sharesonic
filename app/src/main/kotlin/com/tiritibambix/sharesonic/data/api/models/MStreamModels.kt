@@ -156,18 +156,25 @@ data class NativeSearchRequest(
     val noFolders: Boolean = true   // we don't need folder results in the UI
 )
 
-/** A song, album, or file result from the native search endpoint. */
+/**
+ * A song, album, or file result from the native search endpoint.
+ * All String fields are nullable — GSON bypasses Kotlin non-nullability
+ * and would set them to null if absent, causing NPE on access.
+ */
 data class NativeSearchItem(
     /** For songs: "Artist - Title". For albums: album name. */
-    val name: String = "",
+    val name: String? = null,
     /** Album-art cache filename — use with GET /album-art/<file>?token=<jwt>. */
     @SerializedName("album_art_file") val albumArtFile: String? = null,
     /** Full mStream filepath — use as EntryDto.id for native streaming. */
     val filepath: String? = null
 )
 
-/** An artist result from the native search endpoint. */
-data class NativeSearchArtist(val name: String = "")
+/**
+ * An artist result from the native search endpoint.
+ * The server also returns a `variants` array which we ignore.
+ */
+data class NativeSearchArtist(val name: String? = null)
 
 data class NativeSearchResponse(
     /** Song results — each item has filepath and name formatted as "Artist - Title". */

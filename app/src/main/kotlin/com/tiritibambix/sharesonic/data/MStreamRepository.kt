@@ -152,10 +152,11 @@ class MStreamRepository(private val api: MStreamApiService) {
 
             val songs = resp.title.mapNotNull { item ->
                 val fp = item.filepath?.takeIf { it.isNotBlank() } ?: return@mapNotNull null
-                // name is formatted as "Artist - Title"; split on first " - "
-                val dashIdx = item.name.indexOf(" - ")
-                val title  = if (dashIdx >= 0) item.name.substring(dashIdx + 3) else item.name
-                val artist = if (dashIdx >= 0) item.name.substring(0, dashIdx) else null
+                // name is "Artist - Title"; split on first " - " if present
+                val name     = item.name.orEmpty()
+                val dashIdx  = name.indexOf(" - ")
+                val title    = if (dashIdx >= 0) name.substring(dashIdx + 3) else name
+                val artist   = if (dashIdx >= 0) name.substring(0, dashIdx).takeIf { it.isNotBlank() } else null
                 EntryDto(
                     id       = fp,
                     title    = title.takeIf { it.isNotBlank() } ?: fp.substringAfterLast('/').substringBeforeLast('.'),
@@ -170,14 +171,17 @@ class MStreamRepository(private val api: MStreamApiService) {
                 val fp = item.filepath?.takeIf { it.isNotBlank() } ?: return@mapNotNull null
                 EntryDto(
                     id       = fp,
-                    title    = item.name.takeIf { it.isNotBlank() } ?: fp.substringAfterLast('/'),
+                    title    = item.name?.takeIf { it.isNotBlank() } ?: fp.substringAfterLast('/'),
                     coverArt = item.albumArtFile,
                     isDir    = true,
                     path     = fp
                 )
             }
 
-            val artists = resp.artists.map { TopLevelDir(id = it.name, name = it.name) }
+            val artists = resp.artists.mapNotNull { a ->
+                val n = a.name?.takeIf { it.isNotBlank() } ?: return@mapNotNull null
+                TopLevelDir(id = n, name = n)
+            }
 
             Result.Success(SearchResult3(song = songs, album = albums, artist = artists))
         } catch (e: Exception) {
