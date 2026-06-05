@@ -149,6 +149,33 @@ data class MStreamRefreshResponse(val token: String? = null)
 /** Response from GET /api/v1/files/art?fp=<filepath>. */
 data class MStreamArtResponse(@SerializedName("aaFile") val aaFile: String? = null)
 
+// ── Native search (POST /api/v1/db/search) ────────────────────────────────────
+
+data class NativeSearchRequest(
+    val search: String,
+    val noFolders: Boolean = true   // we don't need folder results in the UI
+)
+
+/** A song, album, or file result from the native search endpoint. */
+data class NativeSearchItem(
+    /** For songs: "Artist - Title". For albums: album name. */
+    val name: String = "",
+    /** Album-art cache filename — use with GET /album-art/<file>?token=<jwt>. */
+    @SerializedName("album_art_file") val albumArtFile: String? = null,
+    /** Full mStream filepath — use as EntryDto.id for native streaming. */
+    val filepath: String? = null
+)
+
+/** An artist result from the native search endpoint. */
+data class NativeSearchArtist(val name: String = "")
+
+data class NativeSearchResponse(
+    /** Song results — each item has filepath and name formatted as "Artist - Title". */
+    val title: List<NativeSearchItem> = emptyList(),
+    val albums: List<NativeSearchItem> = emptyList(),
+    val artists: List<NativeSearchArtist> = emptyList()
+)
+
 // ── Scrobble ───────────────────────────────────────────────────────────────────
 
 /** Body for Last.fm and ListenBrainz scrobble / playing-now endpoints. */

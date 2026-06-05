@@ -3,6 +3,8 @@ package com.tiritibambix.sharesonic.data.api
 import com.tiritibambix.sharesonic.data.api.models.FileExplorerRequest
 import com.tiritibambix.sharesonic.data.api.models.FileExplorerResponse
 import com.tiritibambix.sharesonic.data.api.models.MStreamArtResponse
+import com.tiritibambix.sharesonic.data.api.models.NativeSearchRequest
+import com.tiritibambix.sharesonic.data.api.models.NativeSearchResponse
 import com.tiritibambix.sharesonic.data.api.models.ScrobbleFilepathRequest
 import com.tiritibambix.sharesonic.data.api.models.MStreamLoginRequest
 import com.tiritibambix.sharesonic.data.api.models.MStreamLoginResponse
@@ -80,6 +82,18 @@ interface MStreamApiService {
         @Header("x-access-token") token: String,
         @Query("fp") filepath: String
     ): MStreamArtResponse
+
+    // ── Native search ─────────────────────────────────────────────────────────
+
+    /**
+     * Full-text search across songs (title), albums, and artists.
+     * Uses FTS5 — returns songs with filepath IDs, same as file-explorer entries.
+     */
+    @POST("api/v1/db/search")
+    suspend fun nativeSearch(
+        @Header("x-access-token") token: String,
+        @Body request: NativeSearchRequest
+    ): NativeSearchResponse
 
     // ── Scrobble ──────────────────────────────────────────────────────────────
 

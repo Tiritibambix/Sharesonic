@@ -169,7 +169,7 @@ class FolderBrowserViewModel(
                 entry.id.all { it.isDigit() } -> {
                     // Song from Subsonic search3 — has an integer ID, share via Subsonic createShare
                     val subsonicRepo = SubsonicRepository(
-                        SubsonicClient.build(settings.serverUrl, settings.username, settings.subsonicPassword)
+                        SubsonicClient.build(settings.serverUrl, settings.username, settings.password)
                     )
                     when (val r = subsonicRepo.createShare(entry.id)) {
                         is Result.Success -> _shareState.update { ShareState.Done(r.data.url) }

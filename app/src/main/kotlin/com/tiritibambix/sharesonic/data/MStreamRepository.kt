@@ -10,7 +10,10 @@ import com.tiritibambix.sharesonic.data.api.models.MStreamLoginRequest
 import com.tiritibambix.sharesonic.data.api.models.MStreamRandomSongsRequest
 import com.tiritibambix.sharesonic.data.api.models.MStreamShareListItem
 import com.tiritibambix.sharesonic.data.api.models.MStreamShareRequest
+import com.tiritibambix.sharesonic.data.api.models.NativeSearchRequest
 import com.tiritibambix.sharesonic.data.api.models.ScrobbleFilepathRequest
+import com.tiritibambix.sharesonic.data.api.models.SearchResult3
+import com.tiritibambix.sharesonic.data.api.models.TopLevelDir
 
 class MStreamRepository(private val api: MStreamApiService) {
 
@@ -129,6 +132,54 @@ class MStreamRepository(private val api: MStreamApiService) {
             val shareId = resp.playlistId
             if (!shareId.isNullOrBlank()) Result.Success(shareId)
             else Result.Error("Share failed: no shareId returned")
+        } catch (e: Exception) {
+            Result.Error(e.message ?: "Network error")
+        }
+    }
+
+    // ── Native search ─────────────────────────────────────────────────────────
+
+    /**
+     * Full-text search using the native Velvet API (JWT auth — no Subsonic password needed).
+     * Maps results to [SearchResult3] so the SearchScreen can consume them unchanged.
+     *
+     * Songs come back with filepath IDs → stream and share via native endpoints.
+     * Artists have `id = name` (used to navigate to the artist folder).
+     */
+    suspend fun search(token: String, query: String): Result<SearchResult3> {
+        return try {
+            val resp = api.nativeSearch(token, NativeSearchRequest(search = query))
+
+            val songs = resp.title.mapNotNull { item ->
+                val fp = item.filepath?.takeIf { it.isNotBlank() } ?: return@mapNotNull null
+                // name is formatted as "Artist - Title"; split on first " - "
+                val dashIdx = item.name.indexOf(" - ")
+                val title  = if (dashIdx >= 0) item.name.substring(dashIdx + 3) else item.name
+                val artist = if (dashIdx >= 0) item.name.substring(0, dashIdx) else null
+                EntryDto(
+                    id       = fp,
+                    title    = title.takeIf { it.isNotBlank() } ?: fp.substringAfterLast('/').substringBeforeLast('.'),
+                    artist   = artist,
+                    coverArt = item.albumArtFile,
+                    isDir    = false,
+                    path     = fp
+                )
+            }
+
+            val albums = resp.albums.mapNotNull { item ->
+                val fp = item.filepath?.takeIf { it.isNotBlank() } ?: return@mapNotNull null
+                EntryDto(
+                    id       = fp,
+                    title    = item.name.takeIf { it.isNotBlank() } ?: fp.substringAfterLast('/'),
+                    coverArt = item.albumArtFile,
+                    isDir    = true,
+                    path     = fp
+                )
+            }
+
+            val artists = resp.artists.map { TopLevelDir(id = it.name, name = it.name) }
+
+            Result.Success(SearchResult3(song = songs, album = albums, artist = artists))
         } catch (e: Exception) {
             Result.Error(e.message ?: "Network error")
         }

@@ -3,13 +3,10 @@ package com.tiritibambix.sharesonic.ui.search
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
+import com.tiritibambix.sharesonic.data.MStreamRepository
 import com.tiritibambix.sharesonic.data.Result
-import com.tiritibambix.sharesonic.data.SubsonicRepository
-import com.tiritibambix.sharesonic.data.api.SubsonicClient
-import com.tiritibambix.sharesonic.data.api.models.EntryDto
+import com.tiritibambix.sharesonic.data.api.MStreamClient
 import com.tiritibambix.sharesonic.data.api.models.SearchResult3
-import com.tiritibambix.sharesonic.data.api.models.TopLevelDir
-import com.tiritibambix.sharesonic.data.settings.ServerSettings
 import com.tiritibambix.sharesonic.data.settings.SettingsRepository
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
@@ -47,28 +44,20 @@ class SearchViewModel(private val settingsRepo: SettingsRepository) : ViewModel(
             delay(350) // debounce
             _searchState.update { SearchState.Loading }
             val settings = settingsRepo.settings.first()
-            if (settings.subsonicPassword.isBlank()) {
-                _searchState.update {
-                    SearchState.Error("Subsonic password not configured — set it in Settings")
-                }
+            if (!settings.isConfigured) {
+                _searchState.update { SearchState.Error("Server not configured") }
                 return@launch
             }
-            val repo = buildRepo(settings)
-            when (val r = repo.search(q.trim())) {
+            val token = settings.jwtToken.ifEmpty {
+                _searchState.update { SearchState.Error("Not authenticated — open Settings") }
+                return@launch
+            }
+            val repo = MStreamRepository(MStreamClient.build(settings.serverUrl))
+            when (val r = repo.search(token, q.trim())) {
                 is Result.Success -> _searchState.update { SearchState.Results(r.data) }
                 is Result.Error   -> _searchState.update { SearchState.Error(r.message) }
             }
         }
-    }
-
-    fun coverArtUrl(coverArtId: String): String? {
-        // Built synchronously from cached settings — fine since settings are loaded at app start
-        return null // Resolved lazily in screen via remember
-    }
-
-    private fun buildRepo(settings: ServerSettings): SubsonicRepository {
-        val api = SubsonicClient.build(settings.serverUrl, settings.username, settings.subsonicPassword)
-        return SubsonicRepository(api)
     }
 }
 

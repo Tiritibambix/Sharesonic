@@ -23,7 +23,6 @@ import com.tiritibambix.sharesonic.data.api.models.EntryDto
 import com.tiritibambix.sharesonic.data.api.models.SearchResult3
 import com.tiritibambix.sharesonic.data.api.models.TopLevelDir
 import com.tiritibambix.sharesonic.data.settings.ServerSettings
-import com.tiritibambix.sharesonic.data.api.SubsonicClient
 import com.tiritibambix.sharesonic.ui.player.PlayerViewModel
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -148,7 +147,7 @@ private fun SearchResults(
             items(result.album, key = { "album_${it.id}" }) { album ->
                 EntryRow(
                     entry = album,
-                    coverArtUrl = album.coverArt?.let { SubsonicClient.coverArtUrl(settings, it, 64) },
+                    coverArtUrl = album.coverArt?.let { nativeCoverArtUrl(settings, it) },
                     isAlbum = true,
                     onClick = { onOpenFolder(album.id, album.displayName) }
                 )
@@ -162,7 +161,7 @@ private fun SearchResults(
             items(result.song, key = { "song_${it.id}" }) { song ->
                 EntryRow(
                     entry = song,
-                    coverArtUrl = song.coverArt?.let { SubsonicClient.coverArtUrl(settings, it, 64) },
+                    coverArtUrl = song.coverArt?.let { nativeCoverArtUrl(settings, it) },
                     isAlbum = false,
                     onClick = {
                         playerViewModel.playSong(song)
@@ -287,3 +286,8 @@ private fun formatDuration(seconds: Int): String {
     val s = seconds % 60
     return "%d:%02d".format(m, s)
 }
+
+/** Build a native album-art URL. Search results come from the native API so
+ *  coverArt is always a cache filename (e.g. "abc123.jpg"), never a Subsonic ID. */
+private fun nativeCoverArtUrl(settings: ServerSettings, filename: String): String =
+    "${settings.serverUrl.trimEnd('/')}/album-art/$filename?token=${settings.jwtToken}"

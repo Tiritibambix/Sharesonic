@@ -207,7 +207,7 @@ class PlayerViewModel(
             val settings = settings()
             val shareUrl = if (song.id.isSubsonicNumericId()) {
                 // Song from getRandomSongs — has a real Subsonic integer ID
-                val api = SubsonicClient.build(settings.serverUrl, settings.username, settings.subsonicPassword)
+                val api = SubsonicClient.build(settings.serverUrl, settings.username, settings.password)
                 when (val r = SubsonicRepository(api).createShare(song.id)) {
                     is Result.Success -> r.data.url
                     is Result.Error   -> { _state.update { it.copy(shareLoading = false, shareError = r.message) }; return@launch }
@@ -252,7 +252,7 @@ class PlayerViewModel(
             if (!settings.isConfigured) return@launch
             if (song.id.isSubsonicNumericId()) {
                 SubsonicRepository(
-                    SubsonicClient.build(settings.serverUrl, settings.username, settings.subsonicPassword)
+                    SubsonicClient.build(settings.serverUrl, settings.username, settings.password)
                 ).scrobble(song.id, submission = false)
             } else {
                 val token = settings.jwtToken.ifEmpty { return@launch }
@@ -274,7 +274,7 @@ class PlayerViewModel(
             if (!settings.isConfigured) return@launch
             if (song.id.isSubsonicNumericId()) {
                 SubsonicRepository(
-                    SubsonicClient.build(settings.serverUrl, settings.username, settings.subsonicPassword)
+                    SubsonicClient.build(settings.serverUrl, settings.username, settings.password)
                 ).scrobble(song.id, submission = true)
             } else {
                 val token = settings.jwtToken.ifEmpty { return@launch }
@@ -301,7 +301,7 @@ class PlayerViewModel(
     private fun streamUrl(settings: ServerSettings, song: EntryDto): String {
         val base = settings.serverUrl.trimEnd('/')
         return if (song.id.isSubsonicNumericId()) {
-            "$base/rest/stream.view?id=${song.id}&u=${settings.username}&p=${settings.subsonicPassword}&v=1.16.1&c=Sharesonic&f=json"
+            "$base/rest/stream.view?id=${song.id}&u=${settings.username}&p=${settings.password}&v=1.16.1&c=Sharesonic&f=json"
         } else {
             val filepath = song.path ?: song.id
             val encoded = filepath.trimStart('/')

@@ -49,13 +49,13 @@ object SubsonicClient {
             .create(SubsonicApiService::class.java)
     }
 
-    /** Stable cover-art URL for Coil to cache, using the Subsonic password. */
+    /** Stable cover-art URL for Coil to cache (used for Subsonic integer-ID cover art). */
     fun coverArtUrl(settings: ServerSettings, coverArtId: String, size: Int = 256): String {
         val base = settings.serverUrl.trimEnd('/')
         return "$base/rest/getCoverArt.view" +
             "?id=$coverArtId" +
             "&u=${settings.username}" +
-            "&p=${settings.subsonicPassword}" +
+            "&p=${settings.password}" +
             "&v=$API_VERSION" +
             "&c=$CLIENT_NAME" +
             "&size=$size"

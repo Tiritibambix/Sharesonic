@@ -19,10 +19,9 @@ fun SettingsScreen(
     val settings by viewModel.settings.collectAsState()
     val connectionState by viewModel.connectionState.collectAsState()
 
-    var serverUrl        by remember(settings.serverUrl)        { mutableStateOf(settings.serverUrl) }
-    var username         by remember(settings.username)         { mutableStateOf(settings.username) }
-    var password         by remember(settings.password)         { mutableStateOf(settings.password) }
-    var subsonicPassword by remember(settings.subsonicPassword) { mutableStateOf(settings.subsonicPassword) }
+    var serverUrl by remember(settings.serverUrl) { mutableStateOf(settings.serverUrl) }
+    var username  by remember(settings.username)  { mutableStateOf(settings.username) }
+    var password  by remember(settings.password)  { mutableStateOf(settings.password) }
 
     Scaffold(
         topBar = {
@@ -64,22 +63,6 @@ fun SettingsScreen(
                 modifier = Modifier.fillMaxWidth()
             )
 
-            OutlinedTextField(
-                value = subsonicPassword,
-                onValueChange = { subsonicPassword = it },
-                label = { Text("Subsonic password") },
-                placeholder = { Text("mStream admin → Users → Subsonic password") },
-                singleLine = true,
-                visualTransformation = PasswordVisualTransformation(),
-                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
-                modifier = Modifier.fillMaxWidth()
-            )
-            Text(
-                text = "Required for search. Set in the mStream admin panel (can be the same as your login password).",
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
-            )
-
             Row(
                 horizontalArrangement = Arrangement.spacedBy(12.dp),
                 modifier = Modifier.fillMaxWidth()
@@ -101,7 +84,7 @@ fun SettingsScreen(
 
                 Button(
                     onClick = {
-                        viewModel.save(serverUrl, username, password, subsonicPassword)
+                        viewModel.save(serverUrl, username, password)
                         onNavigateToBrowser()
                     },
                     modifier = Modifier.weight(1f)
