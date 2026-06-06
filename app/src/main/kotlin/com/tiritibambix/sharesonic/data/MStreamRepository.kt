@@ -10,6 +10,8 @@ import com.tiritibambix.sharesonic.data.api.models.MStreamLoginRequest
 import com.tiritibambix.sharesonic.data.api.models.NativePlaylist
 import com.tiritibambix.sharesonic.data.api.models.NativePlaylistAddSongRequest
 import com.tiritibambix.sharesonic.data.api.models.NativePlaylistDeleteRequest
+import com.tiritibambix.sharesonic.data.api.models.NativePlaylistEntry
+import com.tiritibambix.sharesonic.data.api.models.NativePlaylistLoadRequest
 import com.tiritibambix.sharesonic.data.api.models.NativePlaylistNewRequest
 import com.tiritibambix.sharesonic.data.api.models.NativePlaylistRemoveSongRequest
 import com.tiritibambix.sharesonic.data.api.models.NativePlaylistRenameRequest
@@ -197,9 +199,17 @@ class MStreamRepository(private val api: MStreamApiService) {
 
     // ── Native playlists ──────────────────────────────────────────────────────
 
-    /** List all playlists for the authenticated user. */
+    /** List all playlists for the authenticated user (metadata only — no song entries). */
     suspend fun getPlaylists(token: String): Result<List<NativePlaylist>> = try {
         Result.Success(api.getPlaylists(token))
+    } catch (e: Exception) { Result.Error(e.message ?: "Network error") }
+
+    /**
+     * Fetch the full song list for [name].
+     * Each entry contains the database row ID (for remove-song) and the filepath (for streaming).
+     */
+    suspend fun loadPlaylist(token: String, name: String): Result<List<NativePlaylistEntry>> = try {
+        Result.Success(api.loadPlaylist(token, NativePlaylistLoadRequest(name)))
     } catch (e: Exception) { Result.Error(e.message ?: "Network error") }
 
     /** Create a new empty playlist with the given title. Fire-and-forget on success. */

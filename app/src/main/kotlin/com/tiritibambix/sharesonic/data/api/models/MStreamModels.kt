@@ -187,25 +187,39 @@ data class NativeSearchResponse(
 
 /**
  * One playlist as returned by GET /api/v1/playlist/getall.
- * Songs are identified by their filepath (same as file-explorer pullMetadata=true).
- * [title] is the playlist name AND the identifier used by all mutation endpoints.
+ * Does NOT include song entries — use POST /api/v1/playlist/load to fetch them.
+ * [name] is the playlist name AND the identifier used by all mutation endpoints.
  */
 data class NativePlaylist(
-    val title: String = "",
-    val songs: List<NativePlaylistSong> = emptyList()
+    val name: String = "",
+    val songCount: Int = 0,
+    val totalDuration: Int = 0
 )
 
 /**
- * A song entry inside a playlist.
- * [id]   = database entry ID — used by POST /api/v1/playlist/remove-song { id }
- * [song] = filepath — same as file-explorer and share endpoints
+ * One song entry from POST /api/v1/playlist/load.
+ * [id]       = SQLite rowid — used by POST /api/v1/playlist/remove-song { id }
+ * [filepath] = "vpath/relative/path.mp3" — same format as file-explorer, use for streaming
  */
-data class NativePlaylistSong(
+data class NativePlaylistEntry(
     val id: Int = 0,
-    val song: String = "",
-    /** Present when the server returns track metadata alongside the filepath. */
-    val metadata: MStreamInnerMetadata? = null
+    val filepath: String = "",
+    val metadata: NativePlaylistEntryMetadata? = null
 )
+
+/** Audio metadata returned alongside each entry in the playlist load response. */
+data class NativePlaylistEntryMetadata(
+    val filepath: String? = null,
+    val title: String? = null,
+    val artist: String? = null,
+    val album: String? = null,
+    @SerializedName("album-art") val albumArt: String? = null,
+    /** Duration in seconds (may be fractional). */
+    val duration: Double? = null
+)
+
+/** Body for POST /api/v1/playlist/load — fetch the full song list for one playlist. */
+data class NativePlaylistLoadRequest(val playlistname: String)
 
 // Playlist request bodies ───────────────────────��─────────────────────────────
 

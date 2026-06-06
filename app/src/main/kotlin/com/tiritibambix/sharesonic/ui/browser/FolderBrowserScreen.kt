@@ -297,7 +297,7 @@ fun FolderBrowserScreen(
                         playlists.forEach { playlist ->
                             TextButton(
                                 onClick = {
-                                    viewModel.addToPlaylist(song.id, playlist.title)
+                                    viewModel.addToPlaylist(song.id, playlist.name)
                                     showPlaylistPicker = false
                                     songToAdd = null
                                 },
@@ -305,9 +305,9 @@ fun FolderBrowserScreen(
                             ) {
                                 Text(
                                     buildString {
-                                        append(playlist.title)
+                                        append(playlist.name)
                                         append("  ")
-                                        append("(${playlist.songs.size})")
+                                        append("(${playlist.songCount})")
                                     },
                                     modifier = Modifier.fillMaxWidth()
                                 )

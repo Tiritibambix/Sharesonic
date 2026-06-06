@@ -79,7 +79,7 @@ fun PlaylistsScreen(
                 TextButton(
                     onClick = {
                         if (renameName.isNotBlank())
-                            viewModel.renamePlaylist(target.title, renameName.trim())
+                            viewModel.renamePlaylist(target.name, renameName.trim())
                         renameTarget = null
                     }
                 ) { Text("Rename") }
@@ -95,10 +95,10 @@ fun PlaylistsScreen(
         AlertDialog(
             onDismissRequest = { deleteTarget = null },
             title = { Text("Delete playlist") },
-            text = { Text("Delete \"${target.title}\"? This cannot be undone.") },
+            text = { Text("Delete \"${target.name}\"? This cannot be undone.") },
             confirmButton = {
                 TextButton(onClick = {
-                    viewModel.deletePlaylist(target.title)
+                    viewModel.deletePlaylist(target.name)
                     deleteTarget = null
                 }) { Text("Delete", color = MaterialTheme.colorScheme.error) }
             },
@@ -154,11 +154,11 @@ fun PlaylistsScreen(
                             modifier = Modifier.fillMaxSize(),
                             contentPadding = PaddingValues(bottom = 80.dp)
                         ) {
-                            items(s.playlists, key = { it.title }) { playlist ->
+                            items(s.playlists, key = { it.name }) { playlist ->
                                 PlaylistRow(
                                     playlist = playlist,
-                                    onClick = { onOpenPlaylist(playlist.title) },
-                                    onRename = { renameName = playlist.title; renameTarget = playlist },
+                                    onClick = { onOpenPlaylist(playlist.name) },
+                                    onRename = { renameName = playlist.name; renameTarget = playlist },
                                     onDelete = { deleteTarget = playlist }
                                 )
                                 HorizontalDivider(thickness = 0.5.dp)
@@ -197,13 +197,13 @@ private fun PlaylistRow(
         )
         Column(modifier = Modifier.weight(1f)) {
             Text(
-                playlist.title,
+                playlist.name,
                 style = MaterialTheme.typography.bodyLarge,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis
             )
             Text(
-                "${playlist.songs.size} songs",
+                "${playlist.songCount} songs",
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )

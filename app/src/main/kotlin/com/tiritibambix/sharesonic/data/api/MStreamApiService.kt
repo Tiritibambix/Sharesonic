@@ -7,6 +7,8 @@ import com.tiritibambix.sharesonic.data.api.models.NativePlaylistDeleteRequest
 import com.tiritibambix.sharesonic.data.api.models.NativePlaylistNewRequest
 import com.tiritibambix.sharesonic.data.api.models.NativePlaylistRemoveSongRequest
 import com.tiritibambix.sharesonic.data.api.models.NativePlaylistRenameRequest
+import com.tiritibambix.sharesonic.data.api.models.NativePlaylistEntry
+import com.tiritibambix.sharesonic.data.api.models.NativePlaylistLoadRequest
 import com.tiritibambix.sharesonic.data.api.models.NativePlaylistSaveRequest
 import com.tiritibambix.sharesonic.data.api.models.FileExplorerResponse
 import com.tiritibambix.sharesonic.data.api.models.MStreamArtResponse
@@ -104,9 +106,19 @@ interface MStreamApiService {
 
     // ── Native playlists ──────────────────────────────────────────────────────
 
-    /** List all playlists for the authenticated user. */
+    /** List all playlists for the authenticated user (metadata only — no song entries). */
     @GET("api/v1/playlist/getall")
     suspend fun getPlaylists(@Header("x-access-token") token: String): List<NativePlaylist>
+
+    /**
+     * Fetch the full song list for a single playlist.
+     * Returns one entry per song with its database row ID (for remove-song) and filepath.
+     */
+    @POST("api/v1/playlist/load")
+    suspend fun loadPlaylist(
+        @Header("x-access-token") token: String,
+        @Body request: NativePlaylistLoadRequest
+    ): List<NativePlaylistEntry>
 
     /** Create a new empty playlist. Returns {} on success. */
     @POST("api/v1/playlist/new")

@@ -7,8 +7,7 @@ import com.tiritibambix.sharesonic.data.MStreamRepository
 import com.tiritibambix.sharesonic.data.Result
 import com.tiritibambix.sharesonic.data.api.MStreamClient
 import com.tiritibambix.sharesonic.data.api.models.EntryDto
-import com.tiritibambix.sharesonic.data.api.models.NativePlaylist
-import com.tiritibambix.sharesonic.data.api.models.NativePlaylistSong
+import com.tiritibambix.sharesonic.data.api.models.NativePlaylistEntry
 import com.tiritibambix.sharesonic.data.settings.SettingsRepository
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
@@ -72,17 +71,12 @@ class PlaylistDetailViewModel(
                 return@launch
             }
             val repo = MStreamRepository(MStreamClient.build(settings.serverUrl))
-            when (val r = repo.getPlaylists(token)) {
-                is Result.Success -> {
-                    val playlist = r.data.find { it.title == playlistName }
-                    if (playlist == null) {
-                        _state.update { PlaylistDetailState.Error("Playlist not found") }
-                    } else {
-                        _state.update { PlaylistDetailState.Ready(
-                            name    = playlist.title,
-                            entries = playlist.songs.map { it.toPlaylistEntry() }
-                        )}
-                    }
+            when (val r = repo.loadPlaylist(token, playlistName)) {
+                is Result.Success -> _state.update {
+                    PlaylistDetailState.Ready(
+                        name    = playlistName,
+                        entries = r.data.map { it.toPlaylistEntry() }
+                    )
                 }
                 is Result.Error -> _state.update { PlaylistDetailState.Error(r.message) }
             }
@@ -156,19 +150,20 @@ class PlaylistDetailViewModel(
 
     // ── Helpers ───────────────────────────────────────────────────────────────
 
-    private fun NativePlaylistSong.toPlaylistEntry(): PlaylistEntry {
+    private fun NativePlaylistEntry.toPlaylistEntry(): PlaylistEntry {
         val meta = metadata
         return PlaylistEntry(
             entryId = id,
             dto = EntryDto(
-                id       = song,
+                id       = filepath,
                 title    = meta?.title?.takeIf { it.isNotBlank() }
-                    ?: song.substringAfterLast('/').substringBeforeLast('.'),
+                    ?: filepath.substringAfterLast('/').substringBeforeLast('.'),
                 artist   = meta?.artist,
                 album    = meta?.album,
                 coverArt = meta?.albumArt,
+                duration = meta?.duration?.toInt(),
                 isDir    = false,
-                path     = song
+                path     = filepath
             )
         )
     }
