@@ -6,6 +6,20 @@ Sharesonic is an Android client for **[mStream](https://mstream.io)** — the se
 
 ---
 
+## Download
+
+[![GitHub Release](https://img.shields.io/github/v/release/Tiritibambix/Sharesonic?style=for-the-badge&logo=android&color=8b5cf6)](https://github.com/Tiritibambix/Sharesonic/releases/latest)
+
+Download the latest APK directly from the [Releases](https://github.com/Tiritibambix/Sharesonic/releases/latest) page.
+
+### Auto-updates with Obtainium
+
+[Obtainium](https://github.com/ImranR98/Obtainium) installs Sharesonic from GitHub Releases and keeps it up to date automatically.
+
+[![Get it on Obtainium](https://raw.githubusercontent.com/ImranR98/Obtainium/main/assets/graphics/badge_obtainium.png)](https://apps.obtainium.imranr.dev/redirect.html?r=obtainium://add/https://github.com/Tiritibambix/Sharesonic)
+
+---
+
 ## Why Sharesonic?
 
 Most music apps are built around curation: playlists you already know, albums you already love, artists you already follow. That works fine for a library of a few hundred tracks. It breaks down when you self-host thousands of albums accumulated over years.
@@ -28,7 +42,11 @@ Sharesonic is built for the other scenario — the large, chaotic, lovingly diso
 | **Shuffle folder** | Recursive collect + shuffle on any sub-directory |
 | **Share link** | Native mStream share API → public `server/shared/XXXXXXXXXX` URL → Android share sheet |
 | **Now Playing** | Cover art, seek bar with elapsed/total time, artist · album info |
-| **Queue view** | Swipe left from Now Playing — full scrollable queue, tap to jump |
+| **Mini player** | Persistent bottom bar with progress strip, controls and art — folds up during navigation |
+| **Queue view** | Swipe left from Now Playing — full scrollable queue, tap to jump, swipe to remove |
+| **Add to queue** | Swipe left on any track in the browser |
+| **Playlist management** | Create, rename, delete playlists; add/remove tracks; play all or shuffle |
+| **Add to playlist** | Swipe right on a track in the browser, or tap "Playlist" in Now Playing |
 | **Search** | Full-text search across songs, albums, artists |
 | **Settings** | Server URL, username, password, one-tap connection test |
 | **Cover art** | Loaded from mStream's native `/album-art/` endpoint |
@@ -45,7 +63,7 @@ Sharesonic is built for the other scenario — the large, chaotic, lovingly diso
 
 ## Server compatibility
 
-Sharesonic is built for **[mStream Velvet](https://mstream.io)** (v7.x). It uses mStream's native API for browsing, streaming, sharing, and shuffle, and the Subsonic compatibility layer for search only.
+Sharesonic is built for **[mStream Velvet](https://mstream.io)** (v7.x). It uses mStream's native API for browsing, streaming, sharing, shuffle, and playlist management, and the Subsonic compatibility layer for search only.
 
 Generic Subsonic servers (Navidrome, Airsonic, etc.) are not supported yet — planned for a future release.
 
@@ -53,12 +71,19 @@ Generic Subsonic servers (Navidrome, Airsonic, etc.) are not supported yet — p
 
 ## Installation
 
-Sharesonic is distributed as a sideloaded APK. There is no Play Store release.
+### Direct download
 
-1. Download the latest APK from the [Releases](../../releases) page
+1. Download the latest APK from [Releases](https://github.com/Tiritibambix/Sharesonic/releases/latest)
 2. On your Android device: **Settings → Security → Install unknown apps** → allow your browser or file manager
 3. Open the downloaded APK and install
 4. Launch Sharesonic, enter your mStream server URL, username and password, tap **Test** then **Save**
+
+### Obtainium (recommended — auto-updates)
+
+1. Install [Obtainium](https://github.com/ImranR98/Obtainium)
+2. Tap the badge below or add `https://github.com/Tiritibambix/Sharesonic` manually
+
+[![Get it on Obtainium](https://raw.githubusercontent.com/ImranR98/Obtainium/main/assets/graphics/badge_obtainium.png)](https://apps.obtainium.imranr.dev/redirect.html?r=obtainium://add/https://github.com/Tiritibambix/Sharesonic)
 
 ---
 
@@ -118,6 +143,12 @@ Sharesonic uses two separate APIs from mStream:
 | `GET /api/v1/share/list` | List own share links |
 | `DELETE /api/v1/share/:id` | Revoke a share link |
 | `POST /api/v1/db/random-songs` | Random song for shuffle (called 30×) |
+| `GET /api/v1/playlist/getall` | List playlists |
+| `POST /api/v1/playlist/load` | Load playlist tracks |
+| `POST /api/v1/playlist/add-song` | Add track to playlist |
+| `POST /api/v1/playlist/remove-song` | Remove track from playlist |
+| `POST /api/v1/playlist/save` | Create / rename playlist |
+| `DELETE /api/v1/playlist/:name` | Delete playlist |
 | `POST /api/v1/lastfm/scrobble-by-filepath` | Scrobble to Last.fm at 50% |
 | `POST /api/v1/listenbrainz/playing-now` | "Now playing" ping to ListenBrainz on track start |
 | `POST /api/v1/listenbrainz/scrobble-by-filepath` | Scrobble to ListenBrainz at 50% |
@@ -131,10 +162,9 @@ Sharesonic uses two separate APIs from mStream:
 
 ---
 
-## Roadmap / known limitations (v0.1.0)
+## Roadmap / known limitations
 
 - No offline caching or download for offline playback
-- No playlist management
 - No multiple server profiles
 - No Android Auto support
 - No lyrics

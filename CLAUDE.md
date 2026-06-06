@@ -4,11 +4,13 @@
 
 Sharesonic is an Android music client for **mStream** (https://mstream.io).
 
-The goal is a single app that does three things well:
+The goal is an app that does a handful of things well:
 
 * Browse music by real filesystem folder structure via mStream's native API
 * Shuffle play on a folder or the entire library
 * Generate a public share link for any track
+* Manage playlists (create, rename, delete; add/remove tracks; play all / shuffle)
+* Persistent mini player during navigation
 
 ## Core Requirements
 
@@ -18,6 +20,9 @@ The goal is a single app that does three things well:
 * Shuffle play on any folder or on the full library
 * Share link generation: tap a track → generate a `server/shared/XXXXXXXXXX` public URL via the mStream native share API → Android share sheet opens with that URL ready to send
 * Settings screen: mStream server URL, username, password, connection test button (tests JWT login)
+* Playlist management: create, rename, delete playlists; add/remove tracks; play all / shuffle; add from browser (swipe right) or from Now Playing
+* Persistent mini player bar during navigation: thumbnail, title/artist, skip/play-pause controls, live progress strip; folds away on the Now Playing screen
+* Queue management: swipe left in browser to add to queue; swipe to remove from queue in the queue view
 * Offline-safe: graceful error handling when the server is unreachable
 
 ### Must Not Have
@@ -40,9 +45,13 @@ The goal is a single app that does three things well:
 ### Key Screens
 
 1. **Settings** — mStream server URL, username, password, test connection
-2. **Folder Browser** — real filesystem tree via native API, swipe or long press for actions
-3. **Now Playing** — minimal player with share button prominently accessible
-4. **Share confirmation** — shows the generated link with a copy + send button
+2. **Folder Browser** — real filesystem tree via native API; swipe right → add to playlist, swipe left → add to queue; long press → context menu; alphabetical letter strip
+3. **Now Playing** — full player (cover art, seek bar, share + add-to-playlist buttons); swipe left for queue view
+4. **Queue** — scrollable queue, tap to jump, swipe left to remove
+5. **Mini player** — persistent bottom bar on all screens except Now Playing; folds up/down without fade
+6. **Playlists** — list of playlists with real track counts; create / rename / delete
+7. **Playlist detail** — track list; play all / shuffle FABs; swipe to remove; add songs via search dialog
+8. **Share confirmation** — shows the generated link with a copy + send button
 
 ## Technical Stack
 
@@ -262,6 +271,8 @@ Shuffle-all songs now use the native filepath path — no integer IDs from shuff
 * CI: GitHub Actions
 * On every push to `main`: build a debug APK
 * On every git tag (`v*`): build a signed release APK and publish it as a GitHub Release asset
+* **Releases page**: https://github.com/Tiritibambix/Sharesonic/releases
+* **Obtainium** (auto-update): `obtainium://add/https://github.com/Tiritibambix/Sharesonic`
 
 ## GitHub Actions Workflow Requirements
 
@@ -280,3 +291,4 @@ The workflow must:
 * Multiple server profiles
 * Lyrics display
 * Android Auto support
+* Generic Subsonic server support (Navidrome, Airsonic…) — planned post-v1
