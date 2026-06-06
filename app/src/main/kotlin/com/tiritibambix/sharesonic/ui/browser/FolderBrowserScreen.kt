@@ -15,6 +15,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
+import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -49,6 +50,18 @@ fun FolderBrowserScreen(
 ) {
     val state by viewModel.state.collectAsState()
     val shareState by viewModel.shareState.collectAsState()
+    val playerState by playerViewModel.state.collectAsState()
+
+    // Animate FAB and list padding up when the mini player bar is visible
+    val miniPlayerVisible = playerState.currentSong != null
+    val fabBottomPadding by animateDpAsState(
+        targetValue = if (miniPlayerVisible) 68.dp else 0.dp,
+        label = "fabBottomPadding"
+    )
+    val listBottomPadding by animateDpAsState(
+        targetValue = if (miniPlayerVisible) 156.dp else 88.dp,
+        label = "listBottomPadding"
+    )
 
     var contextEntry by remember { mutableStateOf<EntryDto?>(null) }
     var showContextMenu by remember { mutableStateOf(false) }
@@ -112,8 +125,9 @@ fun FolderBrowserScreen(
             )
         },
         floatingActionButton = {
-            // Shuffle FAB — always visible, shuffles current level
+            // Shuffle FAB — rises above the mini player when a song is playing
             ExtendedFloatingActionButton(
+                modifier = Modifier.padding(bottom = fabBottomPadding),
                 onClick = {
                     shuffleLoading = true
                     viewModel.shuffleCurrent(
@@ -168,7 +182,7 @@ fun FolderBrowserScreen(
                                 state = listState,
                                 modifier = Modifier.fillMaxSize(),
                                 contentPadding = PaddingValues(
-                                    bottom = 88.dp, // clear FAB
+                                    bottom = listBottomPadding,
                                     end = if (letters.size >= 2) 28.dp else 0.dp
                                 )
                             ) {
