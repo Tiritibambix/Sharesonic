@@ -1,8 +1,8 @@
 package com.tiritibambix.sharesonic.ui.navigation
 
 import androidx.compose.animation.AnimatedVisibility
-import androidx.compose.animation.slideInVertically
-import androidx.compose.animation.slideOutVertically
+import androidx.compose.animation.expandVertically
+import androidx.compose.animation.shrinkVertically
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.runtime.*
@@ -182,8 +182,8 @@ fun AppNavGraph() {
     // ── Mini player overlay ───────────────────────────────────────────────────
     AnimatedVisibility(
         visible = showMiniPlayer,
-        enter = slideInVertically(initialOffsetY = { it }),
-        exit = slideOutVertically(targetOffsetY = { it }),
+        enter = expandVertically(expandFrom = Alignment.Bottom),
+        exit = shrinkVertically(shrinkTowards = Alignment.Bottom),
         modifier = Modifier.align(Alignment.BottomCenter)
     ) {
         MiniPlayerBar(

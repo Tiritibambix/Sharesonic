@@ -125,31 +125,34 @@ fun FolderBrowserScreen(
             )
         },
         floatingActionButton = {
-            // Shuffle FAB — rises above the mini player when a song is playing
-            ExtendedFloatingActionButton(
-                modifier = Modifier.padding(bottom = fabBottomPadding),
-                onClick = {
-                    shuffleLoading = true
-                    viewModel.shuffleCurrent(
-                        onReady = { songs ->
-                            shuffleLoading = false
-                            playerViewModel.playQueue(songs)
-                            onOpenNowPlaying()
-                        },
-                        onError = { err ->
-                            shuffleLoading = false
-                            shuffleError = err
-                        }
-                    )
-                },
-                icon = {
-                    if (shuffleLoading)
-                        CircularProgressIndicator(modifier = Modifier.size(20.dp), strokeWidth = 2.dp)
-                    else
-                        Icon(Icons.Default.Shuffle, contentDescription = null)
-                },
-                text = { Text("Shuffle") }
-            )
+            // Column + Spacer: the Spacer grows when the mini player is visible,
+            // pushing the FAB up above it without touching Scaffold's own FAB logic.
+            Column(horizontalAlignment = Alignment.End) {
+                ExtendedFloatingActionButton(
+                    onClick = {
+                        shuffleLoading = true
+                        viewModel.shuffleCurrent(
+                            onReady = { songs ->
+                                shuffleLoading = false
+                                playerViewModel.playQueue(songs)
+                                onOpenNowPlaying()
+                            },
+                            onError = { err ->
+                                shuffleLoading = false
+                                shuffleError = err
+                            }
+                        )
+                    },
+                    icon = {
+                        if (shuffleLoading)
+                            CircularProgressIndicator(modifier = Modifier.size(20.dp), strokeWidth = 2.dp)
+                        else
+                            Icon(Icons.Default.Shuffle, contentDescription = null)
+                    },
+                    text = { Text("Shuffle") }
+                )
+                Spacer(modifier = Modifier.height(fabBottomPadding))
+            }
         }
     ) { padding ->
         Box(modifier = Modifier.padding(padding).fillMaxSize()) {
