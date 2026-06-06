@@ -37,6 +37,45 @@ interface SubsonicApiService {
         @Query("size") size: Int = 256
     ): ResponseBody
 
+    // ── Playlists ─────────────────────────────────────────────────────────────
+
+    /** List all playlists visible to the authenticated user. */
+    @GET("getPlaylists.view")
+    suspend fun getPlaylists(): SubsonicEnvelope
+
+    /** Fetch a playlist's full track list. */
+    @GET("getPlaylist.view")
+    suspend fun getPlaylist(@Query("id") id: String): SubsonicEnvelope
+
+    /**
+     * Create a new playlist, optionally pre-populated with songs.
+     * [songIds] are Subsonic integer IDs — Retrofit repeats the param for each element.
+     */
+    @GET("createPlaylist.view")
+    suspend fun createPlaylist(
+        @Query("name") name: String,
+        @Query("songId") songIds: List<String> = emptyList()
+    ): SubsonicEnvelope
+
+    /**
+     * Update an existing playlist: rename and/or add/remove songs.
+     * [songIdsToAdd]    — Subsonic integer IDs to append.
+     * [indicesToRemove] — 0-based positions in the current track list to remove.
+     */
+    @GET("updatePlaylist.view")
+    suspend fun updatePlaylist(
+        @Query("playlistId") playlistId: String,
+        @Query("name") name: String? = null,
+        @Query("songIdToAdd") songIdsToAdd: List<String> = emptyList(),
+        @Query("songIndexToRemove") indicesToRemove: List<Int> = emptyList()
+    ): SubsonicEnvelope
+
+    /** Permanently delete a playlist. */
+    @GET("deletePlaylist.view")
+    suspend fun deletePlaylist(@Query("id") id: String): SubsonicEnvelope
+
+    // ── Shares ────────────────────────────────────────────────────────────────
+
     @GET("createShare.view")
     suspend fun createShare(
         @Query("id") id: String,

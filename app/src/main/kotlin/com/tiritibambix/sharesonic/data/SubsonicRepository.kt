@@ -2,6 +2,8 @@ package com.tiritibambix.sharesonic.data
 
 import com.tiritibambix.sharesonic.data.api.SubsonicApiService
 import com.tiritibambix.sharesonic.data.api.models.EntryDto
+import com.tiritibambix.sharesonic.data.api.models.PlaylistDetailDto
+import com.tiritibambix.sharesonic.data.api.models.PlaylistDto
 import com.tiritibambix.sharesonic.data.api.models.SearchResult3
 import com.tiritibambix.sharesonic.data.api.models.ShareDto
 
@@ -52,6 +54,66 @@ class SubsonicRepository(private val api: SubsonicApiService) {
     suspend fun scrobble(id: String, submission: Boolean) {
         try { api.scrobble(id, submission) } catch (_: Exception) {}
     }
+
+    // ── Playlists ─────────────────────────────────────────────────────────────
+
+    /** List all playlists visible to the authenticated user. */
+    suspend fun getPlaylists(): Result<List<PlaylistDto>> = try {
+        val body = api.getPlaylists().response
+        if (body.status == "ok") Result.Success(body.playlists?.playlist ?: emptyList())
+        else Result.Error(body.error?.message ?: "Server error")
+    } catch (e: Exception) { Result.Error(e.message ?: "Network error") }
+
+    /** Fetch a playlist's full track list by ID. */
+    suspend fun getPlaylist(id: String): Result<PlaylistDetailDto> = try {
+        val body = api.getPlaylist(id).response
+        if (body.status == "ok") {
+            val detail = body.playlist ?: return Result.Error("No playlist returned")
+            Result.Success(detail)
+        } else Result.Error(body.error?.message ?: "Server error")
+    } catch (e: Exception) { Result.Error(e.message ?: "Network error") }
+
+    /** Create a new empty playlist and return its metadata. */
+    suspend fun createPlaylist(name: String): Result<PlaylistDto> = try {
+        val body = api.createPlaylist(name).response
+        if (body.status == "ok") {
+            val detail = body.playlist ?: return Result.Error("No playlist returned")
+            Result.Success(PlaylistDto(id = detail.id, name = detail.name, songCount = detail.songCount, duration = detail.duration))
+        } else Result.Error(body.error?.message ?: "Server error")
+    } catch (e: Exception) { Result.Error(e.message ?: "Network error") }
+
+    /**
+     * Rename a playlist. Fire-and-forget — errors are silently ignored.
+     * The caller should refresh the playlist list / detail after calling this.
+     */
+    suspend fun renamePlaylist(playlistId: String, name: String) {
+        try { api.updatePlaylist(playlistId = playlistId, name = name) } catch (_: Exception) {}
+    }
+
+    /**
+     * Append songs to an existing playlist.
+     * [songIds] must be Subsonic integer IDs (from search3 results).
+     * Fire-and-forget — caller refreshes playlist detail.
+     */
+    suspend fun addSongsToPlaylist(playlistId: String, songIds: List<String>) {
+        if (songIds.isEmpty()) return
+        try { api.updatePlaylist(playlistId = playlistId, songIdsToAdd = songIds) } catch (_: Exception) {}
+    }
+
+    /**
+     * Remove a single song from a playlist by its 0-based position.
+     * Fire-and-forget — caller refreshes playlist detail.
+     */
+    suspend fun removeSongFromPlaylist(playlistId: String, index: Int) {
+        try { api.updatePlaylist(playlistId = playlistId, indicesToRemove = listOf(index)) } catch (_: Exception) {}
+    }
+
+    /** Permanently delete a playlist. Fire-and-forget. */
+    suspend fun deletePlaylist(id: String) {
+        try { api.deletePlaylist(id) } catch (_: Exception) {}
+    }
+
+    // ── Shares ────────────────────────────────────────────────────────────────
 
     suspend fun createShare(id: String): Result<ShareDto> {
         return try {

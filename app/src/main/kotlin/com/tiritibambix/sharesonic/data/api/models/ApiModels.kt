@@ -14,6 +14,8 @@ data class SubsonicBody(
     val randomSongs: RandomSongsContainer? = null,
     val searchResult3: SearchResult3? = null,
     val shares: SharesContainer? = null,
+    val playlists: PlaylistsContainer? = null,
+    val playlist: PlaylistDetailDto? = null,
     val error: SubsonicError? = null
 )
 
@@ -60,6 +62,27 @@ data class SearchResult3(
 )
 
 data class TopLevelDir(val id: String = "", val name: String = "")
+
+// ── Playlists (Subsonic getPlaylists / getPlaylist / createPlaylist / updatePlaylist) ──
+
+data class PlaylistDto(
+    val id: String = "",
+    val name: String = "",
+    val songCount: Int = 0,
+    val duration: Int = 0,
+    val coverArt: String? = null,
+    val owner: String? = null
+)
+
+data class PlaylistsContainer(val playlist: List<PlaylistDto> = emptyList())
+
+data class PlaylistDetailDto(
+    val id: String = "",
+    val name: String = "",
+    val songCount: Int = 0,
+    val duration: Int = 0,
+    val entry: List<EntryDto> = emptyList()
+)
 
 // ── Shares (Subsonic createShare / getShares) ──────────────────────────────────
 

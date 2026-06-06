@@ -18,6 +18,12 @@ import com.tiritibambix.sharesonic.ui.player.PlayerViewModelFactory
 import com.tiritibambix.sharesonic.ui.search.SearchScreen
 import com.tiritibambix.sharesonic.ui.search.SearchViewModel
 import com.tiritibambix.sharesonic.ui.search.SearchViewModelFactory
+import com.tiritibambix.sharesonic.ui.playlists.PlaylistDetailScreen
+import com.tiritibambix.sharesonic.ui.playlists.PlaylistDetailViewModel
+import com.tiritibambix.sharesonic.ui.playlists.PlaylistDetailViewModelFactory
+import com.tiritibambix.sharesonic.ui.playlists.PlaylistsScreen
+import com.tiritibambix.sharesonic.ui.playlists.PlaylistsViewModel
+import com.tiritibambix.sharesonic.ui.playlists.PlaylistsViewModelFactory
 import com.tiritibambix.sharesonic.ui.settings.SettingsScreen
 import com.tiritibambix.sharesonic.ui.settings.SettingsViewModel
 import com.tiritibambix.sharesonic.ui.settings.SettingsViewModelFactory
@@ -87,6 +93,7 @@ fun AppNavGraph() {
                 onOpenSettings = { navController.navigate(Screen.Settings.route) },
                 onOpenNowPlaying = { navController.navigate(Screen.NowPlaying.route) },
                 onOpenSearch = { navController.navigate(Screen.Search.route) },
+                onOpenPlaylists = { navController.navigate(Screen.Playlists.route) },
                 onShareCreated = ::onShareCreated
             )
         }
@@ -118,6 +125,45 @@ fun AppNavGraph() {
             ShareConfirmScreen(
                 shareUrl = pendingShareUrl,
                 onBack = { navController.popBackStack() }
+            )
+        }
+
+        composable(Screen.Playlists.route) {
+            val playlistsVm: PlaylistsViewModel =
+                viewModel(factory = PlaylistsViewModelFactory(settingsRepo))
+            PlaylistsScreen(
+                viewModel = playlistsVm,
+                onBack = { navController.popBackStack() },
+                onOpenPlaylist = { id, name ->
+                    navController.navigate(Screen.PlaylistDetail.createRoute(id, name))
+                }
+            )
+        }
+
+        composable(
+            route = Screen.PlaylistDetail.route,
+            arguments = listOf(
+                navArgument(Screen.PlaylistDetail.ARG_ID) { type = NavType.StringType },
+                navArgument(Screen.PlaylistDetail.ARG_NAME) {
+                    type = NavType.StringType
+                    defaultValue = ""
+                }
+            )
+        ) { backStackEntry ->
+            val playlistId = backStackEntry.arguments
+                ?.getString(Screen.PlaylistDetail.ARG_ID) ?: return@composable
+            val playlistName = backStackEntry.arguments
+                ?.getString(Screen.PlaylistDetail.ARG_NAME) ?: ""
+            val detailVm: PlaylistDetailViewModel = viewModel(
+                key = "playlist_$playlistId",
+                factory = PlaylistDetailViewModelFactory(settingsRepo, playlistId)
+            )
+            PlaylistDetailScreen(
+                initialName = playlistName,
+                viewModel = detailVm,
+                playerViewModel = playerVm,
+                onBack = { navController.popBackStack() },
+                onOpenNowPlaying = { navController.navigate(Screen.NowPlaying.route) }
             )
         }
     }

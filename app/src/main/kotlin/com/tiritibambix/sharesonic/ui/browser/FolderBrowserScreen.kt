@@ -41,6 +41,7 @@ fun FolderBrowserScreen(
     onOpenSettings: () -> Unit,
     onOpenNowPlaying: () -> Unit,
     onOpenSearch: () -> Unit,
+    onOpenPlaylists: () -> Unit,
     onShareCreated: (url: String) -> Unit
 ) {
     val state by viewModel.state.collectAsState()
@@ -93,6 +94,9 @@ fun FolderBrowserScreen(
                     }
                     IconButton(onClick = onOpenSearch) {
                         Icon(Icons.Default.Search, contentDescription = "Search")
+                    }
+                    IconButton(onClick = onOpenPlaylists) {
+                        Icon(Icons.Default.QueueMusic, contentDescription = "Playlists")
                     }
                     IconButton(onClick = onOpenSettings) {
                         Icon(Icons.Default.Settings, contentDescription = "Settings")

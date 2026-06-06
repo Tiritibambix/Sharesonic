@@ -34,6 +34,15 @@ sealed class Screen(val route: String) {
 
     // Share URL held in AppNavGraph state — no URL embedded in route.
     data object ShareConfirm : Screen("shareconfirm")
+
+    data object Playlists : Screen("playlists")
+
+    data object PlaylistDetail : Screen("playlist/{playlistId}?name={name}") {
+        fun createRoute(id: String, name: String): String =
+            "playlist/${id.urlEncode()}?name=${name.urlEncode()}"
+        const val ARG_ID   = "playlistId"
+        const val ARG_NAME = "name"
+    }
 }
 
 private fun String.urlEncode() = java.net.URLEncoder.encode(this, "UTF-8")
