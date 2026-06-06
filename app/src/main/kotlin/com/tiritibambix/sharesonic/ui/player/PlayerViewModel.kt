@@ -523,7 +523,7 @@ class PlayerViewModel(
                     SubsonicClient.build(settings.serverUrl, settings.username, settings.password)
                 ).scrobble(song.id, submission = false)
             } else {
-                val token = settings.jwtToken.ifEmpty { return@launch }
+                val token = ensureToken(settings) ?: return@launch
                 MStreamRepository(MStreamClient.build(settings.serverUrl))
                     .listenBrainzNowPlaying(token, song.id)
             }
@@ -545,11 +545,26 @@ class PlayerViewModel(
                     SubsonicClient.build(settings.serverUrl, settings.username, settings.password)
                 ).scrobble(song.id, submission = true)
             } else {
-                val token = settings.jwtToken.ifEmpty { return@launch }
+                val token = ensureToken(settings) ?: return@launch
                 MStreamRepository(MStreamClient.build(settings.serverUrl))
                     .scrobble(token, song.id)
             }
         }
+    }
+
+    /**
+     * Return the stored JWT if present, or attempt a fresh login and persist the new token.
+     * Returns null only if login fails (server unreachable or wrong credentials).
+     */
+    private suspend fun ensureToken(settings: ServerSettings): String? {
+        if (settings.jwtToken.isNotEmpty()) return settings.jwtToken
+        val mStream = MStreamRepository(MStreamClient.build(settings.serverUrl))
+        val result = mStream.login(settings.username, settings.password)
+        if (result is Result.Success) {
+            settingsRepo.saveToken(result.data)
+            return result.data
+        }
+        return null
     }
 
     // ── Helpers ───────────────────────────────────────────────────────────────
