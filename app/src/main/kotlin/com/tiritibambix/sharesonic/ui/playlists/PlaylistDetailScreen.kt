@@ -1,5 +1,6 @@
 package com.tiritibambix.sharesonic.ui.playlists
 
+import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -27,6 +28,18 @@ fun PlaylistDetailScreen(
 ) {
     val state by viewModel.state.collectAsState()
     val addSongsState by viewModel.addSongsState.collectAsState()
+    val playerState by playerViewModel.state.collectAsState()
+
+    // Push FABs and list bottom padding up when the mini player bar is visible
+    val miniPlayerVisible = playerState.currentSong != null
+    val fabBottomPadding by animateDpAsState(
+        targetValue = if (miniPlayerVisible) 68.dp else 0.dp,
+        label = "fabBottomPadding"
+    )
+    val listBottomPadding by animateDpAsState(
+        targetValue = if (miniPlayerVisible) 156.dp else 80.dp,
+        label = "listBottomPadding"
+    )
 
     val playlistName = (state as? PlaylistDetailState.Ready)?.name ?: initialName
 
@@ -162,6 +175,8 @@ fun PlaylistDetailScreen(
         floatingActionButton = {
             val entries = (state as? PlaylistDetailState.Ready)?.entries
             if (!entries.isNullOrEmpty()) {
+                // Column + Spacer: grows when the mini player is visible,
+                // pushing both FABs above it without touching Scaffold's own FAB logic.
                 Column(
                     horizontalAlignment = Alignment.End,
                     verticalArrangement = Arrangement.spacedBy(12.dp)
@@ -186,6 +201,7 @@ fun PlaylistDetailScreen(
                         icon = { Icon(Icons.Default.PlayArrow, contentDescription = null) },
                         text = { Text("Play all") }
                     )
+                    Spacer(modifier = Modifier.height(fabBottomPadding))
                 }
             }
         }
@@ -210,7 +226,7 @@ fun PlaylistDetailScreen(
                     } else {
                         LazyColumn(
                             modifier = Modifier.fillMaxSize(),
-                            contentPadding = PaddingValues(bottom = 80.dp)
+                            contentPadding = PaddingValues(bottom = listBottomPadding)
                         ) {
                             items(s.entries, key = { it.entryId }) { entry ->
                                 SwipeToRemoveSongRow(

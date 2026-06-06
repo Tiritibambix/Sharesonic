@@ -1,5 +1,6 @@
 package com.tiritibambix.sharesonic.ui.playlists
 
+import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.*
@@ -21,9 +22,20 @@ import com.tiritibambix.sharesonic.data.api.models.NativePlaylist
 fun PlaylistsScreen(
     viewModel: PlaylistsViewModel,
     onBack: () -> Unit,
-    onOpenPlaylist: (name: String) -> Unit
+    onOpenPlaylist: (name: String) -> Unit,
+    miniPlayerVisible: Boolean = false
 ) {
     val state by viewModel.state.collectAsState()
+
+    // Push FAB and list bottom padding up when the mini player bar is visible
+    val fabBottomPadding by animateDpAsState(
+        targetValue = if (miniPlayerVisible) 68.dp else 0.dp,
+        label = "fabBottomPadding"
+    )
+    val listBottomPadding by animateDpAsState(
+        targetValue = if (miniPlayerVisible) 156.dp else 80.dp,
+        label = "listBottomPadding"
+    )
 
     var showCreateDialog by remember { mutableStateOf(false) }
     var createName by remember { mutableStateOf("") }
@@ -125,8 +137,13 @@ fun PlaylistsScreen(
             )
         },
         floatingActionButton = {
-            FloatingActionButton(onClick = { createName = ""; showCreateDialog = true }) {
-                Icon(Icons.Default.Add, contentDescription = "New playlist")
+            // Column + Spacer: grows when the mini player is visible,
+            // pushing the FAB above it without touching Scaffold's own FAB logic.
+            Column(horizontalAlignment = Alignment.End) {
+                FloatingActionButton(onClick = { createName = ""; showCreateDialog = true }) {
+                    Icon(Icons.Default.Add, contentDescription = "New playlist")
+                }
+                Spacer(modifier = Modifier.height(fabBottomPadding))
             }
         }
     ) { padding ->
@@ -152,7 +169,7 @@ fun PlaylistsScreen(
                     } else {
                         LazyColumn(
                             modifier = Modifier.fillMaxSize(),
-                            contentPadding = PaddingValues(bottom = 80.dp)
+                            contentPadding = PaddingValues(bottom = listBottomPadding)
                         ) {
                             items(s.playlists, key = { it.name }) { playlist ->
                                 PlaylistRow(

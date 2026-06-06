@@ -157,7 +157,8 @@ fun AppNavGraph() {
                 onBack = { navController.popBackStack() },
                 onOpenPlaylist = { name ->
                     navController.navigate(Screen.PlaylistDetail.createRoute(name))
-                }
+                },
+                miniPlayerVisible = playerState.currentSong != null
             )
         }
 
