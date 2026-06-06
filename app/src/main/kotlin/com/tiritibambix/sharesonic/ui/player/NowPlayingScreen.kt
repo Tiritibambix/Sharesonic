@@ -116,6 +116,9 @@ fun NowPlayingScreen(
 
 @Composable
 private fun NowPlayingPage(state: PlayerState, viewModel: PlayerViewModel) {
+    var showPlaylistPicker by remember { mutableStateOf(false) }
+    val playlists by viewModel.playlists.collectAsState()
+
     Column(
         modifier = Modifier
             .fillMaxSize()
@@ -272,17 +275,34 @@ private fun NowPlayingPage(state: PlayerState, viewModel: PlayerViewModel) {
 
             Spacer(Modifier.height(8.dp))
 
-            // Share button
-            if (state.shareLoading) {
-                CircularProgressIndicator(modifier = Modifier.size(28.dp))
-            } else {
+            // Share + Add to playlist buttons
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                if (state.shareLoading) {
+                    Box(modifier = Modifier.weight(1f), contentAlignment = Alignment.Center) {
+                        CircularProgressIndicator(modifier = Modifier.size(28.dp))
+                    }
+                } else {
+                    OutlinedButton(
+                        onClick = { viewModel.shareCurrentSong() },
+                        modifier = Modifier.weight(1f)
+                    ) {
+                        Icon(Icons.Default.Share, contentDescription = null,
+                            modifier = Modifier.size(18.dp))
+                        Spacer(Modifier.width(4.dp))
+                        Text("Share")
+                    }
+                }
                 OutlinedButton(
-                    onClick = { viewModel.shareCurrentSong() },
-                    modifier = Modifier.fillMaxWidth()
+                    onClick = { showPlaylistPicker = true; viewModel.loadPlaylists() },
+                    modifier = Modifier.weight(1f)
                 ) {
-                    Icon(Icons.Default.Share, contentDescription = null)
-                    Spacer(Modifier.width(8.dp))
-                    Text("Share link")
+                    Icon(Icons.Default.QueueMusic, contentDescription = null,
+                        modifier = Modifier.size(18.dp))
+                    Spacer(Modifier.width(4.dp))
+                    Text("Playlist")
                 }
             }
             state.shareError?.let {
@@ -335,6 +355,47 @@ private fun NowPlayingPage(state: PlayerState, viewModel: PlayerViewModel) {
                 )
             }
         }
+    }
+
+    // ── Add-to-playlist dialog ─────────────────────────────────────────────────
+    if (showPlaylistPicker) {
+        AlertDialog(
+            onDismissRequest = { showPlaylistPicker = false },
+            title = { Text("Add to playlist") },
+            text = {
+                if (playlists.isEmpty()) {
+                    Text(
+                        "No playlists yet.\nCreate one in the Playlists screen first.",
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                } else {
+                    Column(
+                        modifier = Modifier
+                            .heightIn(max = 320.dp)
+                            .verticalScroll(rememberScrollState())
+                    ) {
+                        playlists.forEach { playlist ->
+                            TextButton(
+                                onClick = {
+                                    viewModel.addCurrentSongToPlaylist(playlist.name)
+                                    showPlaylistPicker = false
+                                },
+                                modifier = Modifier.fillMaxWidth()
+                            ) {
+                                Text(
+                                    "${playlist.name}  (${playlist.songCount})",
+                                    modifier = Modifier.fillMaxWidth()
+                                )
+                            }
+                        }
+                    }
+                }
+            },
+            confirmButton = {},
+            dismissButton = {
+                TextButton(onClick = { showPlaylistPicker = false }) { Text("Cancel") }
+            }
+        )
     }
 }
 
@@ -487,4 +548,141 @@ private fun formatMs(ms: Long): String {
     val m = totalSeconds / 60
     val s = totalSeconds % 60
     return "%d:%02d".format(m, s)
+}
+
+// ── Mini player bar ───────────────────────────────────────────────────────────
+// Persistent bar shown at the bottom of all screens while a song is playing.
+// Tapping it navigates to the full NowPlaying screen.
+
+@Composable
+fun MiniPlayerBar(
+    state: PlayerState,
+    onPlayPause: () -> Unit,
+    onSkipPrev: () -> Unit,
+    onSkipNext: () -> Unit,
+    onClick: () -> Unit
+) {
+    val song = state.currentSong ?: return
+
+    Surface(
+        modifier = Modifier.fillMaxWidth(),
+        color = MaterialTheme.colorScheme.surfaceVariant,
+        shadowElevation = 8.dp,
+        tonalElevation = 4.dp
+    ) {
+        Column {
+            // Thin progress strip along the top edge
+            if (state.durationMs > 0L) {
+                LinearProgressIndicator(
+                    progress = {
+                        (state.currentPositionMs.toFloat() / state.durationMs.toFloat())
+                            .coerceIn(0f, 1f)
+                    },
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(2.dp),
+                    color = MaterialTheme.colorScheme.primary,
+                    trackColor = MaterialTheme.colorScheme.outline.copy(alpha = 0.3f)
+                )
+            }
+
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(64.dp)
+                    .clickable(onClick = onClick)
+                    .padding(start = 8.dp, end = 4.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                // Album art thumbnail
+                if (state.coverArtUrl != null) {
+                    AsyncImage(
+                        model = state.coverArtUrl,
+                        contentDescription = null,
+                        contentScale = ContentScale.Crop,
+                        modifier = Modifier
+                            .size(46.dp)
+                            .clip(RoundedCornerShape(4.dp))
+                    )
+                } else {
+                    Surface(
+                        modifier = Modifier.size(46.dp),
+                        shape = RoundedCornerShape(4.dp),
+                        color = MaterialTheme.colorScheme.primaryContainer
+                    ) {
+                        Icon(
+                            Icons.Default.MusicNote,
+                            contentDescription = null,
+                            modifier = Modifier.padding(11.dp),
+                            tint = MaterialTheme.colorScheme.onPrimaryContainer
+                        )
+                    }
+                }
+
+                // Track info
+                Column(
+                    modifier = Modifier
+                        .weight(1f)
+                        .padding(horizontal = 10.dp)
+                ) {
+                    Text(
+                        text = song.displayName,
+                        style = MaterialTheme.typography.bodyMedium,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                        color = MaterialTheme.colorScheme.onSurface
+                    )
+                    if (!song.artist.isNullOrBlank()) {
+                        Text(
+                            text = song.artist!!,
+                            style = MaterialTheme.typography.bodySmall,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                }
+
+                // Controls
+                IconButton(
+                    onClick = onSkipPrev,
+                    enabled = state.queueIndex > 0
+                ) {
+                    Icon(
+                        Icons.Default.SkipPrevious,
+                        contentDescription = "Previous",
+                        tint = if (state.queueIndex > 0)
+                            MaterialTheme.colorScheme.onSurfaceVariant
+                        else
+                            MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.38f)
+                    )
+                }
+                FilledIconButton(
+                    onClick = onPlayPause,
+                    modifier = Modifier.size(40.dp)
+                ) {
+                    Icon(
+                        imageVector = if (state.isPlaying) Icons.Default.Pause
+                                      else Icons.Default.PlayArrow,
+                        contentDescription = if (state.isPlaying) "Pause" else "Play"
+                    )
+                }
+                IconButton(
+                    onClick = onSkipNext,
+                    enabled = state.queueIndex < state.queue.lastIndex
+                ) {
+                    Icon(
+                        Icons.Default.SkipNext,
+                        contentDescription = "Next",
+                        tint = if (state.queueIndex < state.queue.lastIndex)
+                            MaterialTheme.colorScheme.onSurfaceVariant
+                        else
+                            MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.38f)
+                    )
+                }
+            }
+            // Reserve space for system navigation bar below the content row
+            Spacer(modifier = Modifier.navigationBarsPadding())
+        }
+    }
 }

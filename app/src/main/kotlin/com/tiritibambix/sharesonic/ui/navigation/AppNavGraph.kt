@@ -1,7 +1,15 @@
 package com.tiritibambix.sharesonic.ui.navigation
 
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.slideInVertically
+import androidx.compose.animation.slideOutVertically
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.runtime.*
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavType
 import androidx.navigation.compose.NavHost
@@ -27,6 +35,7 @@ import com.tiritibambix.sharesonic.ui.playlists.PlaylistsViewModelFactory
 import com.tiritibambix.sharesonic.ui.settings.SettingsScreen
 import com.tiritibambix.sharesonic.ui.settings.SettingsViewModel
 import com.tiritibambix.sharesonic.ui.settings.SettingsViewModelFactory
+import com.tiritibambix.sharesonic.ui.player.MiniPlayerBar
 import com.tiritibambix.sharesonic.ui.share.ShareConfirmScreen
 
 @Composable
@@ -46,6 +55,12 @@ fun AppNavGraph() {
         navController.navigate(Screen.ShareConfirm.route)
     }
 
+    val playerState by playerVm.state.collectAsState()
+    val navBackStackEntry by navController.currentBackStackEntryAsState()
+    val showMiniPlayer = playerState.currentSong != null &&
+        navBackStackEntry?.destination?.route != Screen.NowPlaying.route
+
+    Box(modifier = Modifier.fillMaxSize()) {
     NavHost(navController = navController, startDestination = Screen.Settings.route) {
 
         composable(Screen.Settings.route) {
@@ -162,7 +177,24 @@ fun AppNavGraph() {
                 onOpenNowPlaying = { navController.navigate(Screen.NowPlaying.route) }
             )
         }
+    } // NavHost
+
+    // ── Mini player overlay ───────────────────────────────────────────────────
+    AnimatedVisibility(
+        visible = showMiniPlayer,
+        enter = slideInVertically(initialOffsetY = { it }),
+        exit = slideOutVertically(targetOffsetY = { it }),
+        modifier = Modifier.align(Alignment.BottomCenter)
+    ) {
+        MiniPlayerBar(
+            state = playerState,
+            onPlayPause = playerVm::playPause,
+            onSkipPrev = playerVm::skipPrev,
+            onSkipNext = playerVm::skipNext,
+            onClick = { navController.navigate(Screen.NowPlaying.route) }
+        )
     }
+    } // Box
 
     // Auto-navigate to browser when already configured
     LaunchedEffect(settings.isConfigured) {

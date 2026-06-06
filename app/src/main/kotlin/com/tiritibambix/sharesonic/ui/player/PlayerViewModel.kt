@@ -19,10 +19,13 @@ import com.tiritibambix.sharesonic.data.SubsonicRepository
 import com.tiritibambix.sharesonic.data.api.MStreamClient
 import com.tiritibambix.sharesonic.data.api.SubsonicClient
 import com.tiritibambix.sharesonic.data.api.models.EntryDto
+import com.tiritibambix.sharesonic.data.api.models.NativePlaylist
 import com.tiritibambix.sharesonic.data.settings.ServerSettings
 import com.tiritibambix.sharesonic.data.settings.SettingsRepository
 import com.tiritibambix.sharesonic.playback.PlaybackService
 import kotlinx.coroutines.CompletableDeferred
+import kotlinx.coroutines.async
+import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -58,6 +61,10 @@ class PlayerViewModel(
     private val controllerDeferred = CompletableDeferred<MediaController>()
 
     private var cachedSettings: ServerSettings? = null
+
+    // ── Playlist state (for "Add to playlist" in NowPlaying) ─────────────────
+    private val _playlists = MutableStateFlow<List<NativePlaylist>>(emptyList())
+    val playlists: StateFlow<List<NativePlaylist>> = _playlists
 
     // ── Scrobble tracking ─────────────────────────────────────────────────────
     /** ID of the last song for which a "now playing" ping was sent. */
@@ -194,6 +201,48 @@ class PlayerViewModel(
             _state.update { it.copy(queue = newQueue) }
             val ctrl = controllerDeferred.await()
             ctrl.addMediaItem(MediaItem.fromUri(streamUrl(settings, song)))
+        }
+    }
+
+    // ── Playlist management ───────────────────────────────────────────────────
+
+    /**
+     * Load the user's playlists for the "Add to playlist" picker.
+     * Cached after first load; pass [forceRefresh] = true to bypass.
+     */
+    fun loadPlaylists(forceRefresh: Boolean = false) {
+        if (!forceRefresh && _playlists.value.isNotEmpty()) return
+        viewModelScope.launch {
+            val settings = settings()
+            if (!settings.isConfigured) return@launch
+            val token = settings.jwtToken.ifEmpty { return@launch }
+            val mStream = MStreamRepository(MStreamClient.build(settings.serverUrl))
+            when (val r = mStream.getPlaylists(token)) {
+                is Result.Error -> {}
+                is Result.Success -> {
+                    _playlists.update { r.data }
+                    // Refresh real song counts in parallel (getall count is denormalized)
+                    val refreshed = r.data.map { playlist ->
+                        async {
+                            val loaded = mStream.loadPlaylist(token, playlist.name)
+                            if (loaded is Result.Success) playlist.copy(songCount = loaded.data.size)
+                            else playlist
+                        }
+                    }.awaitAll()
+                    _playlists.update { refreshed }
+                }
+            }
+        }
+    }
+
+    /** Append the currently playing track to [playlistName]. Fire-and-forget. */
+    fun addCurrentSongToPlaylist(playlistName: String) {
+        val song = _state.value.currentSong ?: return
+        viewModelScope.launch {
+            val settings = settings()
+            val token = settings.jwtToken.ifEmpty { return@launch }
+            MStreamRepository(MStreamClient.build(settings.serverUrl))
+                .addSongToPlaylist(token, song.id, playlistName)
         }
     }
 

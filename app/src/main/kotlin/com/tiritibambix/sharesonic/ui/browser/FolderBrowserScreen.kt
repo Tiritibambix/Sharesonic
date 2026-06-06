@@ -49,7 +49,6 @@ fun FolderBrowserScreen(
 ) {
     val state by viewModel.state.collectAsState()
     val shareState by viewModel.shareState.collectAsState()
-    val playerState by playerViewModel.state.collectAsState()
 
     var contextEntry by remember { mutableStateOf<EntryDto?>(null) }
     var showContextMenu by remember { mutableStateOf(false) }
@@ -100,11 +99,6 @@ fun FolderBrowserScreen(
             TopAppBar(
                 title = { Text(folderName, maxLines = 1, overflow = TextOverflow.Ellipsis) },
                 actions = {
-                    if (playerState.currentSong != null) {
-                        IconButton(onClick = onOpenNowPlaying) {
-                            Icon(Icons.Default.MusicNote, contentDescription = "Now Playing")
-                        }
-                    }
                     IconButton(onClick = onOpenSearch) {
                         Icon(Icons.Default.Search, contentDescription = "Search")
                     }
