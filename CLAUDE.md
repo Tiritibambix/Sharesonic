@@ -2,7 +2,7 @@
 
 ## Project Overview
 
-Sharesonic is an Android music client for **mStream** (https://mstream.io).
+Sharesonic is an Android music client for **mStream Velvet** (https://mstream.io).
 
 The goal is an app that does a handful of things well:
 
