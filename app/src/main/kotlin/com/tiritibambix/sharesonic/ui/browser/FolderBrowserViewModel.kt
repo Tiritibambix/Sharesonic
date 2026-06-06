@@ -13,6 +13,8 @@ import com.tiritibambix.sharesonic.data.api.models.NativePlaylist
 import com.tiritibambix.sharesonic.data.settings.ServerSettings
 import com.tiritibambix.sharesonic.data.settings.SettingsRepository
 import com.tiritibambix.sharesonic.ui.navigation.Screen
+import kotlinx.coroutines.async
+import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.first
@@ -216,8 +218,22 @@ class FolderBrowserViewModel(
             val token = ensureToken(settings) ?: return@launch
             val mStream = MStreamRepository(MStreamClient.build(settings.serverUrl))
             when (val r = mStream.getPlaylists(token)) {
-                is Result.Success -> _playlists.update { r.data }
-                is Result.Error   -> {}  // silently ignored — picker shows empty list
+                is Result.Error -> {}  // silently ignored — picker shows empty list
+                is Result.Success -> {
+                    _playlists.update { r.data }
+                    // mStream's getall songCount is denormalized and not updated by add-song.
+                    // Refresh each playlist's real count in parallel.
+                    val refreshed = r.data.map { playlist ->
+                        async {
+                            val loaded = mStream.loadPlaylist(token, playlist.name)
+                            if (loaded is Result.Success)
+                                playlist.copy(songCount = loaded.data.size)
+                            else
+                                playlist
+                        }
+                    }.awaitAll()
+                    _playlists.update { refreshed }
+                }
             }
         }
     }

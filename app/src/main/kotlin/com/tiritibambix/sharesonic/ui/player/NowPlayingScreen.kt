@@ -340,6 +340,7 @@ private fun NowPlayingPage(state: PlayerState, viewModel: PlayerViewModel) {
 
 // ── Page 1: Queue ─────────────────────────────────────────────────────────────
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun QueuePage(state: PlayerState, viewModel: PlayerViewModel) {
     if (state.queue.isEmpty()) {
@@ -362,70 +363,115 @@ private fun QueuePage(state: PlayerState, viewModel: PlayerViewModel) {
         state = listState,
         modifier = Modifier.fillMaxSize()
     ) {
-        itemsIndexed(state.queue) { index, song ->
+        itemsIndexed(state.queue, key = { _, song -> song.id }) { index, song ->
             val isCurrent = index == state.queueIndex
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .clickable { viewModel.jumpTo(index) }
-                    .background(
-                        if (isCurrent)
-                            MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.25f)
-                        else
-                            MaterialTheme.colorScheme.background
-                    )
-                    .padding(horizontal = 16.dp, vertical = 10.dp),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(12.dp)
-            ) {
-                // Playing indicator or index number
-                Box(modifier = Modifier.width(28.dp), contentAlignment = Alignment.Center) {
-                    if (isCurrent) {
-                        Icon(
-                            Icons.Default.PlayArrow,
-                            contentDescription = null,
-                            tint = MaterialTheme.colorScheme.primary,
-                            modifier = Modifier.size(20.dp)
-                        )
-                    } else {
-                        Text(
-                            "${index + 1}",
-                            style = MaterialTheme.typography.labelMedium,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-                    }
-                }
 
-                Column(modifier = Modifier.weight(1f)) {
-                    Text(
-                        song.displayName,
-                        style = MaterialTheme.typography.bodyMedium,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis,
-                        color = if (isCurrent) MaterialTheme.colorScheme.primary
-                                else MaterialTheme.colorScheme.onSurface
-                    )
-                    if (!song.artist.isNullOrBlank()) {
-                        Text(
-                            song.artist!!,
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            maxLines = 1,
-                            overflow = TextOverflow.Ellipsis
-                        )
+            if (isCurrent) {
+                // Currently playing track — no swipe
+                QueueSongRow(index, song, isCurrent) { viewModel.jumpTo(index) }
+            } else {
+                // Swipe left (EndToStart) → remove from queue
+                val dismissState = rememberSwipeToDismissBoxState(
+                    confirmValueChange = { value ->
+                        if (value == SwipeToDismissBoxValue.EndToStart) {
+                            viewModel.removeFromQueue(index)
+                            true
+                        } else false
                     }
-                }
-
-                // Duration
-                song.duration?.let {
-                    Text(
-                        formatDuration(it),
-                        style = MaterialTheme.typography.labelSmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
+                )
+                SwipeToDismissBox(
+                    state = dismissState,
+                    enableDismissFromStartToEnd = false,
+                    enableDismissFromEndToStart = true,
+                    backgroundContent = {
+                        Box(
+                            modifier = Modifier
+                                .fillMaxSize()
+                                .background(MaterialTheme.colorScheme.errorContainer)
+                                .padding(end = 16.dp),
+                            contentAlignment = Alignment.CenterEnd
+                        ) {
+                            Icon(
+                                Icons.Default.Delete,
+                                contentDescription = "Remove from queue",
+                                tint = MaterialTheme.colorScheme.error
+                            )
+                        }
+                    }
+                ) {
+                    QueueSongRow(index, song, isCurrent) { viewModel.jumpTo(index) }
                 }
             }
             HorizontalDivider(thickness = 0.5.dp)
+        }
+    }
+}
+
+@Composable
+private fun QueueSongRow(
+    index: Int,
+    song: com.tiritibambix.sharesonic.data.api.models.EntryDto,
+    isCurrent: Boolean,
+    onClick: () -> Unit
+) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable(onClick = onClick)
+            .background(
+                if (isCurrent)
+                    MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.25f)
+                else
+                    MaterialTheme.colorScheme.surface
+            )
+            .padding(horizontal = 16.dp, vertical = 10.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(12.dp)
+    ) {
+        // Playing indicator or track number
+        Box(modifier = Modifier.width(28.dp), contentAlignment = Alignment.Center) {
+            if (isCurrent) {
+                Icon(
+                    Icons.Default.PlayArrow,
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.primary,
+                    modifier = Modifier.size(20.dp)
+                )
+            } else {
+                Text(
+                    "${index + 1}",
+                    style = MaterialTheme.typography.labelMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+        }
+
+        Column(modifier = Modifier.weight(1f)) {
+            Text(
+                song.displayName,
+                style = MaterialTheme.typography.bodyMedium,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+                color = if (isCurrent) MaterialTheme.colorScheme.primary
+                        else MaterialTheme.colorScheme.onSurface
+            )
+            if (!song.artist.isNullOrBlank()) {
+                Text(
+                    song.artist!!,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
+            }
+        }
+
+        song.duration?.let {
+            Text(
+                formatDuration(it),
+                style = MaterialTheme.typography.labelSmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
         }
     }
 }

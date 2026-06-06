@@ -165,6 +165,20 @@ class PlayerViewModel(
     }
 
     /**
+     * Remove the track at [index] from the queue.
+     * Removing the currently playing track is a no-op (use skip instead).
+     * Tracks before the current index shift the index down by one.
+     */
+    fun removeFromQueue(index: Int) {
+        val q = _state.value
+        if (index !in q.queue.indices || index == q.queueIndex) return
+        val newQueue = q.queue.toMutableList().apply { removeAt(index) }
+        val newIndex = if (index < q.queueIndex) q.queueIndex - 1 else q.queueIndex
+        _state.update { it.copy(queue = newQueue, queueIndex = newIndex) }
+        viewModelScope.launch { controllerDeferred.await().removeMediaItem(index) }
+    }
+
+    /**
      * Append [song] to the end of the current queue without interrupting playback.
      * If nothing is playing, falls back to [playSong] and starts playback immediately.
      */
