@@ -482,8 +482,12 @@ class PlayerViewModel(
                 }
             } else {
                 // mStream native song — use filepath with native share endpoint
+                val token = ensureToken(settings) ?: run {
+                    _state.update { it.copy(shareLoading = false, shareError = "Authentication failed") }
+                    return@launch
+                }
                 val mStream = MStreamRepository(MStreamClient.build(settings.serverUrl))
-                when (val r = mStream.share(settings.jwtToken, song.id)) {
+                when (val r = mStream.share(token, song.id)) {
                     is Result.Success -> settings.serverUrl.trimEnd('/') + "/shared/${r.data}"
                     is Result.Error   -> { _state.update { it.copy(shareLoading = false, shareError = r.message) }; return@launch }
                 }

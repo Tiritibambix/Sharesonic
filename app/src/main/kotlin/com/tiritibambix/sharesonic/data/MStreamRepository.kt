@@ -2,6 +2,7 @@ package com.tiritibambix.sharesonic.data
 
 import android.util.Log
 import com.tiritibambix.sharesonic.data.api.MStreamApiService
+import retrofit2.HttpException
 import com.tiritibambix.sharesonic.data.api.models.EntryDto
 import com.tiritibambix.sharesonic.data.api.models.FileExplorerRequest
 import com.tiritibambix.sharesonic.data.api.models.FileExplorerResponse
@@ -160,6 +161,13 @@ class MStreamRepository(private val api: MStreamApiService) {
             val shareId = resp.playlistId
             if (!shareId.isNullOrBlank()) Result.Success(shareId)
             else Result.Error("Share failed: no shareId returned")
+        } catch (e: HttpException) {
+            // Extract the server error body so the user sees the actual mStream error message
+            // (e.g. {"error":"Server Error"}) rather than the generic HTTP status line.
+            val body = try { e.response()?.errorBody()?.string()?.take(300) } catch (_: Exception) { null }
+            val detail = if (!body.isNullOrBlank()) " — $body" else ""
+            Log.e(TAG, "share HTTP ${e.code()}$detail")
+            Result.Error("HTTP ${e.code()}$detail")
         } catch (e: Exception) {
             Result.Error(e.message ?: "Network error")
         }
