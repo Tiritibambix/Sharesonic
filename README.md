@@ -40,6 +40,7 @@ Sharesonic is built for the other scenario — the large, chaotic, lovingly diso
 | **Folder browsing** | Navigate your full directory tree from root to individual tracks |
 | **Shuffle library** | Server-side random pick via native Velvet API — 30 tracks, no repeats |
 | **Shuffle folder** | Recursive collect + shuffle on any sub-directory |
+| **Auto-DJ** | Continuous smart queue: BPM continuity, harmonic mixing (Camelot wheel), similar artists, artist cooldown, genre filter, crossfade — toggle ∞ in mini player or Now Playing |
 | **Share link** | Native mStream share API → public `server/shared/XXXXXXXXXX` URL → Android share sheet |
 | **Now Playing** | Cover art, seek bar with elapsed/total time, artist · album info |
 | **Mini player** | Persistent bottom bar with progress strip, controls and art — folds up during navigation |
@@ -61,21 +62,9 @@ Sharesonic is built for the other scenario — the large, chaotic, lovingly diso
 
 ---
 
-## ⚠️ Known issue — first launch
-
-On the very first launch after a fresh install, playback may not start. If that happens:
-
-1. Tap a track to play it — nothing happens
-2. Tap the **Share** button — the app will crash
-3. Reopen Sharesonic — playback now works normally
-
-This is a one-time MediaSession initialisation quirk that does not affect subsequent sessions. A fix is planned for a future release.
-
----
-
 ## Server compatibility
 
-Sharesonic is built for **[mStream Velvet](https://mstream.io)** (v7.x). It uses mStream's native API for browsing, streaming, sharing, shuffle, and playlist management, and the Subsonic compatibility layer for search only.
+Sharesonic is built for **[mStream Velvet](https://mstream.io)** (v6.x). It uses mStream's native API for browsing, streaming, sharing, shuffle, Auto-DJ, and playlist management, and the Subsonic compatibility layer for search only.
 
 Generic Subsonic servers (Navidrome, Airsonic, etc.) are not supported yet — planned for a future release.
 
@@ -154,7 +143,8 @@ Sharesonic uses two separate APIs from mStream:
 | `POST /api/v1/share` | Generate public share link (`time` = days) |
 | `GET /api/v1/share/list` | List own share links |
 | `DELETE /api/v1/share/:id` | Revoke a share link |
-| `POST /api/v1/db/random-songs` | Random song for shuffle (called 30×) |
+| `POST /api/v1/db/random-songs` | Random song for shuffle (called 30×) and Auto-DJ (called 1× with BPM/key/artist filters) |
+| `GET /api/v1/lastfm/similar-artists` | Similar artists for Auto-DJ (proxied from Last.fm) |
 | `GET /api/v1/playlist/getall` | List playlists |
 | `POST /api/v1/playlist/load` | Load playlist tracks |
 | `POST /api/v1/playlist/add-song` | Add track to playlist |

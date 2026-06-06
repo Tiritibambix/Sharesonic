@@ -8,6 +8,7 @@ The goal is an app that does a handful of things well:
 
 * Browse music by real filesystem folder structure via mStream's native API
 * Shuffle play on a folder or the entire library
+* Auto-DJ: continuous smart queue with BPM continuity, harmonic mixing (Camelot wheel), similar artists (Last.fm), artist cooldown, genre filter, crossfade
 * Generate a public share link for any track
 * Manage playlists (create, rename, delete; add/remove tracks; play all / shuffle)
 * Persistent mini player during navigation
@@ -18,6 +19,7 @@ The goal is an app that does a handful of things well:
 
 * Folder-based browsing as the primary navigation mode using mStream's native `/api/v1/file-explorer` endpoint (not the Subsonic API — Subsonic on mStream returns tag-based artist/album views, not real folders)
 * Shuffle play on any folder or on the full library
+* Auto-DJ: when enabled, the queue never stops — the app continuously fetches the next track using BPM continuity, harmonic key (Camelot wheel), similar artists via Last.fm, artist cooldown, genre filter, and optional crossfade
 * Share link generation: tap a track → generate a `server/shared/XXXXXXXXXX` public URL via the mStream native share API → Android share sheet opens with that URL ready to send
 * Settings screen: mStream server URL, username, password, connection test button (tests JWT login)
 * Playlist management: create, rename, delete playlists; add/remove tracks; play all / shuffle; add from browser (swipe right) or from Now Playing
@@ -58,7 +60,7 @@ The goal is an app that does a handful of things well:
 * Language: Kotlin
 * UI: Jetpack Compose + Material 3
 * Architecture: MVVM with ViewModel + StateFlow
-* Network: Retrofit + OkHttp (mStream native API + Subsonic API for search and shuffle-all)
+* Network: Retrofit + OkHttp (mStream native API for everything; Subsonic API for search only)
 * Local storage: DataStore for settings (stores URL, username, password, JWT token)
 * Min SDK: 26 (Android 8.0)
 * Target SDK: latest stable
@@ -193,6 +195,39 @@ Content-Type: application/json
 Returns **one song per call**. The app calls it 30 times sequentially, passing the updated
 `ignoreList` each time, to build a shuffle queue. Songs have `filepath` as identifier —
 identical to `file-explorer` `pullMetadata=true` entries. Replaces Subsonic `getRandomSongs`.
+
+For Auto-DJ, the same endpoint is called with additional filter fields:
+
+```json
+{
+  "ignoreList": [3, 17, 42],
+  "ignoreVPaths": ["Podcasts"],
+  "bpmRanges": [{ "min": 115, "max": 135 }],
+  "bpmRangesWide": [{ "min": 105, "max": 145 }],
+  "requireBpm": false,
+  "musicalKeys": ["8A", "7A", "9A", "8B"],
+  "requireMusicalKey": false,
+  "artists": ["Similar Artist 1", "Similar Artist 2"],
+  "ignoreArtists": ["Recent Artist"],
+  "genres": ["Jazz"],
+  "genreMode": "whitelist",
+  "minRating": 3
+}
+```
+
+`bpmRanges` = tight window (preferred); `bpmRangesWide` = fallback window. The app tries the
+full request first, then falls back to a plain random request if no match is found.
+
+### Auto-DJ — similar artists
+
+```
+GET /api/v1/lastfm/similar-artists?artist=<name>
+x-access-token: <token>
+→ { "artists": ["Artist A", "Artist B", ...] }
+```
+
+Returns a list of similar artist names via Last.fm, proxied through mStream.
+Results are cached in memory per session. Used by `PlayerViewModel.fetchAndEnqueueAutoDjSong()`.
 
 ### On-demand art
 
