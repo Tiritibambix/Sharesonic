@@ -18,15 +18,202 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import kotlin.math.roundToInt
 
+/**
+ * Embeddable Auto-DJ settings content (no Scaffold / TopAppBar).
+ * Used both by [AutoDjSettingsScreen] (standalone) and by the
+ * "Auto-DJ" tab inside SettingsScreen.
+ */
+@Composable
+fun AutoDjSettingsContent(
+    viewModel: AutoDjSettingsViewModel,
+    modifier: Modifier = Modifier
+) {
+    val s by viewModel.settings.collectAsState()
+    val vpaths by viewModel.availableVpaths.collectAsState()
+
+    LazyColumn(
+        modifier = modifier.fillMaxSize(),
+        contentPadding = PaddingValues(bottom = 32.dp)
+    ) {
+
+        // ── BPM Continuity ────────────────────────────────────────────────
+        item {
+            SectionHeader("BPM Continuity")
+        }
+        item {
+            SettingRow(
+                label = "Use BPM continuity",
+                description = "Prefer tracks with a similar tempo to the current song"
+            ) {
+                Switch(
+                    checked = s.useBpm,
+                    onCheckedChange = viewModel::setUseBpm
+                )
+            }
+        }
+        item {
+            AnimatedVisibility(visible = s.useBpm) {
+                Column {
+                    SliderSetting(
+                        label = "Tight range  ±${s.bpmTightRange} BPM",
+                        value = s.bpmTightRange.toFloat(),
+                        onValueChange = { viewModel.setBpmTightRange(it.roundToInt()) },
+                        valueRange = 5f..30f,
+                        steps = 4
+                    )
+                    SliderSetting(
+                        label = "Wide range  ±${s.bpmWideRange} BPM  (fallback)",
+                        value = s.bpmWideRange.toFloat(),
+                        onValueChange = { viewModel.setBpmWideRange(it.roundToInt()) },
+                        valueRange = 10f..50f,
+                        steps = 7
+                    )
+                    SettingRow(
+                        label = "Require BPM tag",
+                        description = "Skip tracks that have no BPM metadata"
+                    ) {
+                        Switch(
+                            checked = s.requireBpm,
+                            onCheckedChange = viewModel::setRequireBpm
+                        )
+                    }
+                }
+            }
+        }
+
+        // ── Harmonic Mixing ───────────────────────────────────────────────
+        item { SectionDivider() }
+        item { SectionHeader("Harmonic Mixing (Camelot)") }
+        item {
+            SettingRow(
+                label = "Harmonic mixing",
+                description = "Prefer tracks whose musical key is compatible on the Camelot wheel"
+            ) {
+                Switch(
+                    checked = s.useHarmonicMixing,
+                    onCheckedChange = viewModel::setUseHarmonicMixing
+                )
+            }
+        }
+        item {
+            AnimatedVisibility(visible = s.useHarmonicMixing) {
+                SettingRow(
+                    label = "Require key tag",
+                    description = "Skip tracks that have no musical key metadata"
+                ) {
+                    Switch(
+                        checked = s.requireKey,
+                        onCheckedChange = viewModel::setRequireKey
+                    )
+                }
+            }
+        }
+
+        // ── Similar Artists ───────────────────────────────────────────────
+        item { SectionDivider() }
+        item { SectionHeader("Similar Artists (Last.fm)") }
+        item {
+            SettingRow(
+                label = "Similar artists",
+                description = "Fetch similar artists via mStream's Last.fm integration and prefer their tracks"
+            ) {
+                Switch(
+                    checked = s.useSimilarArtists,
+                    onCheckedChange = viewModel::setUseSimilarArtists
+                )
+            }
+        }
+        item {
+            StepperSetting(
+                label = "Artist cooldown",
+                description = "Number of recently played artists to exclude",
+                value = s.artistCooldown,
+                onDecrement = { viewModel.setArtistCooldown(s.artistCooldown - 1) },
+                onIncrement = { viewModel.setArtistCooldown(s.artistCooldown + 1) },
+                min = 1,
+                max = 10
+            )
+        }
+
+        // ── Genre Filter ──────────────────────────────────────────────────
+        item { SectionDivider() }
+        item { SectionHeader("Genre Filter") }
+        item {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 16.dp, vertical = 4.dp),
+                verticalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                Text(
+                    "Filter mode",
+                    style = MaterialTheme.typography.bodyMedium
+                )
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    listOf("off" to "Off", "whitelist" to "Whitelist", "blacklist" to "Blacklist")
+                        .forEach { (mode, label) ->
+                            FilterChip(
+                                selected = s.genreMode == mode,
+                                onClick = { viewModel.setGenreMode(mode) },
+                                label = { Text(label) }
+                            )
+                        }
+                }
+            }
+        }
+        item {
+            AnimatedVisibility(visible = s.genreMode != "off") {
+                GenresEditor(
+                    genres = s.genres,
+                    onUpdate = viewModel::setGenres
+                )
+            }
+        }
+
+        // ── Crossfade ─────────────────────────────────────────────────────
+        item { SectionDivider() }
+        item { SectionHeader("Crossfade") }
+        item {
+            SliderSetting(
+                label = if (s.crossfadeDurationSec == 0) "Crossfade: Off"
+                        else "Crossfade: ${s.crossfadeDurationSec}s",
+                value = s.crossfadeDurationSec.toFloat(),
+                onValueChange = { viewModel.setCrossfadeDuration(it.roundToInt()) },
+                // 0–12 in 1-second steps: 11 intermediate positions → 13 total
+                valueRange = 0f..12f,
+                steps = 11
+            )
+        }
+
+        // ── Minimum Rating ────────────────────────────────────────────────
+        item { SectionDivider() }
+        item { SectionHeader("Minimum Rating") }
+        item {
+            StarRatingPicker(
+                rating = s.minRating,
+                onRatingChange = viewModel::setMinRating
+            )
+        }
+
+        // ── Source Library ────────────────────────────────────────────────
+        item { SectionDivider() }
+        item { SectionHeader("Source Library") }
+        item {
+            SourceFoldersSelector(
+                vpaths = vpaths,
+                selected = s.sourceFolders,
+                onSelectionChange = viewModel::setSourceFolders
+            )
+        }
+    }
+}
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun AutoDjSettingsScreen(
     viewModel: AutoDjSettingsViewModel,
     onBack: () -> Unit
 ) {
-    val s by viewModel.settings.collectAsState()
-    val vpaths by viewModel.availableVpaths.collectAsState()
-
     Scaffold(
         topBar = {
             TopAppBar(
@@ -39,183 +226,7 @@ fun AutoDjSettingsScreen(
             )
         }
     ) { padding ->
-        LazyColumn(
-            modifier = Modifier
-                .padding(padding)
-                .fillMaxSize(),
-            contentPadding = PaddingValues(bottom = 32.dp)
-        ) {
-
-            // ── BPM Continuity ────────────────────────────────────────────────
-            item {
-                SectionHeader("BPM Continuity")
-            }
-            item {
-                SettingRow(
-                    label = "Use BPM continuity",
-                    description = "Prefer tracks with a similar tempo to the current song"
-                ) {
-                    Switch(
-                        checked = s.useBpm,
-                        onCheckedChange = viewModel::setUseBpm
-                    )
-                }
-            }
-            item {
-                AnimatedVisibility(visible = s.useBpm) {
-                    Column {
-                        SliderSetting(
-                            label = "Tight range  ±${s.bpmTightRange} BPM",
-                            value = s.bpmTightRange.toFloat(),
-                            onValueChange = { viewModel.setBpmTightRange(it.roundToInt()) },
-                            valueRange = 5f..30f,
-                            steps = 4
-                        )
-                        SliderSetting(
-                            label = "Wide range  ±${s.bpmWideRange} BPM  (fallback)",
-                            value = s.bpmWideRange.toFloat(),
-                            onValueChange = { viewModel.setBpmWideRange(it.roundToInt()) },
-                            valueRange = 10f..50f,
-                            steps = 7
-                        )
-                        SettingRow(
-                            label = "Require BPM tag",
-                            description = "Skip tracks that have no BPM metadata"
-                        ) {
-                            Switch(
-                                checked = s.requireBpm,
-                                onCheckedChange = viewModel::setRequireBpm
-                            )
-                        }
-                    }
-                }
-            }
-
-            // ── Harmonic Mixing ───────────────────────────────────────────────
-            item { SectionDivider() }
-            item { SectionHeader("Harmonic Mixing (Camelot)") }
-            item {
-                SettingRow(
-                    label = "Harmonic mixing",
-                    description = "Prefer tracks whose musical key is compatible on the Camelot wheel"
-                ) {
-                    Switch(
-                        checked = s.useHarmonicMixing,
-                        onCheckedChange = viewModel::setUseHarmonicMixing
-                    )
-                }
-            }
-            item {
-                AnimatedVisibility(visible = s.useHarmonicMixing) {
-                    SettingRow(
-                        label = "Require key tag",
-                        description = "Skip tracks that have no musical key metadata"
-                    ) {
-                        Switch(
-                            checked = s.requireKey,
-                            onCheckedChange = viewModel::setRequireKey
-                        )
-                    }
-                }
-            }
-
-            // ── Similar Artists ───────────────────────────────────────────────
-            item { SectionDivider() }
-            item { SectionHeader("Similar Artists (Last.fm)") }
-            item {
-                SettingRow(
-                    label = "Similar artists",
-                    description = "Fetch similar artists via mStream's Last.fm integration and prefer their tracks"
-                ) {
-                    Switch(
-                        checked = s.useSimilarArtists,
-                        onCheckedChange = viewModel::setUseSimilarArtists
-                    )
-                }
-            }
-            item {
-                StepperSetting(
-                    label = "Artist cooldown",
-                    description = "Number of recently played artists to exclude",
-                    value = s.artistCooldown,
-                    onDecrement = { viewModel.setArtistCooldown(s.artistCooldown - 1) },
-                    onIncrement = { viewModel.setArtistCooldown(s.artistCooldown + 1) },
-                    min = 1,
-                    max = 10
-                )
-            }
-
-            // ── Genre Filter ──────────────────────────────────────────────────
-            item { SectionDivider() }
-            item { SectionHeader("Genre Filter") }
-            item {
-                Column(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(horizontal = 16.dp, vertical = 4.dp),
-                    verticalArrangement = Arrangement.spacedBy(8.dp)
-                ) {
-                    Text(
-                        "Filter mode",
-                        style = MaterialTheme.typography.bodyMedium
-                    )
-                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        listOf("off" to "Off", "whitelist" to "Whitelist", "blacklist" to "Blacklist")
-                            .forEach { (mode, label) ->
-                                FilterChip(
-                                    selected = s.genreMode == mode,
-                                    onClick = { viewModel.setGenreMode(mode) },
-                                    label = { Text(label) }
-                                )
-                            }
-                    }
-                }
-            }
-            item {
-                AnimatedVisibility(visible = s.genreMode != "off") {
-                    GenresEditor(
-                        genres = s.genres,
-                        onUpdate = viewModel::setGenres
-                    )
-                }
-            }
-
-            // ── Crossfade ─────────────────────────────────────────────────────
-            item { SectionDivider() }
-            item { SectionHeader("Crossfade") }
-            item {
-                SliderSetting(
-                    label = if (s.crossfadeDurationSec == 0) "Crossfade: Off"
-                            else "Crossfade: ${s.crossfadeDurationSec}s",
-                    value = s.crossfadeDurationSec.toFloat(),
-                    onValueChange = { viewModel.setCrossfadeDuration(it.roundToInt()) },
-                    // 0–12 in 1-second steps: 11 intermediate positions → 13 total
-                    valueRange = 0f..12f,
-                    steps = 11
-                )
-            }
-
-            // ── Minimum Rating ────────────────────────────────────────────────
-            item { SectionDivider() }
-            item { SectionHeader("Minimum Rating") }
-            item {
-                StarRatingPicker(
-                    rating = s.minRating,
-                    onRatingChange = viewModel::setMinRating
-                )
-            }
-
-            // ── Source Library ────────────────────────────────────────────────
-            item { SectionDivider() }
-            item { SectionHeader("Source Library") }
-            item {
-                SourceFoldersSelector(
-                    vpaths = vpaths,
-                    selected = s.sourceFolders,
-                    onSelectionChange = viewModel::setSourceFolders
-                )
-            }
-        }
+        AutoDjSettingsContent(viewModel, modifier = Modifier.padding(padding))
     }
 }
 

@@ -85,13 +85,13 @@ fun NowPlayingScreen(
                     }
                 },
                 actions = {
-                    // Auto-DJ toggle — ∞ icon, lit when enabled
+                    // Auto-DJ toggle — headphones icon, lit when enabled
                     IconToggleButton(
                         checked = state.autoDjEnabled,
                         onCheckedChange = { viewModel.toggleAutoDj() }
                     ) {
                         Icon(
-                            imageVector = Icons.Default.AllInclusive,
+                            imageVector = Icons.Default.Headphones,
                             contentDescription = if (state.autoDjEnabled) "Auto-DJ on" else "Auto-DJ off",
                             tint = if (state.autoDjEnabled)
                                        MaterialTheme.colorScheme.primary
@@ -697,13 +697,13 @@ fun MiniPlayerBar(
                             MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.38f)
                     )
                 }
-                // Auto-DJ toggle — ∞ icon
+                // Auto-DJ toggle — headphones icon
                 IconToggleButton(
                     checked = state.autoDjEnabled,
                     onCheckedChange = { onToggleAutoDj() }
                 ) {
                     Icon(
-                        imageVector = Icons.Default.AllInclusive,
+                        imageVector = Icons.Default.Headphones,
                         contentDescription = if (state.autoDjEnabled) "Auto-DJ on" else "Auto-DJ off",
                         tint = if (state.autoDjEnabled)
                                    MaterialTheme.colorScheme.primary

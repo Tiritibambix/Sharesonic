@@ -1,5 +1,6 @@
 package com.tiritibambix.sharesonic.data
 
+import android.util.Log
 import com.tiritibambix.sharesonic.data.api.MStreamApiService
 import com.tiritibambix.sharesonic.data.api.models.EntryDto
 import com.tiritibambix.sharesonic.data.api.models.FileExplorerRequest
@@ -25,6 +26,8 @@ import com.tiritibambix.sharesonic.data.api.models.SearchResult3
 import com.tiritibambix.sharesonic.data.api.models.TopLevelDir
 
 class MStreamRepository(private val api: MStreamApiService) {
+
+    companion object { private const val TAG = "MStreamRepository" }
 
     /** Authenticate and return the JWT token. */
     suspend fun login(username: String, password: String): Result<String> {
@@ -364,7 +367,7 @@ class MStreamRepository(private val api: MStreamApiService) {
      */
     suspend fun listenBrainzNowPlaying(token: String, filepath: String) {
         try { api.listenBrainzNowPlaying(token, ScrobbleFilepathRequest(filepath)) }
-        catch (_: Exception) {}
+        catch (e: Exception) { Log.w(TAG, "listenBrainzNowPlaying failed: ${e.message}") }
     }
 
     /**
@@ -373,8 +376,10 @@ class MStreamRepository(private val api: MStreamApiService) {
      * Call after 50% of track duration has elapsed.
      */
     suspend fun scrobble(token: String, filepath: String) {
-        try { api.lastfmScrobble(token, ScrobbleFilepathRequest(filepath)) } catch (_: Exception) {}
-        try { api.listenBrainzScrobble(token, ScrobbleFilepathRequest(filepath)) } catch (_: Exception) {}
+        try { api.lastfmScrobble(token, ScrobbleFilepathRequest(filepath)) }
+        catch (e: Exception) { Log.w(TAG, "lastfm scrobble failed: ${e.message}") }
+        try { api.listenBrainzScrobble(token, ScrobbleFilepathRequest(filepath)) }
+        catch (e: Exception) { Log.w(TAG, "listenbrainz scrobble failed: ${e.message}") }
     }
 
     // ── Auto-DJ helpers ───────────────────────────────────────────────────────

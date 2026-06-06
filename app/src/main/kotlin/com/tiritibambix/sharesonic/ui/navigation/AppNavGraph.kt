@@ -67,16 +67,18 @@ fun AppNavGraph() {
     NavHost(navController = navController, startDestination = Screen.Settings.route) {
 
         composable(Screen.Settings.route) {
+            val autoDjVm: AutoDjSettingsViewModel =
+                viewModel(factory = AutoDjSettingsViewModelFactory(context))
             SettingsScreen(
                 viewModel = settingsVm,
+                autoDjViewModel = autoDjVm,
                 onNavigateToBrowser = {
                     if (settingsVm.settings.value.isConfigured) {
                         navController.navigate(
                             Screen.Browser.createRoute(Screen.Browser.ROOT, "Library")
                         )
                     }
-                },
-                onNavigateToAutoDj = { navController.navigate(Screen.AutoDjSettings.route) }
+                }
             )
         }
 
