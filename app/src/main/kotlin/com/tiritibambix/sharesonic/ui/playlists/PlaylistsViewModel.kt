@@ -8,6 +8,8 @@ import com.tiritibambix.sharesonic.data.Result
 import com.tiritibambix.sharesonic.data.api.MStreamClient
 import com.tiritibambix.sharesonic.data.api.models.NativePlaylist
 import com.tiritibambix.sharesonic.data.settings.SettingsRepository
+import kotlinx.coroutines.async
+import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.first
@@ -41,8 +43,23 @@ class PlaylistsViewModel(private val settingsRepo: SettingsRepository) : ViewMod
             }
             val repo = MStreamRepository(MStreamClient.build(settings.serverUrl))
             when (val r = repo.getPlaylists(token)) {
-                is Result.Success -> _state.update { PlaylistsState.Ready(r.data) }
-                is Result.Error   -> _state.update { PlaylistsState.Error(r.message) }
+                is Result.Error -> _state.update { PlaylistsState.Error(r.message) }
+                is Result.Success -> {
+                    // Show list immediately with whatever getall returns
+                    _state.update { PlaylistsState.Ready(r.data) }
+                    // mStream Velvet's getall stores a denormalized songCount that is NOT updated
+                    // by add-song / remove-song — load each playlist in parallel to get the real count.
+                    val refreshed = r.data.map { playlist ->
+                        async {
+                            val loaded = repo.loadPlaylist(token, playlist.name)
+                            if (loaded is Result.Success)
+                                playlist.copy(songCount = loaded.data.size)
+                            else
+                                playlist
+                        }
+                    }.awaitAll()
+                    _state.update { PlaylistsState.Ready(refreshed) }
+                }
             }
         }
     }
