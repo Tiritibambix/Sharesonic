@@ -32,6 +32,9 @@ import com.tiritibambix.sharesonic.ui.playlists.PlaylistDetailViewModelFactory
 import com.tiritibambix.sharesonic.ui.playlists.PlaylistsScreen
 import com.tiritibambix.sharesonic.ui.playlists.PlaylistsViewModel
 import com.tiritibambix.sharesonic.ui.playlists.PlaylistsViewModelFactory
+import com.tiritibambix.sharesonic.ui.autodj.AutoDjSettingsScreen
+import com.tiritibambix.sharesonic.ui.autodj.AutoDjSettingsViewModel
+import com.tiritibambix.sharesonic.ui.autodj.AutoDjSettingsViewModelFactory
 import com.tiritibambix.sharesonic.ui.settings.SettingsScreen
 import com.tiritibambix.sharesonic.ui.settings.SettingsViewModel
 import com.tiritibambix.sharesonic.ui.settings.SettingsViewModelFactory
@@ -72,7 +75,8 @@ fun AppNavGraph() {
                             Screen.Browser.createRoute(Screen.Browser.ROOT, "Library")
                         )
                     }
-                }
+                },
+                onNavigateToAutoDj = { navController.navigate(Screen.AutoDjSettings.route) }
             )
         }
 
@@ -177,6 +181,15 @@ fun AppNavGraph() {
                 onOpenNowPlaying = { navController.navigate(Screen.NowPlaying.route) }
             )
         }
+        composable(Screen.AutoDjSettings.route) {
+            val autoDjVm: AutoDjSettingsViewModel =
+                viewModel(factory = AutoDjSettingsViewModelFactory(context))
+            AutoDjSettingsScreen(
+                viewModel = autoDjVm,
+                onBack = { navController.popBackStack() }
+            )
+        }
+
     } // NavHost
 
     // ── Mini player overlay ───────────────────────────────────────────────────
@@ -191,7 +204,8 @@ fun AppNavGraph() {
             onPlayPause = playerVm::playPause,
             onSkipPrev = playerVm::skipPrev,
             onSkipNext = playerVm::skipNext,
-            onClick = { navController.navigate(Screen.NowPlaying.route) }
+            onClick = { navController.navigate(Screen.NowPlaying.route) },
+            onToggleAutoDj = playerVm::toggleAutoDj
         )
     }
     } // Box

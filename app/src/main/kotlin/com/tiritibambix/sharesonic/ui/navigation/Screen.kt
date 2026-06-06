@@ -46,6 +46,9 @@ sealed class Screen(val route: String) {
         fun createRoute(name: String): String = "playlist/${name.urlEncode()}"
         const val ARG_NAME = "playlistName"
     }
+
+    /** Auto-DJ configuration panel, accessible from Settings. */
+    data object AutoDjSettings : Screen("autodj-settings")
 }
 
 private fun String.urlEncode() = java.net.URLEncoder.encode(this, "UTF-8")

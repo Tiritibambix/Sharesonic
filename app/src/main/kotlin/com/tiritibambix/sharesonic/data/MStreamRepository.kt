@@ -361,6 +361,38 @@ class MStreamRepository(private val api: MStreamApiService) {
         try { api.listenBrainzScrobble(token, ScrobbleFilepathRequest(filepath)) } catch (_: Exception) {}
     }
 
+    // ── Auto-DJ helpers ───────────────────────────────────────────────────────
+
+    /**
+     * Fetch similar artists for [artist] from Last.fm via mStream.
+     * Returns a list of artist names, or an empty list on failure.
+     */
+    suspend fun getSimilarArtists(token: String, artist: String): Result<List<String>> = try {
+        val resp = api.getSimilarArtists(token, artist)
+        Result.Success(resp.artists)
+    } catch (e: Exception) { Result.Error(e.message ?: "Network error") }
+
+    /**
+     * Fetch exactly one random song for Auto-DJ.
+     * Returns the [EntryDto] together with the updated ignoreList (to pass on the next call).
+     * Uses the full [request] with all Auto-DJ filters applied by the caller.
+     */
+    suspend fun fetchAutoDjSong(
+        token: String,
+        request: MStreamRandomSongsRequest
+    ): Result<Pair<EntryDto, List<Int>>> {
+        return try {
+            val resp = api.randomSong(token, request)
+            val wrapper = resp.songs.firstOrNull()
+                ?: return Result.Error("No song returned")
+            val entry = fileMetaWrapperToEntryDto(wrapper)
+                ?: return Result.Error("Could not parse song")
+            Result.Success(Pair(entry, resp.ignoreList))
+        } catch (e: Exception) {
+            Result.Error(e.message ?: "Network error")
+        }
+    }
+
     // ── Private helpers ───────────────────────────────────────────────────────
 
     private fun fileToEntryDto(file: MStreamFile): EntryDto? {
@@ -375,7 +407,10 @@ class MStreamRepository(private val api: MStreamApiService) {
             album = meta?.album,
             coverArt = meta?.albumArt,
             isDir = false,
-            path = filepath
+            path = filepath,
+            bpm = meta?.bpm,
+            musicalKey = meta?.musicalKey,
+            genres = meta?.genres
         )
     }
 
@@ -383,6 +418,7 @@ class MStreamRepository(private val api: MStreamApiService) {
      * Map a [MStreamFileMetaWrapper] (from /api/v1/db/random-songs) to an [EntryDto].
      * Uses [MStreamFileMetaWrapper.filepath] as the entry ID — same native filepath
      * format as file-explorer pullMetadata=true, so streaming and sharing work identically.
+     * BPM, musical key and genres are propagated for Auto-DJ use.
      */
     private fun fileMetaWrapperToEntryDto(wrapper: MStreamFileMetaWrapper): EntryDto? {
         val filepath = wrapper.filepath?.takeIf { it.isNotBlank() } ?: return null
@@ -394,7 +430,10 @@ class MStreamRepository(private val api: MStreamApiService) {
             album = meta?.album,
             coverArt = meta?.albumArt,
             isDir = false,
-            path = filepath
+            path = filepath,
+            bpm = meta?.bpm,
+            musicalKey = meta?.musicalKey,
+            genres = meta?.genres
         )
     }
 }

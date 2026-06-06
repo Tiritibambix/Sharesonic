@@ -44,7 +44,13 @@ data class EntryDto(
     val coverArt: String? = null,
     val track: Int? = null,
     val year: Int? = null,
-    val path: String? = null
+    val path: String? = null,
+    /** BPM as analysed by mStream Velvet. Used by Auto-DJ for BPM continuity. */
+    val bpm: Float? = null,
+    /** Musical key in Camelot notation (e.g. "8A"). Used by Auto-DJ harmonic mixing. */
+    val musicalKey: String? = null,
+    /** Genre tags. Used by Auto-DJ genre filtering. */
+    val genres: List<String>? = null
 ) {
     val displayName: String get() = title ?: name ?: id
 }

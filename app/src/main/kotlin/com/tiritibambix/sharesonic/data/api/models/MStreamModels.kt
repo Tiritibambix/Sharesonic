@@ -84,7 +84,13 @@ data class MStreamInnerMetadata(
     val title: String? = null,
     val artist: String? = null,
     val album: String? = null,
-    @SerializedName("album-art") val albumArt: String? = null
+    @SerializedName("album-art") val albumArt: String? = null,
+    /** Track BPM as detected by mStream Velvet's audio analysis. */
+    val bpm: Float? = null,
+    /** Musical key in Camelot notation (e.g. "8A", "11B"). */
+    @SerializedName("musical_key") val musicalKey: String? = null,
+    /** Genre tags. */
+    val genres: List<String>? = null
 )
 
 // ── Native share ───────────────────────────────────────────────────────────────
@@ -115,16 +121,42 @@ data class MStreamShareListItem(
 
 // ── Native random songs (POST /api/v1/db/random-songs) ────────────────────────
 
+/** BPM range for Auto-DJ filtering. */
+data class BpmRange(val min: Float, val max: Float)
+
 /**
  * Request body for POST /api/v1/db/random-songs.
  * The server returns one random song per call; pass the updated [ignoreList]
  * from each response back on the next call to avoid repeats.
+ *
+ * For Auto-DJ, additional fields narrow the selection to harmonically / rhythmically
+ * compatible tracks.
  */
 data class MStreamRandomSongsRequest(
     val ignoreList: List<Int> = emptyList(),
     val ignorePercentage: Float? = null,
     val ignoreVPaths: List<String>? = null,
-    val filepathPrefix: String? = null
+    val filepathPrefix: String? = null,
+    /** Tight BPM range (preferred). */
+    val bpmRanges: List<BpmRange>? = null,
+    /** Wide BPM range fallback (used when tight yields no results). */
+    val bpmRangesWide: List<BpmRange>? = null,
+    /** When true, tracks without a BPM tag are excluded. */
+    val requireBpm: Boolean? = null,
+    /** List of compatible Camelot keys to filter by. */
+    val musicalKeys: List<String>? = null,
+    /** When true, tracks without a musical_key tag are excluded. */
+    val requireMusicalKey: Boolean? = null,
+    /** Prefer tracks from these artists (similar artists list from Last.fm). */
+    val artists: List<String>? = null,
+    /** Exclude tracks from these artists (artist cooldown). */
+    val ignoreArtists: List<String>? = null,
+    /** Genre filter list (used together with [genreMode]). */
+    val genres: List<String>? = null,
+    /** Genre filter mode: "whitelist" (include only) or "blacklist" (exclude). */
+    val genreMode: String? = null,
+    /** Minimum track rating to include (0 = disabled). */
+    val minRating: Int? = null
 )
 
 /**
@@ -239,3 +271,12 @@ data class NativePlaylistSaveRequest(
 
 /** Body for Last.fm and ListenBrainz scrobble / playing-now endpoints. */
 data class ScrobbleFilepathRequest(val filePath: String)
+
+// ── Last.fm similar artists ────────────────────────────────────────────────────
+
+/**
+ * Response from GET /api/v1/lastfm/similar-artists?artist=<name>.
+ * The exact field name in the JSON response should be verified against the
+ * mStream Velvet server — this uses "artists" as a best-guess.
+ */
+data class SimilarArtistsResponse(val artists: List<String> = emptyList())

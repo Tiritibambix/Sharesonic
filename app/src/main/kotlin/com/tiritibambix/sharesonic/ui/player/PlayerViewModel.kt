@@ -18,10 +18,14 @@ import com.tiritibambix.sharesonic.data.Result
 import com.tiritibambix.sharesonic.data.SubsonicRepository
 import com.tiritibambix.sharesonic.data.api.MStreamClient
 import com.tiritibambix.sharesonic.data.api.SubsonicClient
+import com.tiritibambix.sharesonic.data.api.models.BpmRange
 import com.tiritibambix.sharesonic.data.api.models.EntryDto
+import com.tiritibambix.sharesonic.data.api.models.MStreamRandomSongsRequest
 import com.tiritibambix.sharesonic.data.api.models.NativePlaylist
+import com.tiritibambix.sharesonic.data.settings.AutoDjSettings
 import com.tiritibambix.sharesonic.data.settings.ServerSettings
 import com.tiritibambix.sharesonic.data.settings.SettingsRepository
+import com.tiritibambix.sharesonic.utils.CamelotWheel
 import com.tiritibambix.sharesonic.playback.PlaybackService
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.async
@@ -44,7 +48,9 @@ data class PlayerState(
     val shareUrl: String? = null,
     val shareLoading: Boolean = false,
     val shareError: String? = null,
-    val playbackError: String? = null
+    val playbackError: String? = null,
+    /** True while Auto-DJ is running — queue auto-extends as tracks are consumed. */
+    val autoDjEnabled: Boolean = false
 )
 
 class PlayerViewModel(
@@ -65,6 +71,16 @@ class PlayerViewModel(
     // ── Playlist state (for "Add to playlist" in NowPlaying) ─────────────────
     private val _playlists = MutableStateFlow<List<NativePlaylist>>(emptyList())
     val playlists: StateFlow<List<NativePlaylist>> = _playlists
+
+    // ── Auto-DJ internal state ────────────────────────────────────────────────
+    /** Songs already returned this session — passed back to avoid repeats. */
+    private var autoDjIgnoreList: List<Int> = emptyList()
+    /** Ring buffer of recently played artist names for cooldown tracking. */
+    private val recentlyPlayedArtists = ArrayDeque<String>()
+    /** Cache of Last.fm similar-artist lookups (artist → list of similar artists). */
+    private val similarArtistsCache = mutableMapOf<String, List<String>>()
+    /** Latest snapshot of the user's Auto-DJ configuration. */
+    private var autoDjSettings: AutoDjSettings = AutoDjSettings()
 
     // ── Scrobble tracking ─────────────────────────────────────────────────────
     /** ID of the last song for which a "now playing" ping was sent. */
@@ -97,6 +113,19 @@ class PlayerViewModel(
                                 scrobbleNowPlayingFiredFor = song.id
                                 fireNowPlaying(song)
                             }
+                            // Auto-DJ: track artist for cooldown
+                            val artist = song.artist
+                            if (!artist.isNullOrBlank()) {
+                                recentlyPlayedArtists.remove(artist)   // deduplicate
+                                recentlyPlayedArtists.addLast(artist)
+                                while (recentlyPlayedArtists.size > autoDjSettings.artistCooldown) {
+                                    recentlyPlayedArtists.removeFirst()
+                                }
+                            }
+                            // Auto-DJ: when we reach the last queued track, pre-fetch the next one
+                            if (_state.value.autoDjEnabled && idx == queue.lastIndex) {
+                                fetchAndEnqueueAutoDjSong()
+                            }
                         }
                     }
                     override fun onPlayerError(error: PlaybackException) {
@@ -111,6 +140,12 @@ class PlayerViewModel(
         }, MoreExecutors.directExecutor())
 
         viewModelScope.launch { cachedSettings = settingsRepo.settings.first() }
+        // Keep Auto-DJ settings in sync with DataStore (live — not first-only)
+        viewModelScope.launch {
+            settingsRepo.autoDjSettings.collect { settings ->
+                autoDjSettings = settings
+            }
+        }
         startPositionPolling()
     }
 
@@ -278,6 +313,126 @@ class PlayerViewModel(
     fun seekTo(positionMs: Long) {
         _state.update { it.copy(currentPositionMs = positionMs) }
         viewModelScope.launch { controllerDeferred.await().seekTo(positionMs) }
+    }
+
+    // ── Auto-DJ ───────────────────────────────────────────────────────────────
+
+    /**
+     * Toggle the Auto-DJ feature on or off.
+     * When turned on while at the last track of the queue, fetches the next song immediately.
+     * When turned off, the session state (ignoreList, artist cache) is reset.
+     */
+    fun toggleAutoDj() {
+        val wasEnabled = _state.value.autoDjEnabled
+        _state.update { it.copy(autoDjEnabled = !wasEnabled) }
+        if (wasEnabled) {
+            // Turning off — reset session state
+            autoDjIgnoreList = emptyList()
+            recentlyPlayedArtists.clear()
+            similarArtistsCache.clear()
+        } else {
+            // Turning on — if already at the last track, fetch immediately
+            val s = _state.value
+            if (s.queue.isNotEmpty() && s.queueIndex == s.queue.lastIndex) {
+                fetchAndEnqueueAutoDjSong()
+            }
+        }
+    }
+
+    /**
+     * Fetch one new song using the Auto-DJ algorithm and append it to the queue.
+     *
+     * Priority order:
+     * 1. Similar artists (from Last.fm cache) + BPM (tight) + Camelot key
+     * 2. BPM (wide) + Camelot key  (if tight fails)
+     * 3. Plain random  (fallback — no constraints)
+     *
+     * The ignoreList is persisted across calls so no song repeats during the session.
+     */
+    private fun fetchAndEnqueueAutoDjSong() {
+        viewModelScope.launch {
+            val serverSettings = settings()
+            val token = serverSettings.jwtToken.ifEmpty { return@launch }
+            val current = _state.value.currentSong
+            val mStream = MStreamRepository(MStreamClient.build(serverSettings.serverUrl))
+
+            // 1. Similar artists (cached per artist)
+            val similarArtists: List<String>? = if (autoDjSettings.useSimilarArtists
+                && !current?.artist.isNullOrBlank()
+            ) {
+                similarArtistsCache.getOrPut(current!!.artist!!) {
+                    when (val r = mStream.getSimilarArtists(token, current.artist!!)) {
+                        is Result.Success -> r.data
+                        else              -> emptyList()
+                    }
+                }.takeIf { it.isNotEmpty() }
+            } else null
+
+            // 2. BPM ranges from current track
+            val bpmTight: List<BpmRange>? = if (autoDjSettings.useBpm && current?.bpm != null) {
+                listOf(BpmRange(
+                    current.bpm!! - autoDjSettings.bpmTightRange,
+                    current.bpm!! + autoDjSettings.bpmTightRange
+                ))
+            } else null
+            val bpmWide: List<BpmRange>? = if (autoDjSettings.useBpm && current?.bpm != null) {
+                listOf(BpmRange(
+                    current.bpm!! - autoDjSettings.bpmWideRange,
+                    current.bpm!! + autoDjSettings.bpmWideRange
+                ))
+            } else null
+
+            // 3. Compatible Camelot keys
+            val keys: List<String>? = if (autoDjSettings.useHarmonicMixing
+                && !current?.musicalKey.isNullOrBlank()
+            ) {
+                CamelotWheel.compatibleKeys(current!!.musicalKey!!)
+            } else null
+
+            // 4. Artist cooldown
+            val cooldownArtists: List<String>? = recentlyPlayedArtists.toList().takeIf { it.isNotEmpty() }
+
+            // 5. Genre filter
+            val genreList: List<String>? = if (autoDjSettings.genreMode != "off") autoDjSettings.genres.takeIf { it.isNotEmpty() } else null
+            val genreMode: String?       = if (autoDjSettings.genreMode != "off") autoDjSettings.genreMode else null
+            val minRating: Int?          = if (autoDjSettings.minRating > 0) autoDjSettings.minRating else null
+
+            // Build primary request (tight BPM + similar artists + Camelot)
+            val primaryRequest = MStreamRandomSongsRequest(
+                ignoreList          = autoDjIgnoreList,
+                bpmRanges           = bpmTight,
+                bpmRangesWide       = bpmWide,
+                requireBpm          = if (autoDjSettings.requireBpm) true else null,
+                musicalKeys         = keys,
+                requireMusicalKey   = if (autoDjSettings.requireKey) true else null,
+                artists             = similarArtists,
+                ignoreArtists       = cooldownArtists,
+                genres              = genreList,
+                genreMode           = genreMode,
+                minRating           = minRating
+            )
+
+            when (val r = mStream.fetchAutoDjSong(token, primaryRequest)) {
+                is Result.Success -> {
+                    autoDjIgnoreList = r.data.second
+                    addToQueue(r.data.first)
+                    return@launch
+                }
+                is Result.Error -> Unit   // fall through to fallback
+            }
+
+            // Fallback: plain random (no constraints except ignoreList)
+            when (val fallback = mStream.fetchAutoDjSong(
+                token,
+                MStreamRandomSongsRequest(ignoreList = autoDjIgnoreList)
+            )) {
+                is Result.Success -> {
+                    autoDjIgnoreList = fallback.data.second
+                    addToQueue(fallback.data.first)
+                }
+                is Result.Error -> Unit   // silently give up — will retry on next transition
+            }
+        }
     }
 
     // ── Share ─────────────────────────────────────────────────────────────────

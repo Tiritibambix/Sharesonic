@@ -83,6 +83,22 @@ fun NowPlayingScreen(
                     IconButton(onClick = onBack) {
                         Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
                     }
+                },
+                actions = {
+                    // Auto-DJ toggle — ∞ icon, lit when enabled
+                    IconToggleButton(
+                        checked = state.autoDjEnabled,
+                        onCheckedChange = { viewModel.toggleAutoDj() }
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.AllInclusive,
+                            contentDescription = if (state.autoDjEnabled) "Auto-DJ on" else "Auto-DJ off",
+                            tint = if (state.autoDjEnabled)
+                                       MaterialTheme.colorScheme.primary
+                                   else
+                                       MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f)
+                        )
+                    }
                 }
             )
         }
@@ -560,7 +576,8 @@ fun MiniPlayerBar(
     onPlayPause: () -> Unit,
     onSkipPrev: () -> Unit,
     onSkipNext: () -> Unit,
-    onClick: () -> Unit
+    onClick: () -> Unit,
+    onToggleAutoDj: () -> Unit = {}
 ) {
     val song = state.currentSong ?: return
 
@@ -678,6 +695,20 @@ fun MiniPlayerBar(
                             MaterialTheme.colorScheme.onSurfaceVariant
                         else
                             MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.38f)
+                    )
+                }
+                // Auto-DJ toggle — ∞ icon
+                IconToggleButton(
+                    checked = state.autoDjEnabled,
+                    onCheckedChange = { onToggleAutoDj() }
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.AllInclusive,
+                        contentDescription = if (state.autoDjEnabled) "Auto-DJ on" else "Auto-DJ off",
+                        tint = if (state.autoDjEnabled)
+                                   MaterialTheme.colorScheme.primary
+                               else
+                                   MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.4f)
                     )
                 }
             }

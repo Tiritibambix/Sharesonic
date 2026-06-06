@@ -23,6 +23,7 @@ import com.tiritibambix.sharesonic.data.api.models.MStreamRefreshResponse
 import com.tiritibambix.sharesonic.data.api.models.MStreamShareListItem
 import com.tiritibambix.sharesonic.data.api.models.MStreamShareRequest
 import com.tiritibambix.sharesonic.data.api.models.MStreamShareResponse
+import com.tiritibambix.sharesonic.data.api.models.SimilarArtistsResponse
 import okhttp3.ResponseBody
 import retrofit2.http.Body
 import retrofit2.http.DELETE
@@ -164,6 +165,19 @@ interface MStreamApiService {
         @Header("x-access-token") token: String,
         @Body request: NativePlaylistSaveRequest
     ): ResponseBody
+
+    // ── Last.fm similar artists ───────────────────────────────────────────────
+
+    /**
+     * Fetch similar artists from Last.fm via the mStream server.
+     * Used by Auto-DJ to prefer tracks from artists similar to the currently playing one.
+     * NOTE: The exact endpoint path should be verified against mStream Velvet's route list.
+     */
+    @GET("api/v1/lastfm/similar-artists")
+    suspend fun getSimilarArtists(
+        @Header("x-access-token") token: String,
+        @Query("artist") artist: String
+    ): SimilarArtistsResponse
 
     // ── Scrobble ──────────────────────────────────────────────────────────────
 

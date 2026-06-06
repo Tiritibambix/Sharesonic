@@ -1,7 +1,10 @@
 package com.tiritibambix.sharesonic.ui.settings
 
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowForward
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -14,7 +17,8 @@ import androidx.compose.ui.unit.dp
 @Composable
 fun SettingsScreen(
     viewModel: SettingsViewModel,
-    onNavigateToBrowser: () -> Unit
+    onNavigateToBrowser: () -> Unit,
+    onNavigateToAutoDj: () -> Unit = {}
 ) {
     val settings by viewModel.settings.collectAsState()
     val connectionState by viewModel.connectionState.collectAsState()
@@ -109,6 +113,32 @@ fun SettingsScreen(
                     )
                 }
                 else -> {}
+            }
+
+            HorizontalDivider()
+
+            // Auto-DJ settings link
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clickable(onClick = onNavigateToAutoDj)
+                    .padding(vertical = 12.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.SpaceBetween
+            ) {
+                Column {
+                    Text("Auto-DJ", style = MaterialTheme.typography.bodyLarge)
+                    Text(
+                        "BPM continuity, harmonic mixing, similar artists",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+                Icon(
+                    Icons.AutoMirrored.Filled.ArrowForward,
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant
+                )
             }
         }
     }
