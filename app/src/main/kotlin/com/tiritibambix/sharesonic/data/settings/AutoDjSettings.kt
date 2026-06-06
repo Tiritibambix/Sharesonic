@@ -32,6 +32,18 @@ data class AutoDjSettings(
     /** List of genres for the whitelist / blacklist filter. */
     val genres: List<String> = emptyList(),
 
-    /** Minimum track rating to include (0 = no minimum). */
-    val minRating: Int = 0
+    /** Minimum track rating to include (0 = no minimum, 1–5 = star count). */
+    val minRating: Int = 0,
+
+    /**
+     * Crossfade duration in seconds (0 = disabled, 1–12 = fade-out length).
+     * Only active while Auto-DJ is enabled — fades the current track out in the last N seconds.
+     */
+    val crossfadeDurationSec: Int = 0,
+
+    /**
+     * Library virtual paths Auto-DJ picks songs from.
+     * Empty = all library (no restriction). Stored as a sorted list of vpath names.
+     */
+    val sourceFolders: List<String> = emptyList()
 )

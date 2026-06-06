@@ -61,16 +61,18 @@ class SettingsViewModel(private val repo: SettingsRepository) : ViewModel() {
         }
     }
 
-    /** POST /api/v1/login — stores the token on success. */
+    /** POST /api/v1/login — stores the token and vpaths on success. */
     fun testConnection(serverUrl: String, username: String, password: String) {
         _connectionState.update { ConnectionState.Testing }
         viewModelScope.launch {
             val api  = MStreamClient.build(serverUrl.trim())
             val mstr = MStreamRepository(api)
-            when (val result = mstr.login(username.trim(), password)) {
+            when (val result = mstr.loginFull(username.trim(), password)) {
                 is Result.Success -> {
-                    _pendingToken = result.data
-                    repo.saveToken(result.data)
+                    val (token, vpaths) = result.data
+                    _pendingToken = token
+                    repo.saveToken(token)
+                    if (vpaths.isNotEmpty()) repo.saveVpaths(vpaths)
                     _connectionState.update { ConnectionState.Success }
                 }
                 is Result.Error -> {

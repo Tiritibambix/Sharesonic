@@ -28,6 +28,8 @@ class SettingsRepository(private val context: Context) {
         val USERNAME   = stringPreferencesKey("username")
         val PASSWORD   = stringPreferencesKey("password")
         val JWT_TOKEN  = stringPreferencesKey("jwt_token")
+        /** Library vpaths stored after the last successful connection test. */
+        val VPATHS     = stringPreferencesKey("vpaths")
     }
 
     val settings: Flow<ServerSettings> = context.dataStore.data.map { prefs ->
@@ -54,6 +56,17 @@ class SettingsRepository(private val context: Context) {
         }
     }
 
+    /** Library virtual paths returned by the last successful connection test. */
+    val vpaths: Flow<List<String>> = context.dataStore.data.map { prefs ->
+        prefs[Keys.VPATHS]?.split("|")?.filter { it.isNotBlank() } ?: emptyList()
+    }
+
+    suspend fun saveVpaths(vpaths: List<String>) {
+        context.dataStore.edit { prefs ->
+            prefs[Keys.VPATHS] = vpaths.joinToString("|")
+        }
+    }
+
     // ── Auto-DJ settings ──────────────────────────────────────────────────────
 
     private object AutoDjKeys {
@@ -65,9 +78,11 @@ class SettingsRepository(private val context: Context) {
         val REQUIRE_KEY          = booleanPreferencesKey("autodj_require_key")
         val USE_SIMILAR_ARTISTS  = booleanPreferencesKey("autodj_use_similar")
         val ARTIST_COOLDOWN      = intPreferencesKey("autodj_artist_cooldown")
-        val GENRE_MODE           = stringPreferencesKey("autodj_genre_mode")
-        val GENRES               = stringPreferencesKey("autodj_genres")
-        val MIN_RATING           = intPreferencesKey("autodj_min_rating")
+        val GENRE_MODE             = stringPreferencesKey("autodj_genre_mode")
+        val GENRES                 = stringPreferencesKey("autodj_genres")
+        val MIN_RATING             = intPreferencesKey("autodj_min_rating")
+        val CROSSFADE_DURATION_SEC = intPreferencesKey("autodj_crossfade_sec")
+        val SOURCE_FOLDERS         = stringPreferencesKey("autodj_source_folders")
     }
 
     val autoDjSettings: Flow<AutoDjSettings> = context.dataStore.data.map { prefs ->
@@ -85,7 +100,12 @@ class SettingsRepository(private val context: Context) {
                                      ?.split("|")
                                      ?.filter { it.isNotBlank() }
                                  ?: emptyList(),
-            minRating          = prefs[AutoDjKeys.MIN_RATING]           ?: 0
+            minRating          = (prefs[AutoDjKeys.MIN_RATING] ?: 0).coerceIn(0, 5),
+            crossfadeDurationSec = (prefs[AutoDjKeys.CROSSFADE_DURATION_SEC] ?: 0).coerceIn(0, 12),
+            sourceFolders      = prefs[AutoDjKeys.SOURCE_FOLDERS]
+                                     ?.split("|")
+                                     ?.filter { it.isNotBlank() }
+                                 ?: emptyList()
         )
     }
 
@@ -99,9 +119,11 @@ class SettingsRepository(private val context: Context) {
             prefs[AutoDjKeys.REQUIRE_KEY]         = settings.requireKey
             prefs[AutoDjKeys.USE_SIMILAR_ARTISTS] = settings.useSimilarArtists
             prefs[AutoDjKeys.ARTIST_COOLDOWN]     = settings.artistCooldown
-            prefs[AutoDjKeys.GENRE_MODE]          = settings.genreMode
-            prefs[AutoDjKeys.GENRES]              = settings.genres.joinToString("|")
-            prefs[AutoDjKeys.MIN_RATING]          = settings.minRating
+            prefs[AutoDjKeys.GENRE_MODE]              = settings.genreMode
+            prefs[AutoDjKeys.GENRES]                  = settings.genres.joinToString("|")
+            prefs[AutoDjKeys.MIN_RATING]              = settings.minRating
+            prefs[AutoDjKeys.CROSSFADE_DURATION_SEC]  = settings.crossfadeDurationSec
+            prefs[AutoDjKeys.SOURCE_FOLDERS]          = settings.sourceFolders.joinToString("|")
         }
     }
 }

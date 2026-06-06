@@ -39,6 +39,22 @@ class MStreamRepository(private val api: MStreamApiService) {
     }
 
     /**
+     * Authenticate and return both the JWT token and the server's vpaths.
+     * Used by [com.tiritibambix.sharesonic.ui.settings.SettingsViewModel.testConnection]
+     * to persist vpaths for Auto-DJ source-folder selection.
+     */
+    suspend fun loginFull(username: String, password: String): Result<Pair<String, List<String>>> {
+        return try {
+            val resp = api.login(MStreamLoginRequest(username, password))
+            val token = resp.token
+            if (!token.isNullOrEmpty()) Result.Success(Pair(token, resp.vpaths))
+            else Result.Error(resp.err ?: "Login failed")
+        } catch (e: Exception) {
+            Result.Error(e.message ?: "Network error")
+        }
+    }
+
+    /**
      * Browse a directory.
      *
      * @param token          JWT bearer token

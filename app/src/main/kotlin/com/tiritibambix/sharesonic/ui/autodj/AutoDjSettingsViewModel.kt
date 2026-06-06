@@ -4,6 +4,9 @@ import android.content.Context
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
+import com.tiritibambix.sharesonic.data.MStreamRepository
+import com.tiritibambix.sharesonic.data.Result
+import com.tiritibambix.sharesonic.data.api.MStreamClient
 import com.tiritibambix.sharesonic.data.settings.AutoDjSettings
 import com.tiritibambix.sharesonic.data.settings.SettingsRepository
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -19,9 +22,36 @@ class AutoDjSettingsViewModel(
     private val _settings = MutableStateFlow(AutoDjSettings())
     val settings: StateFlow<AutoDjSettings> = _settings
 
+    /**
+     * Available library virtual paths (vpaths) from the last successful connection test.
+     * Populated immediately from DataStore; falls back to a live file-explorer query
+     * if not yet stored.
+     */
+    private val _availableVpaths = MutableStateFlow<List<String>>(emptyList())
+    val availableVpaths: StateFlow<List<String>> = _availableVpaths
+
     init {
         viewModelScope.launch {
             settingsRepo.autoDjSettings.collect { s -> _settings.update { s } }
+        }
+        viewModelScope.launch {
+            settingsRepo.vpaths.collect { stored ->
+                if (stored.isNotEmpty()) {
+                    _availableVpaths.update { stored }
+                } else {
+                    // Vpaths not yet stored — fetch from the server and persist them
+                    val s = settingsRepo.settings.first()
+                    if (s.isConfigured && s.jwtToken.isNotEmpty()) {
+                        val mStream = MStreamRepository(MStreamClient.build(s.serverUrl))
+                        val resp = mStream.fileExplorer(s.jwtToken, "")
+                        if (resp is Result.Success && resp.data.directories.isNotEmpty()) {
+                            val vpaths = resp.data.directories.map { it.name }
+                            _availableVpaths.update { vpaths }
+                            settingsRepo.saveVpaths(vpaths)
+                        }
+                    }
+                }
+            }
         }
     }
 
@@ -37,7 +67,9 @@ class AutoDjSettingsViewModel(
     fun setArtistCooldown(value: Int) = update { it.copy(artistCooldown = value.coerceIn(1, 10)) }
     fun setGenreMode(value: String) = update { it.copy(genreMode = value) }
     fun setGenres(value: List<String>) = update { it.copy(genres = value) }
-    fun setMinRating(value: Int) = update { it.copy(minRating = value.coerceIn(0, 10)) }
+    fun setMinRating(value: Int) = update { it.copy(minRating = value.coerceIn(0, 5)) }
+    fun setCrossfadeDuration(value: Int) = update { it.copy(crossfadeDurationSec = value.coerceIn(0, 12)) }
+    fun setSourceFolders(value: List<String>) = update { it.copy(sourceFolders = value) }
 
     private fun update(transform: (AutoDjSettings) -> AutoDjSettings) {
         _settings.update(transform)

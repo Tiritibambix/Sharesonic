@@ -81,6 +81,8 @@ class PlayerViewModel(
     private val similarArtistsCache = mutableMapOf<String, List<String>>()
     /** Latest snapshot of the user's Auto-DJ configuration. */
     private var autoDjSettings: AutoDjSettings = AutoDjSettings()
+    /** Available library vpaths from the last successful connection test. */
+    private var cachedVpaths: List<String> = emptyList()
 
     // ── Scrobble tracking ─────────────────────────────────────────────────────
     /** ID of the last song for which a "now playing" ping was sent. */
@@ -102,6 +104,7 @@ class PlayerViewModel(
                         _state.update { it.copy(isPlaying = isPlaying) }
                     }
                     override fun onMediaItemTransition(mediaItem: MediaItem?, reason: Int) {
+                        ctrl.volume = 1f   // restore from any crossfade fade-out
                         val idx = ctrl.currentMediaItemIndex
                         val queue = _state.value.queue
                         if (idx in queue.indices) {
@@ -139,12 +142,19 @@ class PlayerViewModel(
             }
         }, MoreExecutors.directExecutor())
 
-        viewModelScope.launch { cachedSettings = settingsRepo.settings.first() }
+        // Keep server settings live so vpaths (and future token refreshes) are visible
+        viewModelScope.launch {
+            settingsRepo.settings.collect { cachedSettings = it }
+        }
         // Keep Auto-DJ settings in sync with DataStore (live — not first-only)
         viewModelScope.launch {
             settingsRepo.autoDjSettings.collect { settings ->
                 autoDjSettings = settings
             }
+        }
+        // Keep vpaths in sync for Auto-DJ source-folder filtering
+        viewModelScope.launch {
+            settingsRepo.vpaths.collect { cachedVpaths = it }
         }
         startPositionPolling()
     }
@@ -167,6 +177,20 @@ class PlayerViewModel(
                 if (song != null && dur > 0L && pos >= dur / 2L && scrobbleFiredFor != song.id) {
                     scrobbleFiredFor = song.id
                     fireScrobble(song)
+                }
+                // Auto-DJ crossfade: fade the current track out in the last N seconds
+                if (_state.value.autoDjEnabled) {
+                    val crossSec = autoDjSettings.crossfadeDurationSec
+                    if (crossSec > 0 && dur > crossSec * 1000L) {
+                        val fadeStartMs = dur - crossSec * 1000L
+                        if (pos >= fadeStartMs) {
+                            val fadeProgress = ((dur - pos).toFloat() / (crossSec * 1000f))
+                                .coerceIn(0f, 1f)
+                            ctrl.volume = fadeProgress
+                        } else if (ctrl.volume < 1f) {
+                            ctrl.volume = 1f   // restore if user seeked back into the track
+                        }
+                    }
                 }
             }
         }
@@ -397,9 +421,16 @@ class PlayerViewModel(
             val genreMode: String?       = if (autoDjSettings.genreMode != "off") autoDjSettings.genreMode else null
             val minRating: Int?          = if (autoDjSettings.minRating > 0) autoDjSettings.minRating else null
 
+            // Source-folder filter — compute the vpaths to exclude from random selection
+            val sourceFolders = autoDjSettings.sourceFolders
+            val ignoreVPaths: List<String>? = if (sourceFolders.isNotEmpty() && cachedVpaths.isNotEmpty()) {
+                cachedVpaths.filter { it !in sourceFolders }.takeIf { it.isNotEmpty() }
+            } else null
+
             // Build primary request (tight BPM + similar artists + Camelot)
             val primaryRequest = MStreamRandomSongsRequest(
                 ignoreList          = autoDjIgnoreList,
+                ignoreVPaths        = ignoreVPaths,
                 bpmRanges           = bpmTight,
                 bpmRangesWide       = bpmWide,
                 requireBpm          = if (autoDjSettings.requireBpm) true else null,
@@ -421,10 +452,10 @@ class PlayerViewModel(
                 is Result.Error -> Unit   // fall through to fallback
             }
 
-            // Fallback: plain random (no constraints except ignoreList)
+            // Fallback: plain random (no constraints except ignoreList + source filter)
             when (val fallback = mStream.fetchAutoDjSong(
                 token,
-                MStreamRandomSongsRequest(ignoreList = autoDjIgnoreList)
+                MStreamRandomSongsRequest(ignoreList = autoDjIgnoreList, ignoreVPaths = ignoreVPaths)
             )) {
                 is Result.Success -> {
                     autoDjIgnoreList = fallback.data.second

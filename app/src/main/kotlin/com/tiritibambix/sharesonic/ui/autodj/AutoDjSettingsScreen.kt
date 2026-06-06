@@ -1,16 +1,20 @@
 package com.tiritibambix.sharesonic.ui.autodj
 
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.filled.Star
+import androidx.compose.material.icons.filled.StarBorder
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.input.ImeAction
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import kotlin.math.roundToInt
 
@@ -21,6 +25,7 @@ fun AutoDjSettingsScreen(
     onBack: () -> Unit
 ) {
     val s by viewModel.settings.collectAsState()
+    val vpaths by viewModel.availableVpaths.collectAsState()
 
     Scaffold(
         topBar = {
@@ -175,18 +180,157 @@ fun AutoDjSettingsScreen(
                 }
             }
 
-            // ── Rating Filter ─────────────────────────────────────────────────
+            // ── Crossfade ─────────────────────────────────────────────────────
+            item { SectionDivider() }
+            item { SectionHeader("Crossfade") }
+            item {
+                SliderSetting(
+                    label = if (s.crossfadeDurationSec == 0) "Crossfade: Off"
+                            else "Crossfade: ${s.crossfadeDurationSec}s",
+                    value = s.crossfadeDurationSec.toFloat(),
+                    onValueChange = { viewModel.setCrossfadeDuration(it.roundToInt()) },
+                    // 0–12 in 1-second steps: 11 intermediate positions → 13 total
+                    valueRange = 0f..12f,
+                    steps = 11
+                )
+            }
+
+            // ── Minimum Rating ────────────────────────────────────────────────
             item { SectionDivider() }
             item { SectionHeader("Minimum Rating") }
             item {
-                SliderSetting(
-                    label = if (s.minRating == 0) "No minimum rating"
-                            else "Minimum rating: ${s.minRating} / 10",
-                    value = s.minRating.toFloat(),
-                    onValueChange = { viewModel.setMinRating(it.roundToInt()) },
-                    valueRange = 0f..10f,
-                    steps = 9
+                StarRatingPicker(
+                    rating = s.minRating,
+                    onRatingChange = viewModel::setMinRating
                 )
+            }
+
+            // ── Source Library ────────────────────────────────────────────────
+            item { SectionDivider() }
+            item { SectionHeader("Source Library") }
+            item {
+                SourceFoldersSelector(
+                    vpaths = vpaths,
+                    selected = s.sourceFolders,
+                    onSelectionChange = viewModel::setSourceFolders
+                )
+            }
+        }
+    }
+}
+
+// ── Star rating picker ────────────────────────────────────────────────────────
+
+/**
+ * Horizontal row of 5 tappable stars.
+ * [rating] = 0 means "any rating" (no minimum); 1–5 = star minimum.
+ * Tapping the currently selected star resets to 0.
+ */
+@Composable
+private fun StarRatingPicker(
+    rating: Int,
+    onRatingChange: (Int) -> Unit
+) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 16.dp, vertical = 8.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.SpaceBetween
+    ) {
+        Text(
+            text = if (rating == 0) "Any rating"
+                   else "$rating ${if (rating == 1) "star" else "stars"} minimum",
+            style = MaterialTheme.typography.bodyMedium,
+            modifier = Modifier
+                .weight(1f)
+                .padding(end = 8.dp)
+        )
+        Row {
+            (1..5).forEach { star ->
+                IconButton(
+                    onClick = {
+                        // Tap the active star again → reset to 0 (any)
+                        onRatingChange(if (rating == star) 0 else star)
+                    },
+                    modifier = Modifier.size(36.dp)
+                ) {
+                    Icon(
+                        imageVector = if (star <= rating) Icons.Filled.Star
+                                      else Icons.Filled.StarBorder,
+                        contentDescription = "$star star",
+                        tint = if (star <= rating) MaterialTheme.colorScheme.primary
+                               else MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.38f),
+                        modifier = Modifier.size(22.dp)
+                    )
+                }
+            }
+        }
+    }
+}
+
+// ── Source folder checkboxes ──────────────────────────────────────────────────
+
+/**
+ * Checkbox list of available library vpaths.
+ * Empty [selected] means all folders are included (shown as all checked).
+ * Checking all folders back → resets to empty (= all, no explicit list).
+ */
+@Composable
+private fun SourceFoldersSelector(
+    vpaths: List<String>,
+    selected: List<String>,
+    onSelectionChange: (List<String>) -> Unit
+) {
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 16.dp, vertical = 4.dp),
+        verticalArrangement = Arrangement.spacedBy(2.dp)
+    ) {
+        Text(
+            "Which library folders Auto-DJ draws songs from",
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant
+        )
+        Spacer(Modifier.height(4.dp))
+
+        if (vpaths.isEmpty()) {
+            Text(
+                "Library folders not yet loaded — test your server connection in Settings to populate this list.",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.error
+            )
+            return@Column
+        }
+
+        // Treat empty `selected` as "all folders selected"
+        val effectiveSelected = if (selected.isEmpty()) vpaths.toSet() else selected.toSet()
+
+        vpaths.forEach { vpath ->
+            val isChecked = vpath in effectiveSelected
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clickable {
+                        val newSelected = if (isChecked) effectiveSelected - vpath
+                                          else effectiveSelected + vpath
+                        // All selected or none selected → store empty (= "all library")
+                        val toStore = if (newSelected.isEmpty() || newSelected.size == vpaths.size)
+                            emptyList()
+                        else
+                            newSelected.toList().sorted()
+                        onSelectionChange(toStore)
+                    }
+                    .padding(vertical = 8.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Checkbox(
+                    checked = isChecked,
+                    onCheckedChange = null   // click handled by Row
+                )
+                Spacer(Modifier.width(8.dp))
+                Text(vpath, style = MaterialTheme.typography.bodyMedium)
             }
         }
     }
@@ -199,7 +343,6 @@ private fun GenresEditor(
     genres: List<String>,
     onUpdate: (List<String>) -> Unit
 ) {
-    // Edit as a single comma/newline separated string; commit on any change
     var text by remember(genres) {
         mutableStateOf(genres.joinToString(", "))
     }
@@ -236,8 +379,7 @@ private fun SectionHeader(title: String) {
         text = title,
         style = MaterialTheme.typography.titleSmall,
         color = MaterialTheme.colorScheme.primary,
-        modifier = Modifier
-            .padding(start = 16.dp, end = 16.dp, top = 16.dp, bottom = 4.dp)
+        modifier = Modifier.padding(start = 16.dp, end = 16.dp, top = 16.dp, bottom = 4.dp)
     )
 }
 
@@ -342,7 +484,7 @@ private fun StepperSetting(
                 "$value",
                 style = MaterialTheme.typography.titleMedium,
                 modifier = Modifier.widthIn(min = 28.dp),
-                textAlign = androidx.compose.ui.text.style.TextAlign.Center
+                textAlign = TextAlign.Center
             )
             FilledTonalIconButton(
                 onClick = onIncrement,
