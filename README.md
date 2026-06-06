@@ -16,7 +16,7 @@ Download the latest APK directly from the [Releases](https://github.com/Tiritiba
 
 [Obtainium](https://github.com/ImranR98/Obtainium) installs Sharesonic from GitHub Releases and keeps it up to date automatically.
 
-[![Get it on Obtainium](https://raw.githubusercontent.com/ImranR98/Obtainium/main/assets/graphics/badge_obtainium.png)](https://apps.obtainium.imranr.dev/redirect.html?r=obtainium://add/https://github.com/Tiritibambix/Sharesonic)
+<a href="https://apps.obtainium.imranr.dev/redirect.html?r=obtainium://add/https://github.com/Tiritibambix/Sharesonic"><img src="https://raw.githubusercontent.com/ImranR98/Obtainium/main/assets/graphics/badge_obtainium.png" height="40"></a>
 
 ---
 
@@ -61,6 +61,18 @@ Sharesonic is built for the other scenario — the large, chaotic, lovingly diso
 
 ---
 
+## ⚠️ Known issue — first launch
+
+On the very first launch after a fresh install, playback may not start. If that happens:
+
+1. Tap a track to play it — nothing happens
+2. Tap the **Share** button — the app will crash
+3. Reopen Sharesonic — playback now works normally
+
+This is a one-time MediaSession initialisation quirk that does not affect subsequent sessions. A fix is planned for a future release.
+
+---
+
 ## Server compatibility
 
 Sharesonic is built for **[mStream Velvet](https://mstream.io)** (v7.x). It uses mStream's native API for browsing, streaming, sharing, shuffle, and playlist management, and the Subsonic compatibility layer for search only.
@@ -83,7 +95,7 @@ Generic Subsonic servers (Navidrome, Airsonic, etc.) are not supported yet — p
 1. Install [Obtainium](https://github.com/ImranR98/Obtainium)
 2. Tap the badge below or add `https://github.com/Tiritibambix/Sharesonic` manually
 
-[![Get it on Obtainium](https://raw.githubusercontent.com/ImranR98/Obtainium/main/assets/graphics/badge_obtainium.png)](https://apps.obtainium.imranr.dev/redirect.html?r=obtainium://add/https://github.com/Tiritibambix/Sharesonic)
+<a href="https://apps.obtainium.imranr.dev/redirect.html?r=obtainium://add/https://github.com/Tiritibambix/Sharesonic"><img src="https://raw.githubusercontent.com/ImranR98/Obtainium/main/assets/graphics/badge_obtainium.png" height="40"></a>
 
 ---
 
