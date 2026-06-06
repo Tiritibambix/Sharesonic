@@ -164,6 +164,25 @@ class PlayerViewModel(
         }
     }
 
+    /**
+     * Append [song] to the end of the current queue without interrupting playback.
+     * If nothing is playing, falls back to [playSong] and starts playback immediately.
+     */
+    fun addToQueue(song: EntryDto) {
+        viewModelScope.launch {
+            val settings = settings()
+            val currentQueue = _state.value.queue
+            if (currentQueue.isEmpty()) {
+                playSong(song)
+                return@launch
+            }
+            val newQueue = currentQueue + song
+            _state.update { it.copy(queue = newQueue) }
+            val ctrl = controllerDeferred.await()
+            ctrl.addMediaItem(MediaItem.fromUri(streamUrl(settings, song)))
+        }
+    }
+
     fun jumpTo(index: Int) {
         val q = _state.value
         if (index !in q.queue.indices) return

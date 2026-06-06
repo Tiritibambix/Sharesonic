@@ -162,14 +162,31 @@ fun PlaylistDetailScreen(
         floatingActionButton = {
             val entries = (state as? PlaylistDetailState.Ready)?.entries
             if (!entries.isNullOrEmpty()) {
-                ExtendedFloatingActionButton(
-                    onClick = {
-                        playerViewModel.playQueue(entries.map { it.dto })
-                        onOpenNowPlaying()
-                    },
-                    icon = { Icon(Icons.Default.PlayArrow, contentDescription = null) },
-                    text = { Text("Play all") }
-                )
+                Column(
+                    horizontalAlignment = Alignment.End,
+                    verticalArrangement = Arrangement.spacedBy(12.dp)
+                ) {
+                    // Secondary: Shuffle
+                    SmallFloatingActionButton(
+                        onClick = {
+                            playerViewModel.playQueue(entries.map { it.dto }.shuffled())
+                            onOpenNowPlaying()
+                        },
+                        containerColor = MaterialTheme.colorScheme.secondaryContainer,
+                        contentColor = MaterialTheme.colorScheme.onSecondaryContainer
+                    ) {
+                        Icon(Icons.Default.Shuffle, contentDescription = "Shuffle")
+                    }
+                    // Primary: Play all
+                    ExtendedFloatingActionButton(
+                        onClick = {
+                            playerViewModel.playQueue(entries.map { it.dto })
+                            onOpenNowPlaying()
+                        },
+                        icon = { Icon(Icons.Default.PlayArrow, contentDescription = null) },
+                        text = { Text("Play all") }
+                    )
+                }
             }
         }
     ) { padding ->

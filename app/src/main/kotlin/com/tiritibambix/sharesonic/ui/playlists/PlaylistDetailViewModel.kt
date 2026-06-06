@@ -89,7 +89,7 @@ class PlaylistDetailViewModel(
             if (!settings.isConfigured) return@launch
             val token = settings.jwtToken.ifEmpty { return@launch }
             val repo = MStreamRepository(MStreamClient.build(settings.serverUrl))
-            repo.removeSongFromPlaylist(token, entryId)
+            repo.removeSongFromPlaylist(token, entryId, playlistName)
             load()
         }
     }

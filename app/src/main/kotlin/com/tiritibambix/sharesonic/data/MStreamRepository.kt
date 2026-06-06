@@ -15,6 +15,7 @@ import com.tiritibambix.sharesonic.data.api.models.NativePlaylistLoadRequest
 import com.tiritibambix.sharesonic.data.api.models.NativePlaylistNewRequest
 import com.tiritibambix.sharesonic.data.api.models.NativePlaylistRemoveSongRequest
 import com.tiritibambix.sharesonic.data.api.models.NativePlaylistRenameRequest
+import com.tiritibambix.sharesonic.data.api.models.NativePlaylistSaveRequest
 import com.tiritibambix.sharesonic.data.api.models.MStreamRandomSongsRequest
 import com.tiritibambix.sharesonic.data.api.models.MStreamShareListItem
 import com.tiritibambix.sharesonic.data.api.models.MStreamShareRequest
@@ -229,20 +230,43 @@ class MStreamRepository(private val api: MStreamApiService) {
         Result.Success(Unit)
     } catch (e: Exception) { Result.Error(e.message ?: "Network error") }
 
-    /** Append a single song (by filepath) to an existing playlist. Fire-and-forget. */
+    /**
+     * Append a single song (by filepath) to an existing playlist.
+     * After adding, calls [syncPlaylistMeta] so [getall]'s songCount stays accurate.
+     * Fire-and-forget.
+     */
     suspend fun addSongToPlaylist(token: String, filepath: String, playlistName: String) {
-        try { api.addSongToPlaylist(token, NativePlaylistAddSongRequest(filepath, playlistName)) }
-        catch (_: Exception) {}
+        try {
+            api.addSongToPlaylist(token, NativePlaylistAddSongRequest(filepath, playlistName))
+            syncPlaylistMeta(token, playlistName)
+        } catch (_: Exception) {}
     }
 
     /**
      * Remove a song from a playlist by its database entry ID.
-     * The entry ID comes from [NativePlaylistSong.id] in the getall response.
+     * After removing, calls [syncPlaylistMeta] so [getall]'s songCount stays accurate.
      * Fire-and-forget.
      */
-    suspend fun removeSongFromPlaylist(token: String, entryId: Int) {
-        try { api.removeSongFromPlaylist(token, NativePlaylistRemoveSongRequest(entryId)) }
-        catch (_: Exception) {}
+    suspend fun removeSongFromPlaylist(token: String, entryId: Int, playlistName: String) {
+        try {
+            api.removeSongFromPlaylist(token, NativePlaylistRemoveSongRequest(entryId))
+            syncPlaylistMeta(token, playlistName)
+        } catch (_: Exception) {}
+    }
+
+    /**
+     * Re-save the playlist so the server updates its stored [songCount] and [totalDuration].
+     * mStream Velvet's `add-song` / `remove-song` endpoints mutate `playlist_songs` but do NOT
+     * update the denormalized metadata in the `playlists` table — only `save` does.
+     */
+    private suspend fun syncPlaylistMeta(token: String, playlistName: String) {
+        try {
+            val entries = api.loadPlaylist(token, NativePlaylistLoadRequest(playlistName))
+            api.savePlaylist(token, NativePlaylistSaveRequest(
+                title = playlistName,
+                songs  = entries.map { it.filepath }
+            ))
+        } catch (_: Exception) {}
     }
 
     // ── Auth ──────────────────────────────────────────────────────────────────

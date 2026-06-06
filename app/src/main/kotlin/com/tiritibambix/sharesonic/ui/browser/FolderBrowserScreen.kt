@@ -180,12 +180,18 @@ fun FolderBrowserScreen(
                             ) {
                                 items(s.entries, key = { it.id }) { entry ->
                                     if (!entry.isDir) {
-                                        // Songs: swipe right → playlist picker
+                                        // Songs: swipe right → playlist picker | swipe left → add to queue
                                         val dismissState = rememberSwipeToDismissBoxState(
                                             confirmValueChange = { value ->
-                                                if (value == SwipeToDismissBoxValue.StartToEnd) {
-                                                    songToAdd = entry
-                                                    showPlaylistPicker = true
+                                                when (value) {
+                                                    SwipeToDismissBoxValue.StartToEnd -> {
+                                                        songToAdd = entry
+                                                        showPlaylistPicker = true
+                                                    }
+                                                    SwipeToDismissBoxValue.EndToStart -> {
+                                                        playerViewModel.addToQueue(entry)
+                                                    }
+                                                    else -> {}
                                                 }
                                                 false // always bounce back
                                             }
@@ -193,29 +199,59 @@ fun FolderBrowserScreen(
                                         SwipeToDismissBox(
                                             state = dismissState,
                                             enableDismissFromStartToEnd = true,
-                                            enableDismissFromEndToStart = false,
+                                            enableDismissFromEndToStart = true,
                                             backgroundContent = {
-                                                Box(
-                                                    modifier = Modifier
-                                                        .fillMaxSize()
-                                                        .background(MaterialTheme.colorScheme.primaryContainer)
-                                                        .padding(start = 16.dp),
-                                                    contentAlignment = Alignment.CenterStart
-                                                ) {
-                                                    Row(
-                                                        verticalAlignment = Alignment.CenterVertically,
-                                                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                                                val isEndToStart = dismissState.targetValue ==
+                                                    SwipeToDismissBoxValue.EndToStart
+                                                if (isEndToStart) {
+                                                    // Right side: add to queue
+                                                    Box(
+                                                        modifier = Modifier
+                                                            .fillMaxSize()
+                                                            .background(MaterialTheme.colorScheme.tertiaryContainer)
+                                                            .padding(end = 16.dp),
+                                                        contentAlignment = Alignment.CenterEnd
                                                     ) {
-                                                        Icon(
-                                                            Icons.Default.QueueMusic,
-                                                            contentDescription = null,
-                                                            tint = MaterialTheme.colorScheme.onPrimaryContainer
-                                                        )
-                                                        Text(
-                                                            "Add to playlist",
-                                                            color = MaterialTheme.colorScheme.onPrimaryContainer,
-                                                            style = MaterialTheme.typography.labelLarge
-                                                        )
+                                                        Row(
+                                                            verticalAlignment = Alignment.CenterVertically,
+                                                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                                                        ) {
+                                                            Text(
+                                                                "Add to queue",
+                                                                color = MaterialTheme.colorScheme.onTertiaryContainer,
+                                                                style = MaterialTheme.typography.labelLarge
+                                                            )
+                                                            Icon(
+                                                                Icons.Default.AddToQueue,
+                                                                contentDescription = null,
+                                                                tint = MaterialTheme.colorScheme.onTertiaryContainer
+                                                            )
+                                                        }
+                                                    }
+                                                } else {
+                                                    // Left side: add to playlist
+                                                    Box(
+                                                        modifier = Modifier
+                                                            .fillMaxSize()
+                                                            .background(MaterialTheme.colorScheme.primaryContainer)
+                                                            .padding(start = 16.dp),
+                                                        contentAlignment = Alignment.CenterStart
+                                                    ) {
+                                                        Row(
+                                                            verticalAlignment = Alignment.CenterVertically,
+                                                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                                                        ) {
+                                                            Icon(
+                                                                Icons.Default.QueueMusic,
+                                                                contentDescription = null,
+                                                                tint = MaterialTheme.colorScheme.onPrimaryContainer
+                                                            )
+                                                            Text(
+                                                                "Add to playlist",
+                                                                color = MaterialTheme.colorScheme.onPrimaryContainer,
+                                                                style = MaterialTheme.typography.labelLarge
+                                                            )
+                                                        }
                                                     }
                                                 }
                                             }
