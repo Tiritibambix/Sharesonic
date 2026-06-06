@@ -7,6 +7,12 @@ import com.tiritibambix.sharesonic.data.api.models.FileExplorerResponse
 import com.tiritibambix.sharesonic.data.api.models.MStreamFile
 import com.tiritibambix.sharesonic.data.api.models.MStreamFileMetaWrapper
 import com.tiritibambix.sharesonic.data.api.models.MStreamLoginRequest
+import com.tiritibambix.sharesonic.data.api.models.NativePlaylist
+import com.tiritibambix.sharesonic.data.api.models.NativePlaylistAddSongRequest
+import com.tiritibambix.sharesonic.data.api.models.NativePlaylistDeleteRequest
+import com.tiritibambix.sharesonic.data.api.models.NativePlaylistNewRequest
+import com.tiritibambix.sharesonic.data.api.models.NativePlaylistRemoveSongRequest
+import com.tiritibambix.sharesonic.data.api.models.NativePlaylistRenameRequest
 import com.tiritibambix.sharesonic.data.api.models.MStreamRandomSongsRequest
 import com.tiritibambix.sharesonic.data.api.models.MStreamShareListItem
 import com.tiritibambix.sharesonic.data.api.models.MStreamShareRequest
@@ -187,6 +193,46 @@ class MStreamRepository(private val api: MStreamApiService) {
         } catch (e: Exception) {
             Result.Error(e.message ?: "Network error")
         }
+    }
+
+    // ── Native playlists ──────────────────────────────────────────────────────
+
+    /** List all playlists for the authenticated user. */
+    suspend fun getPlaylists(token: String): Result<List<NativePlaylist>> = try {
+        Result.Success(api.getPlaylists(token))
+    } catch (e: Exception) { Result.Error(e.message ?: "Network error") }
+
+    /** Create a new empty playlist with the given title. Fire-and-forget on success. */
+    suspend fun createPlaylist(token: String, title: String): Result<Unit> = try {
+        api.createPlaylist(token, NativePlaylistNewRequest(title))
+        Result.Success(Unit)
+    } catch (e: Exception) { Result.Error(e.message ?: "Network error") }
+
+    /** Delete a playlist by name. Fire-and-forget. */
+    suspend fun deletePlaylist(token: String, name: String) {
+        try { api.deletePlaylist(token, NativePlaylistDeleteRequest(name)) } catch (_: Exception) {}
+    }
+
+    /** Rename a playlist. Returns an error if the new name already exists. */
+    suspend fun renamePlaylist(token: String, oldName: String, newName: String): Result<Unit> = try {
+        api.renamePlaylist(token, NativePlaylistRenameRequest(oldName, newName))
+        Result.Success(Unit)
+    } catch (e: Exception) { Result.Error(e.message ?: "Network error") }
+
+    /** Append a single song (by filepath) to an existing playlist. Fire-and-forget. */
+    suspend fun addSongToPlaylist(token: String, filepath: String, playlistName: String) {
+        try { api.addSongToPlaylist(token, NativePlaylistAddSongRequest(filepath, playlistName)) }
+        catch (_: Exception) {}
+    }
+
+    /**
+     * Remove a song from a playlist by its database entry ID.
+     * The entry ID comes from [NativePlaylistSong.id] in the getall response.
+     * Fire-and-forget.
+     */
+    suspend fun removeSongFromPlaylist(token: String, entryId: Int) {
+        try { api.removeSongFromPlaylist(token, NativePlaylistRemoveSongRequest(entryId)) }
+        catch (_: Exception) {}
     }
 
     // ── Auth ──────────────────────────────────────────────────────────────────

@@ -9,6 +9,7 @@ import com.tiritibambix.sharesonic.data.SubsonicRepository
 import com.tiritibambix.sharesonic.data.api.MStreamClient
 import com.tiritibambix.sharesonic.data.api.SubsonicClient
 import com.tiritibambix.sharesonic.data.api.models.EntryDto
+import com.tiritibambix.sharesonic.data.api.models.NativePlaylist
 import com.tiritibambix.sharesonic.data.settings.ServerSettings
 import com.tiritibambix.sharesonic.data.settings.SettingsRepository
 import com.tiritibambix.sharesonic.ui.navigation.Screen
@@ -196,6 +197,41 @@ class FolderBrowserViewModel(
     }
 
     fun clearShareState() = _shareState.update { ShareState.Idle }
+
+    // ── Add to playlist ───────────────────────────────────────────────────────
+
+    /** Cached playlist list for the swipe-to-add picker. Loaded on first swipe. */
+    private val _playlists = MutableStateFlow<List<NativePlaylist>>(emptyList())
+    val playlists: StateFlow<List<NativePlaylist>> = _playlists
+
+    /**
+     * Load the user's playlists into [playlists] for the picker dialog.
+     * No-op if already loaded; caller can force a refresh by passing [forceRefresh].
+     */
+    fun loadPlaylists(forceRefresh: Boolean = false) {
+        if (!forceRefresh && _playlists.value.isNotEmpty()) return
+        viewModelScope.launch {
+            val settings = settingsRepo.settings.first()
+            if (!settings.isConfigured) return@launch
+            val token = ensureToken(settings) ?: return@launch
+            val mStream = MStreamRepository(MStreamClient.build(settings.serverUrl))
+            when (val r = mStream.getPlaylists(token)) {
+                is Result.Success -> _playlists.update { r.data }
+                is Result.Error   -> {}  // silently ignored — picker shows empty list
+            }
+        }
+    }
+
+    /** Append [filepath] to the named playlist. Fire-and-forget. */
+    fun addToPlaylist(filepath: String, playlistName: String) {
+        viewModelScope.launch {
+            val settings = settingsRepo.settings.first()
+            if (!settings.isConfigured) return@launch
+            val token = ensureToken(settings) ?: return@launch
+            MStreamRepository(MStreamClient.build(settings.serverUrl))
+                .addSongToPlaylist(token, filepath, playlistName)
+        }
+    }
 
     // ── Auth helpers ──────────────────────────────────────────────────────────
 

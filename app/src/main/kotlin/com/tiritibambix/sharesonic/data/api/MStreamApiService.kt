@@ -1,6 +1,13 @@
 package com.tiritibambix.sharesonic.data.api
 
 import com.tiritibambix.sharesonic.data.api.models.FileExplorerRequest
+import com.tiritibambix.sharesonic.data.api.models.NativePlaylist
+import com.tiritibambix.sharesonic.data.api.models.NativePlaylistAddSongRequest
+import com.tiritibambix.sharesonic.data.api.models.NativePlaylistDeleteRequest
+import com.tiritibambix.sharesonic.data.api.models.NativePlaylistNewRequest
+import com.tiritibambix.sharesonic.data.api.models.NativePlaylistRemoveSongRequest
+import com.tiritibambix.sharesonic.data.api.models.NativePlaylistRenameRequest
+import com.tiritibambix.sharesonic.data.api.models.NativePlaylistSaveRequest
 import com.tiritibambix.sharesonic.data.api.models.FileExplorerResponse
 import com.tiritibambix.sharesonic.data.api.models.MStreamArtResponse
 import com.tiritibambix.sharesonic.data.api.models.NativeSearchRequest
@@ -94,6 +101,57 @@ interface MStreamApiService {
         @Header("x-access-token") token: String,
         @Body request: NativeSearchRequest
     ): NativeSearchResponse
+
+    // ── Native playlists ──────────────────────────────────────────────────────
+
+    /** List all playlists for the authenticated user. */
+    @GET("api/v1/playlist/getall")
+    suspend fun getPlaylists(@Header("x-access-token") token: String): List<NativePlaylist>
+
+    /** Create a new empty playlist. Returns {} on success. */
+    @POST("api/v1/playlist/new")
+    suspend fun createPlaylist(
+        @Header("x-access-token") token: String,
+        @Body request: NativePlaylistNewRequest
+    ): ResponseBody
+
+    /** Delete a playlist by name. Returns {} on success. */
+    @POST("api/v1/playlist/delete")
+    suspend fun deletePlaylist(
+        @Header("x-access-token") token: String,
+        @Body request: NativePlaylistDeleteRequest
+    ): ResponseBody
+
+    /** Rename a playlist. Returns {} on success; 400 if new name already exists. */
+    @POST("api/v1/playlist/rename")
+    suspend fun renamePlaylist(
+        @Header("x-access-token") token: String,
+        @Body request: NativePlaylistRenameRequest
+    ): ResponseBody
+
+    /** Append a single song (by filepath) to an existing playlist. */
+    @POST("api/v1/playlist/add-song")
+    suspend fun addSongToPlaylist(
+        @Header("x-access-token") token: String,
+        @Body request: NativePlaylistAddSongRequest
+    ): ResponseBody
+
+    /**
+     * Remove a single song from a playlist by its database entry ID.
+     * The entry ID comes from [NativePlaylistSong.id] in the getall response.
+     */
+    @POST("api/v1/playlist/remove-song")
+    suspend fun removeSongFromPlaylist(
+        @Header("x-access-token") token: String,
+        @Body request: NativePlaylistRemoveSongRequest
+    ): ResponseBody
+
+    /** Overwrite a playlist's entire track list (for reorder / bulk-replace). */
+    @POST("api/v1/playlist/save")
+    suspend fun savePlaylist(
+        @Header("x-access-token") token: String,
+        @Body request: NativePlaylistSaveRequest
+    ): ResponseBody
 
     // ── Scrobble ──────────────────────────────────────────────────────────────
 

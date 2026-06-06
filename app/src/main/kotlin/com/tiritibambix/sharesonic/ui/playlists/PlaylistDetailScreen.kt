@@ -3,7 +3,6 @@ package com.tiritibambix.sharesonic.ui.playlists
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
@@ -29,17 +28,11 @@ fun PlaylistDetailScreen(
     val state by viewModel.state.collectAsState()
     val addSongsState by viewModel.addSongsState.collectAsState()
 
-    // ── Title shown in TopAppBar — updated after rename ───────────────────────
-    val playlistName = when (val s = state) {
-        is PlaylistDetailState.Ready -> s.detail.name
-        else -> initialName
-    }
+    val playlistName = (state as? PlaylistDetailState.Ready)?.name ?: initialName
 
-    // ── Rename dialog ─────────────────────────────────────────────────────────
     var showRenameDialog by remember { mutableStateOf(false) }
     var renameName by remember { mutableStateOf("") }
 
-    // ── Add songs dialog ──────────────────────────────────────────────────────
     var showAddDialog by remember { mutableStateOf(false) }
     var addQuery by remember { mutableStateOf("") }
 
@@ -72,27 +65,19 @@ fun PlaylistDetailScreen(
     if (showAddDialog) {
         AlertDialog(
             onDismissRequest = {
-                showAddDialog = false
-                addQuery = ""
-                viewModel.clearAddSongsSearch()
+                showAddDialog = false; addQuery = ""; viewModel.clearAddSongsSearch()
             },
             title = { Text("Add songs") },
             text = {
                 Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                     OutlinedTextField(
                         value = addQuery,
-                        onValueChange = {
-                            addQuery = it
-                            viewModel.searchSongsToAdd(it)
-                        },
+                        onValueChange = { addQuery = it; viewModel.searchSongsToAdd(it) },
                         placeholder = { Text("Search songs…") },
                         singleLine = true,
                         trailingIcon = {
                             if (addQuery.isNotEmpty()) {
-                                IconButton(onClick = {
-                                    addQuery = ""
-                                    viewModel.clearAddSongsSearch()
-                                }) {
+                                IconButton(onClick = { addQuery = ""; viewModel.clearAddSongsSearch() }) {
                                     Icon(Icons.Default.Clear, contentDescription = "Clear")
                                 }
                             }
@@ -102,28 +87,25 @@ fun PlaylistDetailScreen(
                     )
                     Box(modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp, max = 300.dp)) {
                         when (val s = addSongsState) {
-                            is AddSongsState.Idle -> {
+                            is AddSongsState.Idle ->
                                 Text(
                                     "Type to search",
                                     modifier = Modifier.align(Alignment.Center),
                                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                                     style = MaterialTheme.typography.bodySmall
                                 )
-                            }
-                            is AddSongsState.Loading -> {
+                            is AddSongsState.Loading ->
                                 CircularProgressIndicator(
                                     modifier = Modifier.size(24.dp).align(Alignment.Center),
                                     strokeWidth = 2.dp
                                 )
-                            }
-                            is AddSongsState.Error -> {
+                            is AddSongsState.Error ->
                                 Text(
                                     s.message,
                                     modifier = Modifier.align(Alignment.Center),
                                     color = MaterialTheme.colorScheme.error,
                                     style = MaterialTheme.typography.bodySmall
                                 )
-                            }
                             is AddSongsState.Results -> {
                                 if (s.songs.isEmpty()) {
                                     Text(
@@ -136,7 +118,7 @@ fun PlaylistDetailScreen(
                                     LazyColumn {
                                         items(s.songs, key = { it.id }) { song ->
                                             AddSongRow(song = song, onAdd = {
-                                                viewModel.addSongs(listOf(song.id))
+                                                viewModel.addSong(song.id)
                                                 showAddDialog = false
                                                 addQuery = ""
                                                 viewModel.clearAddSongsSearch()
@@ -152,9 +134,7 @@ fun PlaylistDetailScreen(
             confirmButton = {},
             dismissButton = {
                 TextButton(onClick = {
-                    showAddDialog = false
-                    addQuery = ""
-                    viewModel.clearAddSongsSearch()
+                    showAddDialog = false; addQuery = ""; viewModel.clearAddSongsSearch()
                 }) { Text("Close") }
             }
         )
@@ -163,40 +143,28 @@ fun PlaylistDetailScreen(
     Scaffold(
         topBar = {
             TopAppBar(
-                title = {
-                    Text(
-                        playlistName,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis
-                    )
-                },
+                title = { Text(playlistName, maxLines = 1, overflow = TextOverflow.Ellipsis) },
                 navigationIcon = {
                     IconButton(onClick = onBack) {
                         Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
                     }
                 },
                 actions = {
-                    IconButton(onClick = {
-                        renameName = playlistName
-                        showRenameDialog = true
-                    }) {
+                    IconButton(onClick = { renameName = playlistName; showRenameDialog = true }) {
                         Icon(Icons.Default.Edit, contentDescription = "Rename")
                     }
-                    IconButton(onClick = {
-                        addQuery = ""
-                        showAddDialog = true
-                    }) {
+                    IconButton(onClick = { addQuery = ""; showAddDialog = true }) {
                         Icon(Icons.Default.Add, contentDescription = "Add songs")
                     }
                 }
             )
         },
         floatingActionButton = {
-            val songs = (state as? PlaylistDetailState.Ready)?.detail?.entry
-            if (!songs.isNullOrEmpty()) {
+            val entries = (state as? PlaylistDetailState.Ready)?.entries
+            if (!entries.isNullOrEmpty()) {
                 ExtendedFloatingActionButton(
                     onClick = {
-                        playerViewModel.playQueue(songs)
+                        playerViewModel.playQueue(entries.map { it.dto })
                         onOpenNowPlaying()
                     },
                     icon = { Icon(Icons.Default.PlayArrow, contentDescription = null) },
@@ -207,18 +175,16 @@ fun PlaylistDetailScreen(
     ) { padding ->
         Box(modifier = Modifier.padding(padding).fillMaxSize()) {
             when (val s = state) {
-                is PlaylistDetailState.Loading -> {
+                is PlaylistDetailState.Loading ->
                     CircularProgressIndicator(modifier = Modifier.align(Alignment.Center))
-                }
-                is PlaylistDetailState.Error -> {
+                is PlaylistDetailState.Error ->
                     Text(
                         s.message,
                         modifier = Modifier.align(Alignment.Center),
                         color = MaterialTheme.colorScheme.error
                     )
-                }
                 is PlaylistDetailState.Ready -> {
-                    if (s.detail.entry.isEmpty()) {
+                    if (s.entries.isEmpty()) {
                         Text(
                             "No songs — tap + to add some",
                             modifier = Modifier.align(Alignment.Center),
@@ -229,14 +195,14 @@ fun PlaylistDetailScreen(
                             modifier = Modifier.fillMaxSize(),
                             contentPadding = PaddingValues(bottom = 80.dp)
                         ) {
-                            itemsIndexed(s.detail.entry, key = { idx, _ -> idx }) { idx, song ->
-                                SwipeToDeleteSongRow(
-                                    song = song,
+                            items(s.entries, key = { it.entryId }) { entry ->
+                                SwipeToRemoveSongRow(
+                                    entry = entry,
                                     onPlay = {
-                                        playerViewModel.playSong(song)
+                                        playerViewModel.playSong(entry.dto)
                                         onOpenNowPlaying()
                                     },
-                                    onRemove = { viewModel.removeSong(idx) }
+                                    onRemove = { viewModel.removeSong(entry.entryId) }
                                 )
                                 HorizontalDivider(thickness = 0.5.dp)
                             }
@@ -250,17 +216,14 @@ fun PlaylistDetailScreen(
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-private fun SwipeToDeleteSongRow(
-    song: EntryDto,
+private fun SwipeToRemoveSongRow(
+    entry: PlaylistEntry,
     onPlay: () -> Unit,
     onRemove: () -> Unit
 ) {
     val dismissState = rememberSwipeToDismissBoxState(
         confirmValueChange = { value ->
-            if (value == SwipeToDismissBoxValue.EndToStart) {
-                onRemove()
-                true
-            } else false
+            if (value == SwipeToDismissBoxValue.EndToStart) { onRemove(); true } else false
         }
     )
     SwipeToDismissBox(
@@ -268,21 +231,15 @@ private fun SwipeToDeleteSongRow(
         enableDismissFromStartToEnd = false,
         backgroundContent = {
             Box(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .padding(horizontal = 16.dp),
+                modifier = Modifier.fillMaxSize().padding(horizontal = 16.dp),
                 contentAlignment = Alignment.CenterEnd
             ) {
-                Icon(
-                    Icons.Default.Delete,
-                    contentDescription = "Remove",
-                    tint = MaterialTheme.colorScheme.error
-                )
+                Icon(Icons.Default.Delete, contentDescription = "Remove", tint = MaterialTheme.colorScheme.error)
             }
         }
     ) {
         Surface(color = MaterialTheme.colorScheme.surface) {
-            SongRow(song = song, onClick = onPlay)
+            SongRow(song = entry.dto, onClick = onPlay)
         }
     }
 }
@@ -290,18 +247,12 @@ private fun SwipeToDeleteSongRow(
 @Composable
 private fun SongRow(song: EntryDto, onClick: () -> Unit) {
     Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(horizontal = 16.dp, vertical = 10.dp),
+        modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 10.dp),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(12.dp)
     ) {
         IconButton(onClick = onClick, modifier = Modifier.size(40.dp)) {
-            Icon(
-                Icons.Default.PlayArrow,
-                contentDescription = "Play",
-                tint = MaterialTheme.colorScheme.primary
-            )
+            Icon(Icons.Default.PlayArrow, contentDescription = "Play", tint = MaterialTheme.colorScheme.primary)
         }
         Column(modifier = Modifier.weight(1f)) {
             Text(
@@ -326,9 +277,8 @@ private fun SongRow(song: EntryDto, onClick: () -> Unit) {
             }
         }
         song.duration?.let {
-            val m = it / 60; val sec = it % 60
             Text(
-                "%d:%02d".format(m, sec),
+                "%d:%02d".format(it / 60, it % 60),
                 style = MaterialTheme.typography.labelSmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
@@ -339,9 +289,7 @@ private fun SongRow(song: EntryDto, onClick: () -> Unit) {
 @Composable
 private fun AddSongRow(song: EntryDto, onAdd: () -> Unit) {
     Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(horizontal = 4.dp, vertical = 4.dp),
+        modifier = Modifier.fillMaxWidth().padding(horizontal = 4.dp, vertical = 4.dp),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(8.dp)
     ) {
@@ -363,11 +311,7 @@ private fun AddSongRow(song: EntryDto, onAdd: () -> Unit) {
             }
         }
         IconButton(onClick = onAdd, modifier = Modifier.size(36.dp)) {
-            Icon(
-                Icons.Default.Add,
-                contentDescription = "Add to playlist",
-                tint = MaterialTheme.colorScheme.primary
-            )
+            Icon(Icons.Default.Add, contentDescription = "Add", tint = MaterialTheme.colorScheme.primary)
         }
     }
 }

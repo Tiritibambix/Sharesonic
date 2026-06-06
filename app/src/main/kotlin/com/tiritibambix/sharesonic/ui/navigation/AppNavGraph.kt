@@ -134,8 +134,8 @@ fun AppNavGraph() {
             PlaylistsScreen(
                 viewModel = playlistsVm,
                 onBack = { navController.popBackStack() },
-                onOpenPlaylist = { id, name ->
-                    navController.navigate(Screen.PlaylistDetail.createRoute(id, name))
+                onOpenPlaylist = { name ->
+                    navController.navigate(Screen.PlaylistDetail.createRoute(name))
                 }
             )
         }
@@ -143,20 +143,16 @@ fun AppNavGraph() {
         composable(
             route = Screen.PlaylistDetail.route,
             arguments = listOf(
-                navArgument(Screen.PlaylistDetail.ARG_ID) { type = NavType.StringType },
-                navArgument(Screen.PlaylistDetail.ARG_NAME) {
-                    type = NavType.StringType
-                    defaultValue = ""
-                }
+                navArgument(Screen.PlaylistDetail.ARG_NAME) { type = NavType.StringType }
             )
         ) { backStackEntry ->
-            val playlistId = backStackEntry.arguments
-                ?.getString(Screen.PlaylistDetail.ARG_ID) ?: return@composable
-            val playlistName = backStackEntry.arguments
-                ?.getString(Screen.PlaylistDetail.ARG_NAME) ?: ""
+            val rawName = backStackEntry.arguments
+                ?.getString(Screen.PlaylistDetail.ARG_NAME) ?: return@composable
+            // URL-decode the name (encoded by createRoute)
+            val playlistName = java.net.URLDecoder.decode(rawName, "UTF-8")
             val detailVm: PlaylistDetailViewModel = viewModel(
-                key = "playlist_$playlistId",
-                factory = PlaylistDetailViewModelFactory(settingsRepo, playlistId)
+                key = "playlist_$playlistName",
+                factory = PlaylistDetailViewModelFactory(settingsRepo, playlistName)
             )
             PlaylistDetailScreen(
                 initialName = playlistName,

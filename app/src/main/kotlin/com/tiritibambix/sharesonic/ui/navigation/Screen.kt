@@ -37,11 +37,14 @@ sealed class Screen(val route: String) {
 
     data object Playlists : Screen("playlists")
 
-    data object PlaylistDetail : Screen("playlist/{playlistId}?name={name}") {
-        fun createRoute(id: String, name: String): String =
-            "playlist/${id.urlEncode()}?name=${name.urlEncode()}"
-        const val ARG_ID   = "playlistId"
-        const val ARG_NAME = "name"
+    /**
+     * Playlist detail — the playlist NAME is both the identifier and the display label
+     * (mStream Velvet uses name as the primary key for all playlist mutations).
+     * Encoded with URLEncoder to handle spaces and special chars safely.
+     */
+    data object PlaylistDetail : Screen("playlist/{playlistName}") {
+        fun createRoute(name: String): String = "playlist/${name.urlEncode()}"
+        const val ARG_NAME = "playlistName"
     }
 }
 

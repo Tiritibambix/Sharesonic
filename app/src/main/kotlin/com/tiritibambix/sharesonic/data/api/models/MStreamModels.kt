@@ -183,6 +183,44 @@ data class NativeSearchResponse(
     val artists: List<NativeSearchArtist> = emptyList()
 )
 
+// ── Native playlists (POST /api/v1/playlist/*) ────────────────────────────────
+
+/**
+ * One playlist as returned by GET /api/v1/playlist/getall.
+ * Songs are identified by their filepath (same as file-explorer pullMetadata=true).
+ * [title] is the playlist name AND the identifier used by all mutation endpoints.
+ */
+data class NativePlaylist(
+    val title: String = "",
+    val songs: List<NativePlaylistSong> = emptyList()
+)
+
+/**
+ * A song entry inside a playlist.
+ * [id]   = database entry ID — used by POST /api/v1/playlist/remove-song { id }
+ * [song] = filepath — same as file-explorer and share endpoints
+ */
+data class NativePlaylistSong(
+    val id: Int = 0,
+    val song: String = "",
+    /** Present when the server returns track metadata alongside the filepath. */
+    val metadata: MStreamInnerMetadata? = null
+)
+
+// Playlist request bodies ───────────────────────��─────────────────────────────
+
+data class NativePlaylistNewRequest(val title: String)
+data class NativePlaylistDeleteRequest(val playlistname: String)
+data class NativePlaylistRenameRequest(val oldName: String, val newName: String)
+data class NativePlaylistAddSongRequest(val song: String, val playlist: String)
+data class NativePlaylistRemoveSongRequest(val id: Int)
+/** Overwrite a playlist's entire song list (used to reorder or bulk-replace). */
+data class NativePlaylistSaveRequest(
+    val title: String,
+    val songs: List<String>,
+    val live: Boolean = false
+)
+
 // ── Scrobble ───────────────────────────────────────────────────────────────────
 
 /** Body for Last.fm and ListenBrainz scrobble / playing-now endpoints. */

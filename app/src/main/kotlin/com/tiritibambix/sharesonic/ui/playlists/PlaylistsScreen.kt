@@ -14,27 +14,24 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
-import com.tiritibambix.sharesonic.data.api.models.PlaylistDto
+import com.tiritibambix.sharesonic.data.api.models.NativePlaylist
 
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalFoundationApi::class)
 @Composable
 fun PlaylistsScreen(
     viewModel: PlaylistsViewModel,
     onBack: () -> Unit,
-    onOpenPlaylist: (id: String, name: String) -> Unit
+    onOpenPlaylist: (name: String) -> Unit
 ) {
     val state by viewModel.state.collectAsState()
 
-    // ── Create dialog ─────────────────────────────────────────────────────────
     var showCreateDialog by remember { mutableStateOf(false) }
     var createName by remember { mutableStateOf("") }
 
-    // ── Rename dialog ─────────────────────────────────────────────────────────
-    var renameTarget by remember { mutableStateOf<PlaylistDto?>(null) }
+    var renameTarget by remember { mutableStateOf<NativePlaylist?>(null) }
     var renameName by remember { mutableStateOf("") }
 
-    // ── Delete confirmation ───────────────────────────────────────────────────
-    var deleteTarget by remember { mutableStateOf<PlaylistDto?>(null) }
+    var deleteTarget by remember { mutableStateOf<NativePlaylist?>(null) }
 
     // ── Create dialog ─────────────────────────────────────────────────────────
     if (showCreateDialog) {
@@ -52,11 +49,8 @@ fun PlaylistsScreen(
             confirmButton = {
                 TextButton(
                     onClick = {
-                        if (createName.isNotBlank()) {
-                            viewModel.createPlaylist(createName.trim())
-                        }
-                        showCreateDialog = false
-                        createName = ""
+                        if (createName.isNotBlank()) viewModel.createPlaylist(createName.trim())
+                        showCreateDialog = false; createName = ""
                     }
                 ) { Text("Create") }
             },
@@ -84,9 +78,8 @@ fun PlaylistsScreen(
             confirmButton = {
                 TextButton(
                     onClick = {
-                        if (renameName.isNotBlank()) {
-                            viewModel.renamePlaylist(target.id, renameName.trim())
-                        }
+                        if (renameName.isNotBlank())
+                            viewModel.renamePlaylist(target.title, renameName.trim())
                         renameTarget = null
                     }
                 ) { Text("Rename") }
@@ -102,10 +95,10 @@ fun PlaylistsScreen(
         AlertDialog(
             onDismissRequest = { deleteTarget = null },
             title = { Text("Delete playlist") },
-            text = { Text("Delete \"${target.name}\"? This cannot be undone.") },
+            text = { Text("Delete \"${target.title}\"? This cannot be undone.") },
             confirmButton = {
                 TextButton(onClick = {
-                    viewModel.deletePlaylist(target.id)
+                    viewModel.deletePlaylist(target.title)
                     deleteTarget = null
                 }) { Text("Delete", color = MaterialTheme.colorScheme.error) }
             },
@@ -152,7 +145,7 @@ fun PlaylistsScreen(
                 is PlaylistsState.Ready -> {
                     if (s.playlists.isEmpty()) {
                         Text(
-                            "No playlists yet — tap + to create one",
+                            "No playlists — tap + to create one",
                             modifier = Modifier.align(Alignment.Center),
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
@@ -161,14 +154,11 @@ fun PlaylistsScreen(
                             modifier = Modifier.fillMaxSize(),
                             contentPadding = PaddingValues(bottom = 80.dp)
                         ) {
-                            items(s.playlists, key = { it.id }) { playlist ->
+                            items(s.playlists, key = { it.title }) { playlist ->
                                 PlaylistRow(
                                     playlist = playlist,
-                                    onClick = { onOpenPlaylist(playlist.id, playlist.name) },
-                                    onRename = {
-                                        renameName = playlist.name
-                                        renameTarget = playlist
-                                    },
+                                    onClick = { onOpenPlaylist(playlist.title) },
+                                    onRename = { renameName = playlist.title; renameTarget = playlist },
                                     onDelete = { deleteTarget = playlist }
                                 )
                                 HorizontalDivider(thickness = 0.5.dp)
@@ -184,7 +174,7 @@ fun PlaylistsScreen(
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
 private fun PlaylistRow(
-    playlist: PlaylistDto,
+    playlist: NativePlaylist,
     onClick: () -> Unit,
     onRename: () -> Unit,
     onDelete: () -> Unit
@@ -194,10 +184,7 @@ private fun PlaylistRow(
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .combinedClickable(
-                onClick = onClick,
-                onLongClick = { showMenu = true }
-            )
+            .combinedClickable(onClick = onClick, onLongClick = { showMenu = true })
             .padding(horizontal = 16.dp, vertical = 12.dp),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(12.dp)
@@ -210,13 +197,13 @@ private fun PlaylistRow(
         )
         Column(modifier = Modifier.weight(1f)) {
             Text(
-                playlist.name,
+                playlist.title,
                 style = MaterialTheme.typography.bodyLarge,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis
             )
             Text(
-                "${playlist.songCount} songs",
+                "${playlist.songs.size} songs",
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )

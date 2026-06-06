@@ -1,6 +1,7 @@
 package com.tiritibambix.sharesonic.ui.browser
 
 import androidx.compose.foundation.ExperimentalFoundationApi
+import androidx.compose.foundation.background
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.gestures.detectDragGestures
 import androidx.compose.foundation.layout.*
@@ -8,8 +9,10 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
@@ -52,6 +55,16 @@ fun FolderBrowserScreen(
     var showContextMenu by remember { mutableStateOf(false) }
     var shuffleLoading by remember { mutableStateOf(false) }
     var shuffleError by remember { mutableStateOf<String?>(null) }
+
+    // ── Swipe-to-add-to-playlist state ────────────────────────────────────────
+    var songToAdd by remember { mutableStateOf<EntryDto?>(null) }
+    var showPlaylistPicker by remember { mutableStateOf(false) }
+    val playlists by viewModel.playlists.collectAsState()
+
+    // Load playlists lazily when the picker is first opened
+    LaunchedEffect(showPlaylistPicker) {
+        if (showPlaylistPicker) viewModel.loadPlaylists()
+    }
 
     // ── Letter strip state ────────────────────────────────────────────────────
     val listState = rememberLazyListState()
@@ -166,21 +179,74 @@ fun FolderBrowserScreen(
                                 )
                             ) {
                                 items(s.entries, key = { it.id }) { entry ->
-                                    EntryRow(
-                                        entry = entry,
-                                        coverArtUrl = entry.coverArt?.let { viewModel.coverArtUrl(it) },
-                                        onClick = {
-                                            if (entry.isDir) onOpenFolder(entry.id, entry.displayName)
-                                            else {
-                                                playerViewModel.playSong(entry)
-                                                onOpenNowPlaying()
+                                    if (!entry.isDir) {
+                                        // Songs: swipe right → playlist picker
+                                        val dismissState = rememberSwipeToDismissBoxState(
+                                            confirmValueChange = { value ->
+                                                if (value == SwipeToDismissBoxValue.StartToEnd) {
+                                                    songToAdd = entry
+                                                    showPlaylistPicker = true
+                                                }
+                                                false // always bounce back
                                             }
-                                        },
-                                        onLongClick = {
-                                            contextEntry = entry
-                                            showContextMenu = true
+                                        )
+                                        SwipeToDismissBox(
+                                            state = dismissState,
+                                            enableDismissFromStartToEnd = true,
+                                            enableDismissFromEndToStart = false,
+                                            backgroundContent = {
+                                                Box(
+                                                    modifier = Modifier
+                                                        .fillMaxSize()
+                                                        .background(MaterialTheme.colorScheme.primaryContainer)
+                                                        .padding(start = 16.dp),
+                                                    contentAlignment = Alignment.CenterStart
+                                                ) {
+                                                    Row(
+                                                        verticalAlignment = Alignment.CenterVertically,
+                                                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                                                    ) {
+                                                        Icon(
+                                                            Icons.Default.QueueMusic,
+                                                            contentDescription = null,
+                                                            tint = MaterialTheme.colorScheme.onPrimaryContainer
+                                                        )
+                                                        Text(
+                                                            "Add to playlist",
+                                                            color = MaterialTheme.colorScheme.onPrimaryContainer,
+                                                            style = MaterialTheme.typography.labelLarge
+                                                        )
+                                                    }
+                                                }
+                                            }
+                                        ) {
+                                            Surface(color = MaterialTheme.colorScheme.surface) {
+                                                EntryRow(
+                                                    entry = entry,
+                                                    coverArtUrl = entry.coverArt?.let { viewModel.coverArtUrl(it) },
+                                                    onClick = {
+                                                        playerViewModel.playSong(entry)
+                                                        onOpenNowPlaying()
+                                                    },
+                                                    onLongClick = {
+                                                        contextEntry = entry
+                                                        showContextMenu = true
+                                                    }
+                                                )
+                                            }
                                         }
-                                    )
+                                    } else {
+                                        // Folders: no swipe, direct row
+                                        EntryRow(
+                                            entry = entry,
+                                            coverArtUrl = entry.coverArt?.let { viewModel.coverArtUrl(it) },
+                                            onClick = { onOpenFolder(entry.id, entry.displayName) },
+                                            onLongClick = {
+                                                contextEntry = entry
+                                                showContextMenu = true
+                                            }
+                                        )
+                                    }
                                     HorizontalDivider(thickness = 0.5.dp)
                                 }
                             }
@@ -208,6 +274,55 @@ fun FolderBrowserScreen(
                 CircularProgressIndicator(modifier = Modifier.align(Alignment.Center))
             }
         }
+    }
+
+    // ── Playlist picker (swipe-to-add) ───────────────────────────────────────
+    if (showPlaylistPicker && songToAdd != null) {
+        val song = songToAdd!!
+        AlertDialog(
+            onDismissRequest = { showPlaylistPicker = false; songToAdd = null },
+            title = { Text("Add to playlist") },
+            text = {
+                if (playlists.isEmpty()) {
+                    Text(
+                        "No playlists yet.\nCreate one in the Playlists screen first.",
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                } else {
+                    Column(
+                        modifier = Modifier
+                            .heightIn(max = 320.dp)
+                            .verticalScroll(rememberScrollState())
+                    ) {
+                        playlists.forEach { playlist ->
+                            TextButton(
+                                onClick = {
+                                    viewModel.addToPlaylist(song.id, playlist.title)
+                                    showPlaylistPicker = false
+                                    songToAdd = null
+                                },
+                                modifier = Modifier.fillMaxWidth()
+                            ) {
+                                Text(
+                                    buildString {
+                                        append(playlist.title)
+                                        append("  ")
+                                        append("(${playlist.songs.size})")
+                                    },
+                                    modifier = Modifier.fillMaxWidth()
+                                )
+                            }
+                        }
+                    }
+                }
+            },
+            confirmButton = {},
+            dismissButton = {
+                TextButton(onClick = { showPlaylistPicker = false; songToAdd = null }) {
+                    Text("Cancel")
+                }
+            }
+        )
     }
 
     // ── Context menu (long press) ─────────────────────────────────────────────
