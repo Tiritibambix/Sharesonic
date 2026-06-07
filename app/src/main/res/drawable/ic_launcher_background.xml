@@ -1,8 +1,8 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!--
     Adaptive-icon background layer — full-bleed Velvet gradient, matching the
-    in-app dark navy/purple background (#1a1a2e → #16213e) from the new
-    sharesonic_icon_v8 design. The system masks this into whatever shape the
+    in-app dark navy/purple background (#1a1a2e → #16213e), unchanged between
+    the v8 and definitive v10 icon designs. The system masks this into whatever shape the
     launcher needs (circle, squircle, rounded square…), so it must cover the
     entire 108x108 canvas with no transparency.
 -->
