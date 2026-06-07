@@ -17,7 +17,8 @@ import com.tiritibambix.sharesonic.ui.autodj.AutoDjSettingsViewModel
 fun SettingsScreen(
     viewModel: SettingsViewModel,
     autoDjViewModel: AutoDjSettingsViewModel,
-    onNavigateToBrowser: () -> Unit
+    onNavigateToBrowser: () -> Unit,
+    miniPlayerVisible: Boolean = false
 ) {
     var selectedTab by rememberSaveable { mutableIntStateOf(0) }
 
@@ -48,7 +49,8 @@ fun SettingsScreen(
             )
             else -> AutoDjSettingsContent(
                 viewModel = autoDjViewModel,
-                modifier = Modifier.padding(padding)
+                modifier = Modifier.padding(padding),
+                miniPlayerVisible = miniPlayerVisible
             )
         }
     }

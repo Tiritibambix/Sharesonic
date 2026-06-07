@@ -112,7 +112,8 @@ fun AppNavGraph() {
                             Screen.Browser.createRoute(Screen.Browser.ROOT, "Library")
                         )
                     }
-                }
+                },
+                miniPlayerVisible = playerState.currentSong != null
             )
         }
 
@@ -223,7 +224,8 @@ fun AppNavGraph() {
                 viewModel(factory = AutoDjSettingsViewModelFactory(context))
             AutoDjSettingsScreen(
                 viewModel = autoDjVm,
-                onBack = { navController.popBackStack() }
+                onBack = { navController.popBackStack() },
+                miniPlayerVisible = playerState.currentSong != null
             )
         }
 

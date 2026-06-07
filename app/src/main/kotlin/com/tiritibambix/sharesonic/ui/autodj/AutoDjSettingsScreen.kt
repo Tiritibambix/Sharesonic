@@ -1,6 +1,7 @@
 package com.tiritibambix.sharesonic.ui.autodj
 
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
@@ -26,14 +27,22 @@ import kotlin.math.roundToInt
 @Composable
 fun AutoDjSettingsContent(
     viewModel: AutoDjSettingsViewModel,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    miniPlayerVisible: Boolean = false
 ) {
     val s by viewModel.settings.collectAsState()
     val vpaths by viewModel.availableVpaths.collectAsState()
 
+    // Leave room for the mini player bar so the last rows (genres, source folders…)
+    // aren't hidden behind it.
+    val bottomPadding by animateDpAsState(
+        targetValue = if (miniPlayerVisible) 108.dp else 32.dp,
+        label = "autoDjBottomPadding"
+    )
+
     LazyColumn(
         modifier = modifier.fillMaxSize(),
-        contentPadding = PaddingValues(bottom = 32.dp)
+        contentPadding = PaddingValues(bottom = bottomPadding)
     ) {
 
         // ── BPM Continuity ────────────────────────────────────────────────
@@ -212,7 +221,8 @@ fun AutoDjSettingsContent(
 @Composable
 fun AutoDjSettingsScreen(
     viewModel: AutoDjSettingsViewModel,
-    onBack: () -> Unit
+    onBack: () -> Unit,
+    miniPlayerVisible: Boolean = false
 ) {
     Scaffold(
         topBar = {
@@ -226,7 +236,11 @@ fun AutoDjSettingsScreen(
             )
         }
     ) { padding ->
-        AutoDjSettingsContent(viewModel, modifier = Modifier.padding(padding))
+        AutoDjSettingsContent(
+            viewModel,
+            modifier = Modifier.padding(padding),
+            miniPlayerVisible = miniPlayerVisible
+        )
     }
 }
 
