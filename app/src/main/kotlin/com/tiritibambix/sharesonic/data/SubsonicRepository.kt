@@ -115,9 +115,17 @@ class SubsonicRepository(private val api: SubsonicApiService) {
 
     // ── Shares ────────────────────────────────────────────────────────────────
 
-    suspend fun createShare(id: String): Result<ShareDto> {
+    /**
+     * @param expiryDays Number of days until the link expires (mirrors mStream Velvet's
+     *                   "days until expiration" share field); null/omit → permanent link.
+     *                   Converted to the Unix-millis timestamp expected by `expires`.
+     */
+    suspend fun createShare(id: String, expiryDays: Int? = null): Result<ShareDto> {
         return try {
-            val body = api.createShare(id).response
+            val expiresAt = expiryDays?.let {
+                System.currentTimeMillis() + it.toLong() * 24L * 60L * 60L * 1000L
+            }
+            val body = api.createShare(id, expires = expiresAt).response
             if (body.status == "ok") {
                 val share = body.shares?.share?.firstOrNull()
                     ?: return Result.Error("No share returned")

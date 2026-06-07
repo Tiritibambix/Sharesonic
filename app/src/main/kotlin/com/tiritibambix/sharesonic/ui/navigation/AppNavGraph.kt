@@ -41,9 +41,14 @@ import com.tiritibambix.sharesonic.ui.playlists.PlaylistsViewModelFactory
 import com.tiritibambix.sharesonic.ui.autodj.AutoDjSettingsScreen
 import com.tiritibambix.sharesonic.ui.autodj.AutoDjSettingsViewModel
 import com.tiritibambix.sharesonic.ui.autodj.AutoDjSettingsViewModelFactory
+import com.tiritibambix.sharesonic.ui.settings.ServerSettingsScreen
 import com.tiritibambix.sharesonic.ui.settings.SettingsScreen
 import com.tiritibambix.sharesonic.ui.settings.SettingsViewModel
 import com.tiritibambix.sharesonic.ui.settings.SettingsViewModelFactory
+import com.tiritibambix.sharesonic.ui.settings.ThemeSettingsScreen
+import com.tiritibambix.sharesonic.ui.publiclinks.PublicLinksScreen
+import com.tiritibambix.sharesonic.ui.publiclinks.PublicLinksViewModel
+import com.tiritibambix.sharesonic.ui.publiclinks.PublicLinksViewModelFactory
 import com.tiritibambix.sharesonic.ui.player.MiniPlayerBar
 import com.tiritibambix.sharesonic.ui.share.ShareConfirmScreen
 
@@ -110,19 +115,41 @@ fun AppNavGraph() {
     ) {
 
         composable(Screen.Settings.route) {
-            val autoDjVm: AutoDjSettingsViewModel =
-                viewModel(factory = AutoDjSettingsViewModelFactory(context))
             SettingsScreen(
+                onNavigateToServer = { navController.navigate(Screen.ServerSettings.route) },
+                onNavigateToAutoDj = { navController.navigate(Screen.AutoDjSettings.route) },
+                onNavigateToTheme = { navController.navigate(Screen.ThemeSettings.route) },
+                onNavigateToPublicLinks = { navController.navigate(Screen.PublicLinks.route) }
+            )
+        }
+
+        composable(Screen.ServerSettings.route) {
+            ServerSettingsScreen(
                 viewModel = settingsVm,
-                autoDjViewModel = autoDjVm,
+                onBack = { navController.popBackStack() },
                 onNavigateToBrowser = {
                     if (settingsVm.settings.value.isConfigured) {
                         navController.navigate(
                             Screen.Browser.createRoute(Screen.Browser.ROOT, "Library")
                         )
                     }
-                },
-                miniPlayerVisible = playerState.currentSong != null
+                }
+            )
+        }
+
+        composable(Screen.ThemeSettings.route) {
+            ThemeSettingsScreen(
+                viewModel = settingsVm,
+                onBack = { navController.popBackStack() }
+            )
+        }
+
+        composable(Screen.PublicLinks.route) {
+            val publicLinksVm: PublicLinksViewModel =
+                viewModel(factory = PublicLinksViewModelFactory(settingsRepo))
+            PublicLinksScreen(
+                viewModel = publicLinksVm,
+                onBack = { navController.popBackStack() }
             )
         }
 

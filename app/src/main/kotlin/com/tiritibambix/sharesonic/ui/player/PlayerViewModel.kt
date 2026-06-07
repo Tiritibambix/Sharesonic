@@ -487,7 +487,12 @@ class PlayerViewModel(
 
     // ── Share ─────────────────────────────────────────────────────────────────
 
-    fun shareCurrentSong() {
+    /**
+     * @param expiryDays Number of days until the link expires, as entered in the
+     *                   share dialog's "days until expiration" field (mirrors mStream
+     *                   Velvet); null → permanent link.
+     */
+    fun shareCurrentSong(expiryDays: Int? = null) {
         val song = _state.value.currentSong ?: return
         _state.update { it.copy(shareLoading = true, shareUrl = null, shareError = null) }
         viewModelScope.launch {
@@ -495,7 +500,7 @@ class PlayerViewModel(
             val shareUrl = if (song.id.isSubsonicNumericId()) {
                 // Song from getRandomSongs — has a real Subsonic integer ID
                 val api = SubsonicClient.build(settings.serverUrl, settings.username, settings.password)
-                when (val r = SubsonicRepository(api).createShare(song.id)) {
+                when (val r = SubsonicRepository(api).createShare(song.id, expiryDays)) {
                     is Result.Success -> r.data.url
                     is Result.Error   -> { _state.update { it.copy(shareLoading = false, shareError = r.message) }; return@launch }
                 }
@@ -506,7 +511,7 @@ class PlayerViewModel(
                     return@launch
                 }
                 val mStream = MStreamRepository(MStreamClient.build(settings.serverUrl))
-                when (val r = mStream.share(token, song.id)) {
+                when (val r = mStream.share(token, song.id, expiryDays)) {
                     is Result.Success -> settings.serverUrl.trimEnd('/') + "/shared/${r.data}"
                     is Result.Error   -> { _state.update { it.copy(shareLoading = false, shareError = r.message) }; return@launch }
                 }

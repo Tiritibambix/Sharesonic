@@ -49,6 +49,15 @@ sealed class Screen(val route: String) {
 
     /** Auto-DJ configuration panel, accessible from Settings. */
     data object AutoDjSettings : Screen("autodj-settings")
+
+    /** mStream server URL / account / connection test, accessible from Settings. */
+    data object ServerSettings : Screen("server-settings")
+
+    /** Velvet / Dark / Light visual theme picker, accessible from Settings. */
+    data object ThemeSettings : Screen("theme-settings")
+
+    /** Public Links management (list / copy / open / revoke), accessible from Settings. */
+    data object PublicLinks : Screen("public-links")
 }
 
 private fun String.urlEncode() = java.net.URLEncoder.encode(this, "UTF-8")

@@ -8,6 +8,7 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Star
 import androidx.compose.material.icons.filled.StarBorder
 import androidx.compose.material3.*
@@ -247,9 +248,13 @@ fun AutoDjSettingsScreen(
 // ── Star rating picker ────────────────────────────────────────────────────────
 
 /**
- * Horizontal row of 5 tappable stars.
+ * Horizontal row of 5 tappable stars plus an explicit reset control.
  * [rating] = 0 means "any rating" (no minimum); 1–5 = star minimum.
- * Tapping the currently selected star resets to 0.
+ *
+ * Tapping a star sets the minimum to that star's value; tapping the
+ * already-active star, OR the dedicated "clear" button, resets to 0
+ * ("Any rating") — the clear button makes the reset path discoverable
+ * instead of relying on users guessing they must re-tap the lit star.
  */
 @Composable
 private fun StarRatingPicker(
@@ -271,7 +276,7 @@ private fun StarRatingPicker(
                 .weight(1f)
                 .padding(end = 8.dp)
         )
-        Row {
+        Row(verticalAlignment = Alignment.CenterVertically) {
             (1..5).forEach { star ->
                 IconButton(
                     onClick = {
@@ -289,6 +294,21 @@ private fun StarRatingPicker(
                         modifier = Modifier.size(22.dp)
                     )
                 }
+            }
+            // Explicit, always-visible way back to "Any rating" — avoids the
+            // dead end where users couldn't figure out how to clear the minimum.
+            IconButton(
+                onClick = { onRatingChange(0) },
+                enabled = rating != 0,
+                modifier = Modifier.size(36.dp)
+            ) {
+                Icon(
+                    imageVector = Icons.Default.Close,
+                    contentDescription = "Reset to any rating",
+                    tint = if (rating != 0) MaterialTheme.colorScheme.onSurfaceVariant
+                           else MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.25f),
+                    modifier = Modifier.size(20.dp)
+                )
             }
         }
     }

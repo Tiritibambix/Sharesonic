@@ -149,19 +149,23 @@ class FolderBrowserViewModel(
 
     // ── Share ─────────────────────────────────────────────────────────────────
 
-    fun shareEntry(entry: EntryDto) {
+    /**
+     * @param expiryDays Number of days until the link expires (from the share dialog's
+     *                   "days until expiration" field); null → permanent link.
+     */
+    fun shareEntry(entry: EntryDto, expiryDays: Int? = null) {
         _shareState.update { ShareState.Loading }
         viewModelScope.launch {
             val settings = settingsRepo.settings.first()
             when {
                 entry.isDir -> {
-                    // Folder → collect all tracks, share as playlist with 14-day expiry
+                    // Folder → collect all tracks, share as a single playlist
                     val jwt = ensureToken(settings) ?: run {
                         _shareState.update { ShareState.Error("Authentication failed") }
                         return@launch
                     }
                     val mStream = MStreamRepository(MStreamClient.build(settings.serverUrl))
-                    when (val r = mStream.shareFolder(jwt, entry.id)) {
+                    when (val r = mStream.shareFolder(jwt, entry.id, expiryDays)) {
                         is Result.Success -> {
                             val url = settings.serverUrl.trimEnd('/') + "/shared/${r.data}"
                             _shareState.update { ShareState.Done(url) }
@@ -174,7 +178,7 @@ class FolderBrowserViewModel(
                     val subsonicRepo = SubsonicRepository(
                         SubsonicClient.build(settings.serverUrl, settings.username, settings.password)
                     )
-                    when (val r = subsonicRepo.createShare(entry.id)) {
+                    when (val r = subsonicRepo.createShare(entry.id, expiryDays)) {
                         is Result.Success -> _shareState.update { ShareState.Done(r.data.url) }
                         is Result.Error   -> _shareState.update { ShareState.Error(r.message) }
                     }
@@ -186,7 +190,7 @@ class FolderBrowserViewModel(
                         return@launch
                     }
                     val mStream = MStreamRepository(MStreamClient.build(settings.serverUrl))
-                    when (val r = mStream.share(jwt, entry.id)) {
+                    when (val r = mStream.share(jwt, entry.id, expiryDays)) {
                         is Result.Success -> {
                             val url = settings.serverUrl.trimEnd('/') + "/shared/${r.data}"
                             _shareState.update { ShareState.Done(url) }

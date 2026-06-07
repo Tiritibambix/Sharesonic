@@ -28,6 +28,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import coil.compose.AsyncImage
+import com.tiritibambix.sharesonic.ui.share.ShareExpiryDialog
 
 private const val PAGE_NOW_PLAYING = 0
 private const val PAGE_QUEUE = 1
@@ -133,6 +134,7 @@ fun NowPlayingScreen(
 @Composable
 private fun NowPlayingPage(state: PlayerState, viewModel: PlayerViewModel) {
     var showPlaylistPicker by remember { mutableStateOf(false) }
+    var showShareExpiryDialog by remember { mutableStateOf(false) }
     val playlists by viewModel.playlists.collectAsState()
 
     Column(
@@ -320,7 +322,7 @@ private fun NowPlayingPage(state: PlayerState, viewModel: PlayerViewModel) {
                     }
                 } else {
                     OutlinedButton(
-                        onClick = { viewModel.shareCurrentSong() },
+                        onClick = { showShareExpiryDialog = true },
                         modifier = Modifier.weight(1f)
                     ) {
                         Icon(Icons.Default.Share, contentDescription = null,
@@ -389,6 +391,17 @@ private fun NowPlayingPage(state: PlayerState, viewModel: PlayerViewModel) {
                 )
             }
         }
+    }
+
+    // ── Share — ask for expiry before creating the link (mStream Velvet style) ──
+    if (showShareExpiryDialog) {
+        ShareExpiryDialog(
+            onConfirm = { expiryDays ->
+                showShareExpiryDialog = false
+                viewModel.shareCurrentSong(expiryDays)
+            },
+            onDismiss = { showShareExpiryDialog = false }
+        )
     }
 
     // ── Add-to-playlist dialog ─────────────────────────────────────────────────

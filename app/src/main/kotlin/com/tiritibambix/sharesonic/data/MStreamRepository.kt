@@ -128,26 +128,28 @@ class MStreamRepository(private val api: MStreamApiService) {
     /**
      * Create a public share link for a single track.
      *
-     * @param token    JWT bearer token
-     * @param filepath Full mStream filepath (e.g. "library/Artist/Album/track.mp3")
+     * @param token      JWT bearer token
+     * @param filepath   Full mStream filepath (e.g. "library/Artist/Album/track.mp3")
+     * @param expiryDays Number of days until the link expires; null/omit → permanent link
+     *                   (mirrors the "days until expiration" field in mStream Velvet's share UI)
      * @return the playlistId — caller builds URL as <serverUrl>/shared/<playlistId>
      */
-    suspend fun share(token: String, filepath: String): Result<String> =
-        shareFilepaths(token, listOf(filepath))
+    suspend fun share(token: String, filepath: String, expiryDays: Int? = null): Result<String> =
+        shareFilepaths(token, listOf(filepath), expiryDays)
 
     /**
      * Create a public share link for all audio tracks under [path].
-     * Recursively collects every track and creates a single shared playlist
-     * with a 14-day expiry.
+     * Recursively collects every track and creates a single shared playlist.
      *
-     * @param token JWT bearer token
-     * @param path  mStream directory path (e.g. "/library/Artist")
+     * @param token      JWT bearer token
+     * @param path       mStream directory path (e.g. "/library/Artist")
+     * @param expiryDays Number of days until the link expires; null/omit → permanent link
      * @return the playlistId — caller builds URL as <serverUrl>/shared/<playlistId>
      */
-    suspend fun shareFolder(token: String, path: String): Result<String> {
+    suspend fun shareFolder(token: String, path: String, expiryDays: Int? = null): Result<String> {
         val songs = collectSongs(token, path)
         if (songs.isEmpty()) return Result.Error("No audio files found in folder")
-        return shareFilepaths(token, songs.map { it.id }, expiryDays = 14)
+        return shareFilepaths(token, songs.map { it.id }, expiryDays)
     }
 
     private suspend fun shareFilepaths(
@@ -337,6 +339,12 @@ class MStreamRepository(private val api: MStreamApiService) {
     /** Fetch the authenticated user's share links. */
     suspend fun getShareList(token: String): Result<List<MStreamShareListItem>> = try {
         Result.Success(api.getShareList(token))
+    } catch (e: Exception) { Result.Error(e.message ?: "Network error") }
+
+    /** Revoke (delete) a public share link by its playlistId. */
+    suspend fun deleteShare(token: String, playlistId: String): Result<Unit> = try {
+        api.deleteShare(token, playlistId)
+        Result.Success(Unit)
     } catch (e: Exception) { Result.Error(e.message ?: "Network error") }
 
     /**

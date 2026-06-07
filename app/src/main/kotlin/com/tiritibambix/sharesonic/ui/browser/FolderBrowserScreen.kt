@@ -33,6 +33,7 @@ import androidx.compose.ui.unit.sp
 import coil.compose.AsyncImage
 import com.tiritibambix.sharesonic.data.api.models.EntryDto
 import com.tiritibambix.sharesonic.ui.player.PlayerViewModel
+import com.tiritibambix.sharesonic.ui.share.ShareExpiryDialog
 import kotlinx.coroutines.launch
 
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalFoundationApi::class)
@@ -65,6 +66,8 @@ fun FolderBrowserScreen(
 
     var contextEntry by remember { mutableStateOf<EntryDto?>(null) }
     var showContextMenu by remember { mutableStateOf(false) }
+    // Entry awaiting an expiry-days choice before its share link is created.
+    var shareExpiryTarget by remember { mutableStateOf<EntryDto?>(null) }
     var shuffleLoading by remember { mutableStateOf(false) }
     var shuffleError by remember { mutableStateOf<String?>(null) }
 
@@ -413,7 +416,7 @@ fun FolderBrowserScreen(
                     TextButton(
                         onClick = {
                             showContextMenu = false
-                            viewModel.shareEntry(entry)
+                            shareExpiryTarget = entry
                         },
                         modifier = Modifier.fillMaxWidth()
                     ) { Text("🔗  Share link") }
@@ -423,6 +426,17 @@ fun FolderBrowserScreen(
             dismissButton = {
                 TextButton(onClick = { showContextMenu = false }) { Text("Cancel") }
             }
+        )
+    }
+
+    // ── Share — ask for expiry before creating the link (mStream Velvet style) ──
+    shareExpiryTarget?.let { target ->
+        ShareExpiryDialog(
+            onConfirm = { expiryDays ->
+                shareExpiryTarget = null
+                viewModel.shareEntry(target, expiryDays)
+            },
+            onDismiss = { shareExpiryTarget = null }
         )
     }
 
