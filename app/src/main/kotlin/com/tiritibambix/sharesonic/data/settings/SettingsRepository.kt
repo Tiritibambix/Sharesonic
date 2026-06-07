@@ -30,6 +30,8 @@ class SettingsRepository(private val context: Context) {
         val JWT_TOKEN  = stringPreferencesKey("jwt_token")
         /** Library vpaths stored after the last successful connection test. */
         val VPATHS     = stringPreferencesKey("vpaths")
+        /** Selected visual theme — see [AppTheme]. Stored as the enum's [Enum.name]. */
+        val APP_THEME  = stringPreferencesKey("app_theme")
     }
 
     val settings: Flow<ServerSettings> = context.dataStore.data.map { prefs ->
@@ -64,6 +66,17 @@ class SettingsRepository(private val context: Context) {
     suspend fun saveVpaths(vpaths: List<String>) {
         context.dataStore.edit { prefs ->
             prefs[Keys.VPATHS] = vpaths.joinToString("|")
+        }
+    }
+
+    /** Selected visual theme — defaults to [AppTheme.VELVET] if never set. */
+    val appTheme: Flow<AppTheme> = context.dataStore.data.map { prefs ->
+        AppTheme.fromKey(prefs[Keys.APP_THEME])
+    }
+
+    suspend fun saveAppTheme(theme: AppTheme) {
+        context.dataStore.edit { prefs ->
+            prefs[Keys.APP_THEME] = theme.name
         }
     }
 

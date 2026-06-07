@@ -2,10 +2,12 @@ package com.tiritibambix.sharesonic.ui.theme
 
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.darkColorScheme
+import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
+import com.tiritibambix.sharesonic.data.settings.AppTheme
 
 /**
- * mStream Velvet dark scheme.
+ * mStream Velvet dark scheme — the app's default theme.
  *
  * Color mapping (CSS var → M3 role):
  *   --bg            → background              #1a1a2e  deepest layer
@@ -65,10 +67,98 @@ private val VelvetColorScheme = darkColorScheme(
     inversePrimary    = VelvetPrimaryHov,       // #7c3aed
 )
 
+/**
+ * "Dark" scheme — true near-black, Material/Apple dark guidelines.
+ * Mapped from the user-supplied :root.dark CSS variables (see [DarkPrimary] etc.).
+ */
+private val DarkAppColorScheme = darkColorScheme(
+    primary             = DarkPrimary,
+    onPrimary           = DarkInk,
+    primaryContainer    = DarkPrimaryDark,
+    onPrimaryContainer  = DarkPrimaryOnC,
+
+    secondary             = DarkAccent,
+    onSecondary           = DarkInk,
+    secondaryContainer    = DarkAccentDark,
+    onSecondaryContainer  = DarkAccentOnC,
+
+    tertiary             = DarkGreen,
+    onTertiary           = DarkInk,
+    tertiaryContainer    = DarkGreenDark,
+    onTertiaryContainer  = DarkGreenOnC,
+
+    error             = DarkRed,
+    onError           = DarkInk,
+    errorContainer    = DarkRedDark,
+    onErrorContainer  = DarkRed,
+
+    background   = DarkBg,
+    onBackground = DarkT1,
+    surface      = DarkSurface,
+    onSurface    = DarkT1,
+    surfaceVariant   = DarkRaised,
+    onSurfaceVariant = DarkT2,
+
+    outline        = DarkBorder,
+    outlineVariant = DarkBorder2,
+
+    inverseSurface    = DarkT1,
+    inverseOnSurface  = DarkBg,
+    inversePrimary    = DarkPrimaryHov,
+)
+
+/**
+ * "Light" scheme — soft lavender-gray.
+ * Mapped from the user-supplied :root.light CSS variables (see [LightPrimary] etc.).
+ */
+private val LightAppColorScheme = lightColorScheme(
+    primary             = LightPrimary,
+    onPrimary           = LightInk,
+    primaryContainer    = LightPrimaryDark,
+    onPrimaryContainer  = LightPrimaryOnC,
+
+    secondary             = LightAccent,
+    onSecondary           = LightInk,
+    secondaryContainer    = LightAccentDark,
+    onSecondaryContainer  = LightAccentOnC,
+
+    tertiary             = LightGreen,
+    onTertiary           = LightInk,
+    tertiaryContainer    = LightGreenDark,
+    onTertiaryContainer  = LightGreenOnC,
+
+    error             = LightRed,
+    onError           = LightInk,
+    errorContainer    = LightRedDark,
+    onErrorContainer  = LightRed,
+
+    background   = LightBg,
+    onBackground = LightT1,
+    surface      = LightSurface,
+    onSurface    = LightT1,
+    surfaceVariant   = LightRaised,
+    onSurfaceVariant = LightT2,
+
+    outline        = LightBorder,
+    outlineVariant = LightBorder2,
+
+    inverseSurface    = LightT1,
+    inverseOnSurface  = LightBg,
+    inversePrimary    = LightPrimaryHov,
+)
+
 @Composable
-fun SharesonicTheme(content: @Composable () -> Unit) {
+fun SharesonicTheme(
+    appTheme: AppTheme = AppTheme.VELVET,
+    content: @Composable () -> Unit
+) {
+    val colorScheme = when (appTheme) {
+        AppTheme.VELVET -> VelvetColorScheme
+        AppTheme.DARK   -> DarkAppColorScheme
+        AppTheme.LIGHT  -> LightAppColorScheme
+    }
     MaterialTheme(
-        colorScheme = VelvetColorScheme,
+        colorScheme = colorScheme,
         typography  = Typography,
         content     = content
     )

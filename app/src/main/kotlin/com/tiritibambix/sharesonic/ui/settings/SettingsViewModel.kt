@@ -6,6 +6,7 @@ import androidx.lifecycle.viewModelScope
 import com.tiritibambix.sharesonic.data.MStreamRepository
 import com.tiritibambix.sharesonic.data.Result
 import com.tiritibambix.sharesonic.data.api.MStreamClient
+import com.tiritibambix.sharesonic.data.settings.AppTheme
 import com.tiritibambix.sharesonic.data.settings.ServerSettings
 import com.tiritibambix.sharesonic.data.settings.SettingsRepository
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -27,6 +28,10 @@ class SettingsViewModel(private val repo: SettingsRepository) : ViewModel() {
 
     val settings: StateFlow<ServerSettings> = repo.settings
         .stateIn(viewModelScope, SharingStarted.Eagerly, ServerSettings())
+
+    /** Selected visual theme — Velvet (default), Dark or Light. */
+    val appTheme: StateFlow<AppTheme> = repo.appTheme
+        .stateIn(viewModelScope, SharingStarted.Eagerly, AppTheme.VELVET)
 
     init {
         // On boot, refresh the stored JWT so it stays signed by the current server secret.
@@ -58,6 +63,13 @@ class SettingsViewModel(private val repo: SettingsRepository) : ViewModel() {
                 )
             )
             _connectionState.update { ConnectionState.Idle }
+        }
+    }
+
+    /** Persists the chosen visual theme — applied immediately app-wide via [appTheme]. */
+    fun setAppTheme(theme: AppTheme) {
+        viewModelScope.launch {
+            repo.saveAppTheme(theme)
         }
     }
 

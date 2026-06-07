@@ -43,3 +43,73 @@ val VelvetT3          = Color(0xFF7E8EC0)   // --t3 muted text
 
 // Very dark (used for onPrimary, onAccent text)
 val VelvetInk         = Color(0xFF0D0B1A)   // near-black with purple tint
+
+// ── "Dark" palette — true near-black, Material/Apple dark guidelines ─────────
+// Mapped from the user-supplied :root.dark CSS variables.
+
+val DarkBg          = Color(0xFF000000)   // --bg       true black
+val DarkSurface     = Color(0xFF0D0D0D)   // --surface
+val DarkRaised      = Color(0xFF1C1C1E)   // --raised   elevated surfaces
+val DarkCard        = Color(0xFF141414)   // --card
+
+val DarkBorder      = Color(0xFF262626)   // --border   rgba(255,255,255,.09) on black
+val DarkBorder2     = Color(0xFF333333)   // --border2  rgba(255,255,255,.15) on black
+
+val DarkPrimary       = Color(0xFFA78BFA)   // --primary
+val DarkPrimaryHov    = Color(0xFF9061F9)   // --primary-h
+val DarkPrimaryDark   = Color(0xFF2F2347)   // dark container for primary
+val DarkPrimaryOnC    = Color(0xFFE3D9FC)   // on primaryContainer
+
+val DarkAccent      = Color(0xFF60A5FA)   // --accent
+val DarkAccentDark  = Color(0xFF1C2F4A)   // dark container for accent
+val DarkAccentOnC   = Color(0xFFCFE2FF)   // on secondaryContainer
+
+val DarkGreen       = Color(0xFF34D399)   // --green
+val DarkGreenDark   = Color(0xFF0F3D2E)   // dark container for green
+val DarkGreenOnC    = Color(0xFFB8F0D9)   // on tertiaryContainer
+
+val DarkRed         = Color(0xFFF87171)   // --red
+val DarkRedDark     = Color(0xFF4A1F1F)   // error container
+val DarkYellow      = Color(0xFFFBBF24)   // --yellow (unused by M3 but available)
+
+val DarkT1          = Color(0xFFF1F1F1)   // --t1 primary text
+val DarkT2          = Color(0xFF8A8A9A)   // --t2 secondary text
+val DarkT3          = Color(0xFF707082)   // --t3 muted text
+val DarkT4          = Color(0xFF252530)   // --t4
+
+val DarkInk         = Color(0xFF1A1025)   // near-black purple-tinted ink for onPrimary/onAccent
+
+// ── "Light" palette — soft lavender-gray ─────────────────────────────────────
+// Mapped from the user-supplied :root.light CSS variables.
+
+val LightBg          = Color(0xFFE8E8F2)   // --bg       medium lavender-gray
+val LightSurface     = Color(0xFFF2F2FA)   // --surface  soft off-white
+val LightRaised      = Color(0xFFE4E4EF)   // --raised
+val LightCard        = Color(0xFFDCDCEC)   // --card
+
+val LightBorder      = Color(0xFFD4D4E0)   // --border   rgba(0,0,0,.10) on light bg
+val LightBorder2     = Color(0xFFC0C0D2)   // --border2  rgba(0,0,0,.17) on light bg
+
+val LightPrimary       = Color(0xFF6D3CE6)   // --primary
+val LightPrimaryHov    = Color(0xFF5B28D4)   // --primary-h
+val LightPrimaryDark   = Color(0xFFE4D9FB)   // light lavender container for primary
+val LightPrimaryOnC    = Color(0xFF2C1463)   // on primaryContainer (dark purple text)
+
+val LightAccent      = Color(0xFF2563EB)   // --accent
+val LightAccentDark  = Color(0xFFD8E6FE)   // light container for accent
+val LightAccentOnC   = Color(0xFF0D2C63)   // on secondaryContainer
+
+val LightGreen       = Color(0xFF16A34A)   // --green
+val LightGreenDark   = Color(0xFFD3F3E0)   // light container for green
+val LightGreenOnC    = Color(0xFF0A4023)   // on tertiaryContainer
+
+val LightRed         = Color(0xFFDC2626)   // --red
+val LightRedDark     = Color(0xFFFBD7D7)   // error container
+val LightYellow      = Color(0xFFD97706)   // --yellow (unused by M3 but available)
+
+val LightT1          = Color(0xFF0C0C1A)   // --t1 primary text (near-black with lavender tint)
+val LightT2          = Color(0xFF42425E)   // --t2 secondary text
+val LightT3          = Color(0xFF7878A0)   // --t3 muted text
+val LightT4          = Color(0xFFB8B8D0)   // --t4
+
+val LightInk         = Color(0xFFFFFFFF)   // white — used for onPrimary/onAccent text

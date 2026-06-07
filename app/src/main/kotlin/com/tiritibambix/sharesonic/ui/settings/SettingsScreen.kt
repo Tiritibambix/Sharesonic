@@ -9,6 +9,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
+import com.tiritibambix.sharesonic.data.settings.AppTheme
 import com.tiritibambix.sharesonic.ui.autodj.AutoDjSettingsContent
 import com.tiritibambix.sharesonic.ui.autodj.AutoDjSettingsViewModel
 
@@ -56,6 +57,7 @@ fun SettingsScreen(
     }
 }
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun ServerSettingsContent(
     viewModel: SettingsViewModel,
@@ -64,6 +66,7 @@ private fun ServerSettingsContent(
 ) {
     val settings by viewModel.settings.collectAsState()
     val connectionState by viewModel.connectionState.collectAsState()
+    val appTheme by viewModel.appTheme.collectAsState()
 
     var serverUrl by remember(settings.serverUrl) { mutableStateOf(settings.serverUrl) }
     var username  by remember(settings.username)  { mutableStateOf(settings.username) }
@@ -149,6 +152,35 @@ private fun ServerSettingsContent(
                 )
             }
             else -> {}
+        }
+
+        HorizontalDivider()
+
+        Text(
+            "Theme",
+            style = MaterialTheme.typography.titleMedium
+        )
+        Text(
+            "Velvet est le thème par défaut, assorti à mStream.",
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            style = MaterialTheme.typography.bodySmall
+        )
+
+        SingleChoiceSegmentedButtonRow(modifier = Modifier.fillMaxWidth()) {
+            val options = listOf(
+                AppTheme.VELVET to "Velvet",
+                AppTheme.DARK to "Dark",
+                AppTheme.LIGHT to "Light"
+            )
+            options.forEachIndexed { index, (theme, label) ->
+                SegmentedButton(
+                    selected = appTheme == theme,
+                    onClick = { viewModel.setAppTheme(theme) },
+                    shape = SegmentedButtonDefaults.itemShape(index = index, count = options.size)
+                ) {
+                    Text(label)
+                }
+            }
         }
     }
 }
