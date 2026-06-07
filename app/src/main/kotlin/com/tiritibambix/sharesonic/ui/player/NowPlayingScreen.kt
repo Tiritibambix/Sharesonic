@@ -217,6 +217,24 @@ private fun NowPlayingPage(state: PlayerState, viewModel: PlayerViewModel) {
                 )
             }
 
+            // Format (mp3, flac, ogg…) and live bitrate — Now Playing only, not the mini player
+            val formatLabel = buildString {
+                state.currentSong!!.suffix?.takeIf { it.isNotBlank() }?.let { append(it) }
+                state.audioBitrateKbps?.let {
+                    if (isNotEmpty()) append("  ·  ")
+                    append("$it kbps")
+                }
+            }
+            if (formatLabel.isNotBlank()) {
+                Text(
+                    text = formatLabel,
+                    style = MaterialTheme.typography.labelMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
+            }
+
             Spacer(Modifier.height(12.dp))
 
             // Playback controls

@@ -6,9 +6,11 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
 import androidx.media3.common.C
+import androidx.media3.common.Format
 import androidx.media3.common.MediaItem
 import androidx.media3.common.PlaybackException
 import androidx.media3.common.Player
+import androidx.media3.common.Tracks
 import androidx.media3.session.MediaController
 import androidx.media3.session.SessionToken
 import com.google.common.util.concurrent.ListenableFuture
@@ -50,7 +52,9 @@ data class PlayerState(
     val shareError: String? = null,
     val playbackError: String? = null,
     /** True while Auto-DJ is running — queue auto-extends as tracks are consumed. */
-    val autoDjEnabled: Boolean = false
+    val autoDjEnabled: Boolean = false,
+    /** Live audio bitrate of the currently playing track, in kbps (null if unknown). Shown on Now Playing only. */
+    val audioBitrateKbps: Int? = null
 )
 
 class PlayerViewModel(
@@ -130,6 +134,21 @@ class PlayerViewModel(
                                 fetchAndEnqueueAutoDjSong()
                             }
                         }
+                    }
+                    override fun onTracksChanged(tracks: Tracks) {
+                        // Pull the live bitrate from the currently selected audio track's
+                        // Format — this reflects the actual stream, not just file metadata.
+                        val audioFormat: Format? = tracks.groups
+                            .firstOrNull { it.type == C.TRACK_TYPE_AUDIO && it.isSelected }
+                            ?.let { group ->
+                                (0 until group.length)
+                                    .firstOrNull { i -> group.isTrackSelected(i) }
+                                    ?.let { i -> group.getTrackFormat(i) }
+                            }
+                        val bitrateKbps = audioFormat?.bitrate
+                            ?.takeIf { it != Format.NO_VALUE && it > 0 }
+                            ?.let { it / 1000 }
+                        _state.update { it.copy(audioBitrateKbps = bitrateKbps) }
                     }
                     override fun onPlayerError(error: PlaybackException) {
                         val msg = error.cause?.message?.takeIf { it.isNotBlank() }

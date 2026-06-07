@@ -154,7 +154,36 @@ fun AppNavGraph() {
             )
         }
 
-        composable(Screen.NowPlaying.route) {
+        composable(
+            route = Screen.NowPlaying.route,
+            // Override the global horizontal push with a vertical fold: the player
+            // should feel like it unfolds upward out of the mini player bar, and
+            // folds back down into it — never sideways.
+            enterTransition = {
+                slideInVertically(
+                    initialOffsetY = { fullHeight -> fullHeight },
+                    animationSpec = tween(durationMillis = 320, easing = FastOutSlowInEasing)
+                )
+            },
+            exitTransition = {
+                slideOutVertically(
+                    targetOffsetY = { fullHeight -> fullHeight },
+                    animationSpec = tween(durationMillis = 320, easing = FastOutSlowInEasing)
+                )
+            },
+            popEnterTransition = {
+                slideInVertically(
+                    initialOffsetY = { fullHeight -> fullHeight },
+                    animationSpec = tween(durationMillis = 320, easing = FastOutSlowInEasing)
+                )
+            },
+            popExitTransition = {
+                slideOutVertically(
+                    targetOffsetY = { fullHeight -> fullHeight },
+                    animationSpec = tween(durationMillis = 320, easing = FastOutSlowInEasing)
+                )
+            }
+        ) {
             NowPlayingScreen(
                 viewModel = playerVm,
                 onBack = { navController.popBackStack() },

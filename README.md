@@ -8,7 +8,7 @@ Sharesonic is an Android client for **[mStream Velvet](https://github.com/around
 
 ## Download
 
-[![GitHub Release](https://img.shields.io/github/v/release/Tiritibambix/Sharesonic?style=for-the-badge&logo=android&color=8b5cf6)](https://github.com/Tiritibambix/Sharesonic/releases/latest)
+[![GitHub Release](https://img.shields.io/github/v/release/Tiritibambix/Sharesonic?style=for-the-badge&logo=android&color=8b5cf6&cacheSeconds=3600)](https://github.com/Tiritibambix/Sharesonic/releases/latest)
 
 Download the latest APK directly from the [Releases](https://github.com/Tiritibambix/Sharesonic/releases/latest) page.
 

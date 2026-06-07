@@ -437,6 +437,9 @@ class MStreamRepository(private val api: MStreamApiService) {
             coverArt = meta?.albumArt,
             isDir = false,
             path = filepath,
+            // File format (mp3, flac, ogg…) — derived from the filename extension and
+            // shown on the Now Playing screen alongside the live audio bitrate.
+            suffix = filepath.substringAfterLast('.', "").takeIf { it.isNotBlank() }?.uppercase(),
             bpm = meta?.bpm,
             musicalKey = meta?.musicalKey,
             genres = meta?.genres
@@ -460,6 +463,7 @@ class MStreamRepository(private val api: MStreamApiService) {
             coverArt = meta?.albumArt,
             isDir = false,
             path = filepath,
+            suffix = filepath.substringAfterLast('.', "").takeIf { it.isNotBlank() }?.uppercase(),
             bpm = meta?.bpm,
             musicalKey = meta?.musicalKey,
             genres = meta?.genres
