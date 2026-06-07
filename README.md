@@ -2,7 +2,7 @@
 
 > *Rediscover your music library. One shuffle at a time. Share what you find.*
 
-Sharesonic is an Android client for **[mStream Velvet](https://mstream.io)** — the self-hosted music server. It is built around a single philosophy: **your music collection is too large to listen to linearly — let chance guide you, then share what surprises you.**
+Sharesonic is an Android client for **[mStream Velvet](https://github.com/aroundmyroom/mStream)** — the self-hosted music server. It is built around a single philosophy: **your music collection is too large to listen to linearly — let chance guide you, then share what surprises you.**
 
 ---
 
@@ -64,7 +64,7 @@ Sharesonic is built for the other scenario — the large, chaotic, lovingly diso
 
 ## Server compatibility
 
-Sharesonic is built for **[mStream Velvet](https://mstream.io)** (7.5.x). It uses mStream Velvet's native API for browsing, streaming, sharing, shuffle, Auto-DJ, and playlist management, and the Subsonic compatibility layer for search only.
+Sharesonic is built for **[mStream Velvet](https://github.com/aroundmyroom/mStream)** (7.5.x). It uses mStream Velvet's native API for browsing, streaming, sharing, shuffle, Auto-DJ, and playlist management, and the Subsonic compatibility layer for search only.
 
 Generic Subsonic servers (Navidrome, Airsonic, etc.) are not supported yet — planned for a future release.
 

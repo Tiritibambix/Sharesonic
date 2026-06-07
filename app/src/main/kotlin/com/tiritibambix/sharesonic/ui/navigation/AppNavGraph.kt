@@ -1,8 +1,12 @@
 package com.tiritibambix.sharesonic.ui.navigation
 
 import androidx.compose.animation.AnimatedVisibility
-import androidx.compose.animation.expandVertically
-import androidx.compose.animation.shrinkVertically
+import androidx.compose.animation.core.FastOutSlowInEasing
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.slideInHorizontally
+import androidx.compose.animation.slideInVertically
+import androidx.compose.animation.slideOutHorizontally
+import androidx.compose.animation.slideOutVertically
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.runtime.*
@@ -64,7 +68,37 @@ fun AppNavGraph() {
         navBackStackEntry?.destination?.route != Screen.NowPlaying.route
 
     Box(modifier = Modifier.fillMaxSize()) {
-    NavHost(navController = navController, startDestination = Screen.Settings.route) {
+    NavHost(
+        navController = navController,
+        startDestination = Screen.Settings.route,
+        // Replace the default cross-fade with a directional push/pop slide —
+        // new screens slide in from the right and the outgoing screen slides
+        // partway out to the left (with a subtle parallax), and it reverses on back.
+        enterTransition = {
+            slideInHorizontally(
+                initialOffsetX = { fullWidth -> fullWidth },
+                animationSpec = tween(durationMillis = 320, easing = FastOutSlowInEasing)
+            )
+        },
+        exitTransition = {
+            slideOutHorizontally(
+                targetOffsetX = { fullWidth -> -fullWidth / 4 },
+                animationSpec = tween(durationMillis = 320, easing = FastOutSlowInEasing)
+            )
+        },
+        popEnterTransition = {
+            slideInHorizontally(
+                initialOffsetX = { fullWidth -> -fullWidth / 4 },
+                animationSpec = tween(durationMillis = 320, easing = FastOutSlowInEasing)
+            )
+        },
+        popExitTransition = {
+            slideOutHorizontally(
+                targetOffsetX = { fullWidth -> fullWidth },
+                animationSpec = tween(durationMillis = 320, easing = FastOutSlowInEasing)
+            )
+        }
+    ) {
 
         composable(Screen.Settings.route) {
             val autoDjVm: AutoDjSettingsViewModel =
@@ -198,8 +232,17 @@ fun AppNavGraph() {
     // ── Mini player overlay ───────────────────────────────────────────────────
     AnimatedVisibility(
         visible = showMiniPlayer,
-        enter = expandVertically(expandFrom = Alignment.Bottom),
-        exit = shrinkVertically(shrinkTowards = Alignment.Bottom),
+        // Same feel as the Now Playing ↔ Queue pager transition: a clean directional
+        // slide with no fade — rises up from the bottom edge when it appears, sinks
+        // back down below it when it disappears.
+        enter = slideInVertically(
+            initialOffsetY = { fullHeight -> fullHeight },
+            animationSpec = tween(durationMillis = 320, easing = FastOutSlowInEasing)
+        ),
+        exit = slideOutVertically(
+            targetOffsetY = { fullHeight -> fullHeight },
+            animationSpec = tween(durationMillis = 320, easing = FastOutSlowInEasing)
+        ),
         modifier = Modifier.align(Alignment.BottomCenter)
     ) {
         MiniPlayerBar(
