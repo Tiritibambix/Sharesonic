@@ -1,4 +1,9 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <style name="Theme.Sharesonic" parent="android:Theme.Material.Light.NoActionBar" />
+    <style name="Theme.Sharesonic" parent="android:Theme.Material.NoActionBar">
+        <!-- Dark theme only — match Compose's Velvet background (#1a1a2e) so the
+             Android window background never flashes white through Compose's
+             screen-transition animations (e.g. the player fold up/down). -->
+        <item name="android:windowBackground">#1a1a2e</item>
+    </style>
 </resources>

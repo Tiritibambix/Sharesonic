@@ -7,8 +7,10 @@ import androidx.compose.animation.slideInHorizontally
 import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.slideOutHorizontally
 import androidx.compose.animation.slideOutVertically
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -67,7 +69,14 @@ fun AppNavGraph() {
     val showMiniPlayer = playerState.currentSong != null &&
         navBackStackEntry?.destination?.route != Screen.NowPlaying.route
 
-    Box(modifier = Modifier.fillMaxSize()) {
+    // Paint the Velvet background behind everything so the slide/fold transitions
+    // never reveal a flash of the window's default background through the gaps
+    // between the outgoing and incoming screens.
+    Box(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(MaterialTheme.colorScheme.background)
+    ) {
     NavHost(
         navController = navController,
         startDestination = Screen.Settings.route,
