@@ -1,0 +1,35 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+    Adaptive-icon background layer — full-bleed Velvet gradient, matching the
+    in-app dark navy/purple background (#1a1a2e → #16213e) from the new
+    sharesonic_icon_v8 design. The system masks this into whatever shape the
+    launcher needs (circle, squircle, rounded square…), so it must cover the
+    entire 108x108 canvas with no transparency.
+-->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:aapt="http://schemas.android.com/aapt"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+
+    <path android:pathData="M0,0 L108,0 L108,108 L0,108 Z">
+        <aapt:attr name="android:fillColor">
+            <gradient
+                android:type="linear"
+                android:startX="0"
+                android:startY="0"
+                android:endX="108"
+                android:endY="108"
+                android:startColor="#1a1a2e"
+                android:endColor="#16213e"/>
+        </aapt:attr>
+    </path>
+
+    <!-- Faint glass highlight along the top edge, echoing the original icon's "Reflet" -->
+    <path
+        android:pathData="M0,0 L108,0 L108,30 L0,30 Z"
+        android:fillColor="#FFFFFF"
+        android:fillAlpha="0.025"/>
+
+</vector>
