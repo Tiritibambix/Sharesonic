@@ -50,7 +50,9 @@ data class EntryDto(
     /** Musical key in Camelot notation (e.g. "8A"). Used by Auto-DJ harmonic mixing. */
     val musicalKey: String? = null,
     /** Genre tags. Used by Auto-DJ genre filtering. */
-    val genres: List<String>? = null
+    val genres: List<String>? = null,
+    /** User rating, 0–10 on mStream's native scale (half-star precision). UI shows 0–5 stars = rating / 2. */
+    val rating: Int? = null
 ) {
     val displayName: String get() = title ?: name ?: id
 }

@@ -237,6 +237,19 @@ private fun NowPlayingPage(state: PlayerState, viewModel: PlayerViewModel) {
                 )
             }
 
+            // Star rating — Now Playing only (the mini player has no room for it).
+            // mStream's native scale is 0–10 (half-star precision); shown here as 0–5 stars.
+            // Subsonic search-result songs carry a numeric ID with no native filepath,
+            // so they can't be rated through the native rate-song endpoint.
+            val ratableSong = !state.currentSong!!.id.all { it.isDigit() }
+            if (ratableSong) {
+                Spacer(Modifier.height(6.dp))
+                RatingStars(
+                    rating = (state.currentSong!!.rating ?: 0) / 2,
+                    onRate = viewModel::rateCurrentSong
+                )
+            }
+
             Spacer(Modifier.height(12.dp))
 
             // Playback controls
@@ -443,6 +456,34 @@ private fun NowPlayingPage(state: PlayerState, viewModel: PlayerViewModel) {
                 TextButton(onClick = { showPlaylistPicker = false }) { Text("Cancel") }
             }
         )
+    }
+}
+
+/**
+ * 0–5 star rating row for the currently playing track. Tapping a star sets the
+ * rating to that many stars; tapping the already-active star clears it back to
+ * "unrated" — [PlayerViewModel.rateCurrentSong] handles that toggle.
+ */
+@Composable
+private fun RatingStars(
+    rating: Int,
+    onRate: (Int) -> Unit
+) {
+    Row(horizontalArrangement = Arrangement.spacedBy(2.dp)) {
+        (1..5).forEach { star ->
+            IconButton(
+                onClick = { onRate(star) },
+                modifier = Modifier.size(34.dp)
+            ) {
+                Icon(
+                    imageVector = if (star <= rating) Icons.Filled.Star else Icons.Filled.StarBorder,
+                    contentDescription = "$star ${if (star == 1) "star" else "stars"}",
+                    tint = if (star <= rating) MaterialTheme.colorScheme.primary
+                           else MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.4f),
+                    modifier = Modifier.size(22.dp)
+                )
+            }
+        }
     }
 }
 

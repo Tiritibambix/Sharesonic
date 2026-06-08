@@ -110,19 +110,57 @@ fun FolderBrowserScreen(
         }
     }
 
+    // ── Navigation drawer ─────────────────────────────────────────────────────
+    // Classic hamburger menu, top-left — replaces the old top-right gear icon.
+    // ModalNavigationDrawer natively supports the partial fold/unfold drag gesture
+    // (swipe from the edge to peek it open, or drag the open drawer to dismiss).
+    val drawerState = rememberDrawerState(initialValue = DrawerValue.Closed)
+    val drawerScope = rememberCoroutineScope()
+    fun closeDrawer() = drawerScope.launch { drawerState.close() }
+
+    ModalNavigationDrawer(
+        drawerState = drawerState,
+        drawerContent = {
+            ModalDrawerSheet {
+                Spacer(Modifier.height(12.dp))
+                Text(
+                    "Sharesonic",
+                    style = MaterialTheme.typography.titleLarge,
+                    modifier = Modifier.padding(horizontal = 28.dp, vertical = 8.dp)
+                )
+                HorizontalDivider()
+                NavigationDrawerItem(
+                    label = { Text("Search") },
+                    icon = { Icon(Icons.Default.Search, contentDescription = null) },
+                    selected = false,
+                    onClick = { closeDrawer(); onOpenSearch() },
+                    modifier = Modifier.padding(horizontal = 12.dp, vertical = 4.dp)
+                )
+                NavigationDrawerItem(
+                    label = { Text("Playlists") },
+                    icon = { Icon(Icons.Default.QueueMusic, contentDescription = null) },
+                    selected = false,
+                    onClick = { closeDrawer(); onOpenPlaylists() },
+                    modifier = Modifier.padding(horizontal = 12.dp, vertical = 4.dp)
+                )
+                HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
+                NavigationDrawerItem(
+                    label = { Text("Settings") },
+                    icon = { Icon(Icons.Default.Settings, contentDescription = null) },
+                    selected = false,
+                    onClick = { closeDrawer(); onOpenSettings() },
+                    modifier = Modifier.padding(horizontal = 12.dp, vertical = 4.dp)
+                )
+            }
+        }
+    ) {
     Scaffold(
         topBar = {
             TopAppBar(
                 title = { Text(folderName, maxLines = 1, overflow = TextOverflow.Ellipsis) },
-                actions = {
-                    IconButton(onClick = onOpenSearch) {
-                        Icon(Icons.Default.Search, contentDescription = "Search")
-                    }
-                    IconButton(onClick = onOpenPlaylists) {
-                        Icon(Icons.Default.QueueMusic, contentDescription = "Playlists")
-                    }
-                    IconButton(onClick = onOpenSettings) {
-                        Icon(Icons.Default.Settings, contentDescription = "Settings")
+                navigationIcon = {
+                    IconButton(onClick = { drawerScope.launch { drawerState.open() } }) {
+                        Icon(Icons.Default.Menu, contentDescription = "Menu")
                     }
                 }
             )
@@ -325,6 +363,7 @@ fun FolderBrowserScreen(
             }
         }
     }
+    } // ModalNavigationDrawer content
 
     // ── Playlist picker (swipe-to-add) ───────────────────────────────────────
     if (showPlaylistPicker && songToAdd != null) {

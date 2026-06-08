@@ -19,6 +19,7 @@ import com.tiritibambix.sharesonic.data.api.models.NativePlaylistRemoveSongReque
 import com.tiritibambix.sharesonic.data.api.models.NativePlaylistRenameRequest
 import com.tiritibambix.sharesonic.data.api.models.NativePlaylistSaveRequest
 import com.tiritibambix.sharesonic.data.api.models.MStreamRandomSongsRequest
+import com.tiritibambix.sharesonic.data.api.models.MStreamRateSongRequest
 import com.tiritibambix.sharesonic.data.api.models.MStreamShareListItem
 import com.tiritibambix.sharesonic.data.api.models.MStreamShareRequest
 import com.tiritibambix.sharesonic.data.api.models.NativeSearchRequest
@@ -341,6 +342,18 @@ class MStreamRepository(private val api: MStreamApiService) {
         Result.Success(api.getShareList(token))
     } catch (e: Exception) { Result.Error(e.message ?: "Network error") }
 
+    // ── Ratings ───────────────────────────────────────────────────────────────
+
+    /**
+     * Rate a track via POST /api/v1/db/rate-song.
+     * @param stars 0–5 (Sharesonic UI scale); converted to mStream's native 0–10
+     *              half-star scale (`stars * 2`) before sending. Pass `null` to clear the rating.
+     */
+    suspend fun rateSong(token: String, filepath: String, stars: Int?): Result<Unit> = try {
+        api.rateSong(token, MStreamRateSongRequest(filepath = filepath, rating = stars?.times(2)))
+        Result.Success(Unit)
+    } catch (e: Exception) { Result.Error(friendlyNetworkErrorMessage(e)) }
+
     /** Revoke (delete) a public share link by its playlistId. */
     suspend fun deleteShare(token: String, playlistId: String): Result<Unit> = try {
         api.deleteShare(token, playlistId)
@@ -450,7 +463,8 @@ class MStreamRepository(private val api: MStreamApiService) {
             suffix = filepath.substringAfterLast('.', "").takeIf { it.isNotBlank() }?.uppercase(),
             bpm = meta?.bpm,
             musicalKey = meta?.musicalKey,
-            genres = meta?.genres
+            genres = meta?.genres,
+            rating = meta?.rating
         )
     }
 
@@ -474,7 +488,8 @@ class MStreamRepository(private val api: MStreamApiService) {
             suffix = filepath.substringAfterLast('.', "").takeIf { it.isNotBlank() }?.uppercase(),
             bpm = meta?.bpm,
             musicalKey = meta?.musicalKey,
-            genres = meta?.genres
+            genres = meta?.genres,
+            rating = meta?.rating
         )
     }
 }

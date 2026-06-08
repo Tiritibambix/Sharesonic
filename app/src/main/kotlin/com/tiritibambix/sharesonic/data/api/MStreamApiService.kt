@@ -18,6 +18,7 @@ import com.tiritibambix.sharesonic.data.api.models.ScrobbleFilepathRequest
 import com.tiritibambix.sharesonic.data.api.models.MStreamLoginRequest
 import com.tiritibambix.sharesonic.data.api.models.MStreamLoginResponse
 import com.tiritibambix.sharesonic.data.api.models.MStreamRandomSongsRequest
+import com.tiritibambix.sharesonic.data.api.models.MStreamRateSongRequest
 import com.tiritibambix.sharesonic.data.api.models.MStreamRandomSongsResponse
 import com.tiritibambix.sharesonic.data.api.models.MStreamRefreshResponse
 import com.tiritibambix.sharesonic.data.api.models.MStreamShareListItem
@@ -83,6 +84,18 @@ interface MStreamApiService {
         @Header("x-access-token") token: String,
         @Body request: MStreamRandomSongsRequest
     ): MStreamRandomSongsResponse
+
+    // ── Ratings ───────────────────────────────────────────────────────────────
+
+    /**
+     * Rate a track — mStream's native scale is 0–10 (half-star precision); the
+     * Sharesonic UI shows 0–5 stars, so `rating = stars * 2`. Pass `null` to clear.
+     */
+    @POST("api/v1/db/rate-song")
+    suspend fun rateSong(
+        @Header("x-access-token") token: String,
+        @Body request: MStreamRateSongRequest
+    ): ResponseBody
 
     // ── On-demand art ─────────────────────────────────────────────────────────
 

@@ -520,6 +520,47 @@ class PlayerViewModel(
         }
     }
 
+    /**
+     * Rate the currently playing track — Now Playing screen only (mini player has no room).
+     * Sharesonic shows 0–5 stars; mStream's native scale is 0–10 (half-star precision),
+     * so [stars] is doubled before being sent. Tapping the already-set star clears the rating.
+     *
+     * Native ratings need a filepath identifier — only available for songs browsed via
+     * file-explorer / shuffle / Auto-DJ (their `id` IS the filepath). Subsonic search-result
+     * songs carry a numeric ID instead and aren't ratable through this native endpoint.
+     */
+    fun rateCurrentSong(stars: Int) {
+        val song = _state.value.currentSong ?: return
+        if (song.id.isSubsonicNumericId()) return
+        val newRating = if (song.rating == stars) 0 else stars
+
+        // Optimistic update — reflect immediately in currentSong and the queue entry.
+        fun applyRating(s: EntryDto) = if (s.id == song.id) s.copy(rating = newRating) else s
+        _state.update {
+            it.copy(
+                currentSong = it.currentSong?.let(::applyRating),
+                queue = it.queue.map(::applyRating)
+            )
+        }
+
+        viewModelScope.launch {
+            val settings = settings()
+            val token = ensureToken(settings) ?: return@launch
+            val mStream = MStreamRepository(MStreamClient.build(settings.serverUrl))
+            val result = mStream.rateSong(token, song.id, newRating.takeIf { it > 0 })
+            if (result is Result.Error) {
+                // Revert on failure — keep state truthful to what the server holds.
+                fun revert(s: EntryDto) = if (s.id == song.id) s.copy(rating = song.rating) else s
+                _state.update {
+                    it.copy(
+                        currentSong = it.currentSong?.let(::revert),
+                        queue = it.queue.map(::revert)
+                    )
+                }
+            }
+        }
+    }
+
     fun clearShare() = _state.update { it.copy(shareUrl = null, shareError = null) }
 
     fun clearPlaybackError() = _state.update { it.copy(playbackError = null) }

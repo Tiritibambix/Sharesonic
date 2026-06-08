@@ -90,7 +90,9 @@ data class MStreamInnerMetadata(
     /** Musical key in Camelot notation (e.g. "8A", "11B"). */
     @SerializedName("musical_key") val musicalKey: String? = null,
     /** Genre tags. */
-    val genres: List<String>? = null
+    val genres: List<String>? = null,
+    /** User rating, 0–10 (mStream's native scale — half-star precision; UI shows 0–5 stars = rating / 2). */
+    val rating: Int? = null
 )
 
 // ── Native share ───────────────────────────────────────────────────────────────
@@ -169,6 +171,18 @@ data class MStreamRandomSongsRequest(
 data class MStreamRandomSongsResponse(
     val songs: List<MStreamFileMetaWrapper> = emptyList(),
     val ignoreList: List<Int> = emptyList()
+)
+
+// ── Ratings ────────────────────────────────────────────────────────────────────
+
+/**
+ * Request body for POST /api/v1/db/rate-song.
+ * mStream's native rating scale is 0–10 (half-star precision); Sharesonic's UI
+ * shows 0–5 stars, so the ViewModel sends `rating = stars * 2`. `null` clears it.
+ */
+data class MStreamRateSongRequest(
+    val filepath: String,
+    val rating: Int?
 )
 
 // ── Auth refresh ───────────────────────────────────────────────────────────────

@@ -7,9 +7,9 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ChevronRight
 import androidx.compose.material.icons.filled.Dns
+import androidx.compose.material.icons.filled.Headphones
 import androidx.compose.material.icons.filled.Link
 import androidx.compose.material.icons.filled.Palette
-import androidx.compose.material.icons.filled.Tune
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
@@ -48,7 +48,7 @@ fun SettingsScreen(
             item { HorizontalDivider() }
             item {
                 SettingsMenuRow(
-                    icon = Icons.Default.Tune,
+                    icon = Icons.Default.Headphones,
                     title = "Auto-DJ",
                     subtitle = "BPM continuity, harmonic mixing, similar artists…",
                     onClick = onNavigateToAutoDj
