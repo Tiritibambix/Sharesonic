@@ -44,6 +44,7 @@ fun NowPlayingScreen(
     val state by viewModel.state.collectAsState()
     val pagerState = rememberPagerState(initialPage = PAGE_NOW_PLAYING) { 2 }
     var showShareQueueExpiryDialog by remember { mutableStateOf(false) }
+    var showFileInfoDialog by remember { mutableStateOf(false) }
 
     LaunchedEffect(state.shareUrl) {
         state.shareUrl?.let { url ->
@@ -88,6 +89,20 @@ fun NowPlayingScreen(
                     }
                 },
                 actions = {
+                    // ⓘ — file path, tucked into the top bar so it costs zero
+                    // vertical space in the scrollable player body (every inline
+                    // placement tried so far either pushed the layout and forced a
+                    // scroll, or sat awkwardly over the cover art). Tap reveals the
+                    // full path in a small dialog. Only relevant on the player page.
+                    if (pagerState.currentPage == PAGE_NOW_PLAYING && state.currentSong?.path != null) {
+                        IconButton(onClick = { showFileInfoDialog = true }) {
+                            Icon(
+                                imageVector = Icons.Default.Info,
+                                contentDescription = "File path",
+                                tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f)
+                            )
+                        }
+                    }
                     // Share the whole queue as one public playlist link — only
                     // makes sense while looking at the queue, so it only appears there.
                     if (pagerState.currentPage == PAGE_QUEUE && state.queue.isNotEmpty()) {
@@ -146,6 +161,25 @@ fun NowPlayingScreen(
         }
     }
 
+    // ── File path dialog — triggered by the ⓘ in the top bar. Selectable text so
+    // the path can be copied. ──
+    if (showFileInfoDialog) {
+        state.currentSong?.path?.let { path ->
+            AlertDialog(
+                onDismissRequest = { showFileInfoDialog = false },
+                title = { Text("File path") },
+                text = {
+                    SelectionContainer {
+                        Text(text = path, style = MaterialTheme.typography.bodyMedium)
+                    }
+                },
+                confirmButton = {
+                    TextButton(onClick = { showFileInfoDialog = false }) { Text("Close") }
+                }
+            )
+        }
+    }
+
     // ── Share queue — ask for expiry before creating the link (mStream Velvet style) ──
     if (showShareQueueExpiryDialog) {
         ShareExpiryDialog(
@@ -164,7 +198,6 @@ fun NowPlayingScreen(
 private fun NowPlayingPage(state: PlayerState, viewModel: PlayerViewModel) {
     var showPlaylistPicker by remember { mutableStateOf(false) }
     var showShareExpiryDialog by remember { mutableStateOf(false) }
-    var showFileInfoDialog by remember { mutableStateOf(false) }
     val playlists by viewModel.playlists.collectAsState()
 
     Column(
@@ -449,60 +482,7 @@ private fun NowPlayingPage(state: PlayerState, viewModel: PlayerViewModel) {
             }
         }
 
-        // ── File name + ⓘ — a single, compact, tappable line at the foot of the
-        // page (its natural, discreet home — not competing with the controls or
-        // breaking the cover-art/title composition). Shows just the filename;
-        // tapping it reveals the full path in a dialog, selectable for copying. ──
-        state.currentSong?.path?.let { path ->
-            Spacer(Modifier.height(14.dp))
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .clip(RoundedCornerShape(10.dp))
-                    .clickable { showFileInfoDialog = true }
-                    .padding(horizontal = 28.dp, vertical = 10.dp),
-                horizontalArrangement = Arrangement.Center,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Icon(
-                    imageVector = Icons.Default.Info,
-                    contentDescription = null,
-                    modifier = Modifier.size(14.dp),
-                    tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.4f)
-                )
-                Spacer(Modifier.width(6.dp))
-                Text(
-                    text = path.substringAfterLast('/'),
-                    style = MaterialTheme.typography.labelSmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f),
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis,
-                    modifier = Modifier.weight(1f, fill = false)
-                )
-            }
-        }
-
-        Spacer(Modifier.height(8.dp))
-    }
-
-    // ── File path dialog — triggered by tapping the ⓘ filename row. Keeps the
-    // scrollable view compact (just the filename, on one line) while still
-    // surfacing the full path (selectable, for copying) on demand. ──
-    if (showFileInfoDialog) {
-        state.currentSong?.path?.let { path ->
-            AlertDialog(
-                onDismissRequest = { showFileInfoDialog = false },
-                title = { Text("File path") },
-                text = {
-                    SelectionContainer {
-                        Text(text = path, style = MaterialTheme.typography.bodyMedium)
-                    }
-                },
-                confirmButton = {
-                    TextButton(onClick = { showFileInfoDialog = false }) { Text("Close") }
-                }
-            )
-        }
+        Spacer(Modifier.height(12.dp))
     }
 
     // ── Share — ask for expiry before creating the link (mStream Velvet style) ──
