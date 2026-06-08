@@ -38,7 +38,7 @@ class MStreamRepository(private val api: MStreamApiService) {
             if (!token.isNullOrEmpty()) Result.Success(token)
             else Result.Error(resp.err ?: "Login failed")
         } catch (e: Exception) {
-            Result.Error(e.message ?: "Network error")
+            Result.Error(friendlyNetworkErrorMessage(e))
         }
     }
 
@@ -54,7 +54,7 @@ class MStreamRepository(private val api: MStreamApiService) {
             if (!token.isNullOrEmpty()) Result.Success(Pair(token, resp.vpaths))
             else Result.Error(resp.err ?: "Login failed")
         } catch (e: Exception) {
-            Result.Error(e.message ?: "Network error")
+            Result.Error(friendlyNetworkErrorMessage(e))
         }
     }
 
