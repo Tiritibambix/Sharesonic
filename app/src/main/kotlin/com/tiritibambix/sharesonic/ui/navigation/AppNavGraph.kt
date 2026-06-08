@@ -133,11 +133,15 @@ fun AppNavGraph() {
                 viewModel = settingsVm,
                 onBack = { navController.popBackStack() },
                 onNavigateToBrowser = {
-                    if (settingsVm.settings.value.isConfigured) {
-                        navController.navigate(
-                            Screen.Browser.createRoute(Screen.Browser.ROOT, "Library")
-                        )
-                    }
+                    // ServerSettingsScreen now only invokes this after confirming
+                    // the just-typed fields are non-blank (see its Save button) —
+                    // re-checking settingsVm.settings.value here was the source of
+                    // the double-tap bug: that StateFlow lags one async DataStore
+                    // write behind the fields just saved, so the first tap saw a
+                    // stale "not configured" snapshot and silently did nothing.
+                    navController.navigate(
+                        Screen.Browser.createRoute(Screen.Browser.ROOT, "Library")
+                    )
                 }
             )
         }
@@ -172,8 +176,13 @@ fun AppNavGraph() {
                 ?: Screen.Browser.ROOT
             // Decode Base64-encoded mStream path; "root" passes through unchanged.
             val folderPath = Screen.Browser.decodePath(rawId)
-            val folderName = backStackEntry.arguments?.getString(Screen.Browser.ARG_NAME)
+            // createRoute() URL-encodes the display name (URLEncoder — form-urlencoded
+            // semantics, spaces become '+'); it must be decoded back symmetrically or
+            // the top bar literally shows '+' wherever the folder name had a space.
+            val rawName = backStackEntry.arguments?.getString(Screen.Browser.ARG_NAME)
                 ?: "Library"
+            val folderName = runCatching { java.net.URLDecoder.decode(rawName, "UTF-8") }
+                .getOrDefault(rawName)
 
             val browserVm: FolderBrowserViewModel = viewModel(
                 key = "browser_$rawId",

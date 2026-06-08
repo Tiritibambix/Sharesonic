@@ -110,7 +110,17 @@ private fun ServerSettingsContent(
             Button(
                 onClick = {
                     viewModel.save(serverUrl, username, password)
-                    onNavigateToBrowser()
+                    // Gate navigation on the values just typed/saved, not on
+                    // viewModel.settings.value: that StateFlow is fed by an
+                    // async DataStore write + Flow re-emission, so right after
+                    // launching save() it still holds the *previous* (often
+                    // unconfigured) snapshot. Checking it here required a
+                    // second tap before isConfigured turned true. The fields
+                    // on screen are the ground truth for "is this a valid,
+                    // just-saved configuration" — check those instead.
+                    if (serverUrl.isNotBlank() && username.isNotBlank() && password.isNotBlank()) {
+                        onNavigateToBrowser()
+                    }
                 },
                 modifier = Modifier.weight(1f)
             ) {
