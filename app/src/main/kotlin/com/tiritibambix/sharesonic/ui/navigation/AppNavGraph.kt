@@ -3,6 +3,8 @@ package com.tiritibambix.sharesonic.ui.navigation
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
 import androidx.compose.animation.slideInHorizontally
 import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.slideOutHorizontally
@@ -85,32 +87,35 @@ fun AppNavGraph() {
     NavHost(
         navController = navController,
         startDestination = Screen.Settings.route,
-        // Replace the default cross-fade with a directional push/pop slide —
-        // new screens slide in from the right and the outgoing screen slides
-        // partway out to the left (with a subtle parallax), and it reverses on back.
+        // Material "shared axis X" — both screens travel a short, equal distance in
+        // the same direction while cross-fading. The previous full-width slide-over
+        // (new screen sliding the full width while the old one only nudged a quarter
+        // of the way out) left both screens visibly overlapping mid-transition,
+        // which read as messy/cluttered. Shorter travel + fade removes that overlap
+        // entirely and feels far more cohesive — push right→left, pop left→right.
         enterTransition = {
             slideInHorizontally(
-                initialOffsetX = { fullWidth -> fullWidth },
-                animationSpec = tween(durationMillis = 320, easing = FastOutSlowInEasing)
-            )
+                initialOffsetX = { fullWidth -> fullWidth / 4 },
+                animationSpec = tween(durationMillis = 280, easing = FastOutSlowInEasing)
+            ) + fadeIn(animationSpec = tween(durationMillis = 220, easing = FastOutSlowInEasing))
         },
         exitTransition = {
             slideOutHorizontally(
                 targetOffsetX = { fullWidth -> -fullWidth / 4 },
-                animationSpec = tween(durationMillis = 320, easing = FastOutSlowInEasing)
-            )
+                animationSpec = tween(durationMillis = 280, easing = FastOutSlowInEasing)
+            ) + fadeOut(animationSpec = tween(durationMillis = 180, easing = FastOutSlowInEasing))
         },
         popEnterTransition = {
             slideInHorizontally(
                 initialOffsetX = { fullWidth -> -fullWidth / 4 },
-                animationSpec = tween(durationMillis = 320, easing = FastOutSlowInEasing)
-            )
+                animationSpec = tween(durationMillis = 280, easing = FastOutSlowInEasing)
+            ) + fadeIn(animationSpec = tween(durationMillis = 220, easing = FastOutSlowInEasing))
         },
         popExitTransition = {
             slideOutHorizontally(
-                targetOffsetX = { fullWidth -> fullWidth },
-                animationSpec = tween(durationMillis = 320, easing = FastOutSlowInEasing)
-            )
+                targetOffsetX = { fullWidth -> fullWidth / 4 },
+                animationSpec = tween(durationMillis = 280, easing = FastOutSlowInEasing)
+            ) + fadeOut(animationSpec = tween(durationMillis = 180, easing = FastOutSlowInEasing))
         }
     ) {
 
@@ -195,32 +200,33 @@ fun AppNavGraph() {
 
         composable(
             route = Screen.NowPlaying.route,
-            // Override the global horizontal push with a vertical fold: the player
-            // should feel like it unfolds upward out of the mini player bar, and
-            // folds back down into it — never sideways.
+            // Override the global horizontal push with a vertical "fold" — but only
+            // on the two edges that actually border the mini player: opening the
+            // player (enter) and closing it back down to the browser/queue (popExit).
+            // The other two edges — sharing a track pushes ShareConfirm on top, and
+            // returning from it — used to *also* slide vertically while ShareConfirm
+            // simultaneously slid in horizontally per the global rule: two screens
+            // visibly fighting along perpendicular axes at once, which is exactly
+            // the "immonde" clash being reported. Those two edges now use a plain
+            // cross-fade instead, matching ShareConfirm's own fade component so the
+            // whole sequence reads as one cohesive motion rather than a collision.
             enterTransition = {
                 slideInVertically(
-                    initialOffsetY = { fullHeight -> fullHeight },
+                    initialOffsetY = { fullHeight -> fullHeight / 3 },
                     animationSpec = tween(durationMillis = 320, easing = FastOutSlowInEasing)
-                )
+                ) + fadeIn(animationSpec = tween(durationMillis = 240, easing = FastOutSlowInEasing))
             },
             exitTransition = {
-                slideOutVertically(
-                    targetOffsetY = { fullHeight -> fullHeight },
-                    animationSpec = tween(durationMillis = 320, easing = FastOutSlowInEasing)
-                )
+                fadeOut(animationSpec = tween(durationMillis = 200, easing = FastOutSlowInEasing))
             },
             popEnterTransition = {
-                slideInVertically(
-                    initialOffsetY = { fullHeight -> fullHeight },
-                    animationSpec = tween(durationMillis = 320, easing = FastOutSlowInEasing)
-                )
+                fadeIn(animationSpec = tween(durationMillis = 240, easing = FastOutSlowInEasing))
             },
             popExitTransition = {
                 slideOutVertically(
-                    targetOffsetY = { fullHeight -> fullHeight },
+                    targetOffsetY = { fullHeight -> fullHeight / 3 },
                     animationSpec = tween(durationMillis = 320, easing = FastOutSlowInEasing)
-                )
+                ) + fadeOut(animationSpec = tween(durationMillis = 200, easing = FastOutSlowInEasing))
             }
         ) {
             NowPlayingScreen(

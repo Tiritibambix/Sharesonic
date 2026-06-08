@@ -13,6 +13,7 @@ import androidx.compose.foundation.pager.HorizontalPager
 import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.selection.SelectionContainer
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.*
@@ -163,6 +164,7 @@ fun NowPlayingScreen(
 private fun NowPlayingPage(state: PlayerState, viewModel: PlayerViewModel) {
     var showPlaylistPicker by remember { mutableStateOf(false) }
     var showShareExpiryDialog by remember { mutableStateOf(false) }
+    var showFileInfoDialog by remember { mutableStateOf(false) }
     val playlists by viewModel.playlists.collectAsState()
 
     Column(
@@ -213,6 +215,31 @@ private fun NowPlayingPage(state: PlayerState, viewModel: PlayerViewModel) {
                         )
                     )
             )
+
+            // Tiny "(i)" affordance, tucked in the corner — reveals the full file
+            // path on tap instead of printing it inline (which forced scrolling on
+            // smaller screens). Sits over the art on a translucent scrim so it's
+            // legible against any cover, without competing for attention.
+            state.currentSong?.path?.let {
+                Surface(
+                    onClick = { showFileInfoDialog = true },
+                    modifier = Modifier
+                        .align(Alignment.TopEnd)
+                        .padding(10.dp)
+                        .size(32.dp),
+                    shape = CircleShape,
+                    color = MaterialTheme.colorScheme.scrim.copy(alpha = 0.35f),
+                    contentColor = MaterialTheme.colorScheme.onSurface
+                ) {
+                    Box(contentAlignment = Alignment.Center) {
+                        Icon(
+                            imageVector = Icons.Default.Info,
+                            contentDescription = "File path",
+                            modifier = Modifier.size(17.dp)
+                        )
+                    }
+                }
+            }
         }
 
         Spacer(Modifier.height(16.dp))
@@ -447,22 +474,25 @@ private fun NowPlayingPage(state: PlayerState, viewModel: PlayerViewModel) {
             }
         }
 
-        // ── File path — the full path, shown directly (not just the filename) so
-        // nothing is hidden behind a tap; kept as a quiet footnote with tight
-        // spacing so it (and everything above it) fits without forcing a scroll. ──
+        Spacer(Modifier.height(12.dp))
+    }
+
+    // ── File path dialog — triggered by the (i) affordance over the cover art.
+    // Keeps the scrollable view free of a long, often-truncated path string while
+    // still surfacing it (selectable, for copying) on demand. ──
+    if (showFileInfoDialog) {
         state.currentSong?.path?.let { path ->
-            Spacer(Modifier.height(10.dp))
-            HorizontalDivider(modifier = Modifier.padding(horizontal = 28.dp))
-            Text(
-                text = path,
-                style = MaterialTheme.typography.labelSmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.45f),
-                maxLines = 2,
-                overflow = TextOverflow.Ellipsis,
-                textAlign = TextAlign.Center,
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 28.dp, vertical = 8.dp)
+            AlertDialog(
+                onDismissRequest = { showFileInfoDialog = false },
+                title = { Text("File path") },
+                text = {
+                    SelectionContainer {
+                        Text(text = path, style = MaterialTheme.typography.bodyMedium)
+                    }
+                },
+                confirmButton = {
+                    TextButton(onClick = { showFileInfoDialog = false }) { Text("Close") }
+                }
             )
         }
     }
