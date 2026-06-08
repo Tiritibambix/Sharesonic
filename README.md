@@ -59,7 +59,7 @@ Sharesonic is built for the other scenario — the large, chaotic, lovingly diso
 | **Media notification** | Tap the playback notification to jump straight back into Now Playing |
 | **Settings** | Server URL, username, password, one-tap connection test — reachable via the navigation drawer |
 | **Cover art** | Loaded from mStream's native `/album-art/` endpoint |
-| **Scrobbling** | Playback reported to mStream → forwarded to Last.fm + ListenBrainz (no API keys needed) |
+| **Scrobbling** | Playback reported to mStream → forwarded to Last.fm + ListenBrainz (no API keys needed). Requires **"Scrobble from External Apps"** to be enabled in mStream Velvet's server settings — otherwise mStream silently ignores the scrobble calls |
 | **Dark theme only** | Deep purple Material You palette — no light mode, no compromise |
 
 ---
@@ -163,6 +163,10 @@ Sharesonic uses two separate APIs from mStream:
 | `POST /api/v1/lastfm/scrobble-by-filepath` | Scrobble to Last.fm at 50% |
 | `POST /api/v1/listenbrainz/playing-now` | "Now playing" ping to ListenBrainz on track start |
 | `POST /api/v1/listenbrainz/scrobble-by-filepath` | Scrobble to ListenBrainz at 50% |
+
+> **Note:** scrobbling only works if **"Scrobble from External Apps"** is turned on in mStream Velvet's
+> server settings — Last.fm and ListenBrainz must also be configured there. Sharesonic just fires the
+> calls; mStream silently drops them if this setting is disabled.
 
 ### Subsonic API (search + scrobble for search results)
 
