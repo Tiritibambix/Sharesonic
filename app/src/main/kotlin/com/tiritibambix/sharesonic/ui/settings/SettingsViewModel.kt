@@ -52,7 +52,18 @@ class SettingsViewModel(private val repo: SettingsRepository) : ViewModel() {
     /** Last JWT obtained from a successful test — included when saving. */
     private var _pendingToken: String = ""
 
-    fun save(serverUrl: String, username: String, password: String) {
+    /**
+     * @param onSaved Invoked once [repo.save] has actually finished writing to
+     * DataStore — NOT just once this function returns (it's fire-and-forget by
+     * itself, since it launches a coroutine). Callers that need to navigate
+     * straight to a screen depending on the freshly-saved settings (e.g. the
+     * folder browser, which reads `settingsRepo.settings.first()` on init) MUST
+     * use this hook rather than navigating immediately after calling [save]:
+     * doing the latter raced the DataStore write and surfaced as a
+     * "Server not configured" error on the very first connection (the browser's
+     * ViewModel was created and read the *old*, still-unconfigured snapshot).
+     */
+    fun save(serverUrl: String, username: String, password: String, onSaved: () -> Unit = {}) {
         viewModelScope.launch {
             repo.save(
                 ServerSettings(
@@ -63,6 +74,7 @@ class SettingsViewModel(private val repo: SettingsRepository) : ViewModel() {
                 )
             )
             _connectionState.update { ConnectionState.Idle }
+            onSaved()
         }
     }
 

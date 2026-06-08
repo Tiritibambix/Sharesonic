@@ -109,17 +109,19 @@ private fun ServerSettingsContent(
 
             Button(
                 onClick = {
-                    viewModel.save(serverUrl, username, password)
-                    // Gate navigation on the values just typed/saved, not on
-                    // viewModel.settings.value: that StateFlow is fed by an
-                    // async DataStore write + Flow re-emission, so right after
-                    // launching save() it still holds the *previous* (often
-                    // unconfigured) snapshot. Checking it here required a
-                    // second tap before isConfigured turned true. The fields
-                    // on screen are the ground truth for "is this a valid,
-                    // just-saved configuration" — check those instead.
-                    if (serverUrl.isNotBlank() && username.isNotBlank() && password.isNotBlank()) {
-                        onNavigateToBrowser()
+                    val looksValid = serverUrl.isNotBlank() && username.isNotBlank() && password.isNotBlank()
+                    if (looksValid) {
+                        // Navigate from save()'s onSaved hook — i.e. only once the
+                        // DataStore write has actually completed. Navigating right
+                        // after *calling* save() (which only launches a coroutine
+                        // and returns immediately) raced that write: the freshly
+                        // created FolderBrowserViewModel read settingsRepo.settings
+                        // before the new values landed and showed
+                        // "Server not configured" — fixed by waiting for the real
+                        // completion signal instead of a fire-and-forget call.
+                        viewModel.save(serverUrl, username, password) { onNavigateToBrowser() }
+                    } else {
+                        viewModel.save(serverUrl, username, password)
                     }
                 },
                 modifier = Modifier.weight(1f)

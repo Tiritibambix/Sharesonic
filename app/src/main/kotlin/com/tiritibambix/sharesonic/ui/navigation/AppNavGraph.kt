@@ -133,12 +133,12 @@ fun AppNavGraph() {
                 viewModel = settingsVm,
                 onBack = { navController.popBackStack() },
                 onNavigateToBrowser = {
-                    // ServerSettingsScreen now only invokes this after confirming
-                    // the just-typed fields are non-blank (see its Save button) —
-                    // re-checking settingsVm.settings.value here was the source of
-                    // the double-tap bug: that StateFlow lags one async DataStore
-                    // write behind the fields just saved, so the first tap saw a
-                    // stale "not configured" snapshot and silently did nothing.
+                    // ServerSettingsScreen now invokes this only from save()'s
+                    // onSaved completion hook — i.e. after the new settings have
+                    // actually landed in DataStore and the fields looked valid.
+                    // Re-checking settingsVm.settings.value here (the original
+                    // code) was itself a stale-snapshot trap and the root of both
+                    // the double-tap bug and the "Server not configured" race.
                     navController.navigate(
                         Screen.Browser.createRoute(Screen.Browser.ROOT, "Library")
                     )
