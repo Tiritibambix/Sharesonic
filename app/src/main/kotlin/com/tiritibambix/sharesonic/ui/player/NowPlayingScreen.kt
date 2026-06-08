@@ -215,31 +215,6 @@ private fun NowPlayingPage(state: PlayerState, viewModel: PlayerViewModel) {
                         )
                     )
             )
-
-            // Tiny "(i)" affordance, tucked in the corner — reveals the full file
-            // path on tap instead of printing it inline (which forced scrolling on
-            // smaller screens). Sits over the art on a translucent scrim so it's
-            // legible against any cover, without competing for attention.
-            state.currentSong?.path?.let {
-                Surface(
-                    onClick = { showFileInfoDialog = true },
-                    modifier = Modifier
-                        .align(Alignment.TopEnd)
-                        .padding(10.dp)
-                        .size(32.dp),
-                    shape = CircleShape,
-                    color = MaterialTheme.colorScheme.scrim.copy(alpha = 0.35f),
-                    contentColor = MaterialTheme.colorScheme.onSurface
-                ) {
-                    Box(contentAlignment = Alignment.Center) {
-                        Icon(
-                            imageVector = Icons.Default.Info,
-                            contentDescription = "File path",
-                            modifier = Modifier.size(17.dp)
-                        )
-                    }
-                }
-            }
         }
 
         Spacer(Modifier.height(16.dp))
@@ -474,12 +449,45 @@ private fun NowPlayingPage(state: PlayerState, viewModel: PlayerViewModel) {
             }
         }
 
-        Spacer(Modifier.height(12.dp))
+        // ── File name + ⓘ — a single, compact, tappable line at the foot of the
+        // page (its natural, discreet home — not competing with the controls or
+        // breaking the cover-art/title composition). Shows just the filename;
+        // tapping it reveals the full path in a dialog, selectable for copying. ──
+        state.currentSong?.path?.let { path ->
+            Spacer(Modifier.height(14.dp))
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clip(RoundedCornerShape(10.dp))
+                    .clickable { showFileInfoDialog = true }
+                    .padding(horizontal = 28.dp, vertical = 10.dp),
+                horizontalArrangement = Arrangement.Center,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Icon(
+                    imageVector = Icons.Default.Info,
+                    contentDescription = null,
+                    modifier = Modifier.size(14.dp),
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.4f)
+                )
+                Spacer(Modifier.width(6.dp))
+                Text(
+                    text = path.substringAfterLast('/'),
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f),
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                    modifier = Modifier.weight(1f, fill = false)
+                )
+            }
+        }
+
+        Spacer(Modifier.height(8.dp))
     }
 
-    // ── File path dialog — triggered by the (i) affordance over the cover art.
-    // Keeps the scrollable view free of a long, often-truncated path string while
-    // still surfacing it (selectable, for copying) on demand. ──
+    // ── File path dialog — triggered by tapping the ⓘ filename row. Keeps the
+    // scrollable view compact (just the filename, on one line) while still
+    // surfacing the full path (selectable, for copying) on demand. ──
     if (showFileInfoDialog) {
         state.currentSong?.path?.let { path ->
             AlertDialog(
