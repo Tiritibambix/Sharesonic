@@ -9,10 +9,10 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.ContentCopy
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Link
+import androidx.compose.material.icons.filled.Menu
 import androidx.compose.material.icons.filled.OpenInNew
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -45,8 +45,10 @@ fun PublicLinksScreen(
             TopAppBar(
                 title = { Text("Public Links") },
                 navigationIcon = {
+                    // Keep the hamburger glyph here too — reached via the drawer,
+                    // tapping it again exits this screen back to the browser.
                     IconButton(onClick = onBack) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
+                        Icon(Icons.Default.Menu, contentDescription = "Menu")
                     }
                 }
             )

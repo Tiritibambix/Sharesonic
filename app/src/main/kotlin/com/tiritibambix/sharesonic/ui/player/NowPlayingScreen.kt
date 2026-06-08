@@ -42,6 +42,7 @@ fun NowPlayingScreen(
 ) {
     val state by viewModel.state.collectAsState()
     val pagerState = rememberPagerState(initialPage = PAGE_NOW_PLAYING) { 2 }
+    var showShareQueueExpiryDialog by remember { mutableStateOf(false) }
 
     LaunchedEffect(state.shareUrl) {
         state.shareUrl?.let { url ->
@@ -86,6 +87,22 @@ fun NowPlayingScreen(
                     }
                 },
                 actions = {
+                    // Share the whole queue as one public playlist link — only
+                    // makes sense while looking at the queue, so it only appears there.
+                    if (pagerState.currentPage == PAGE_QUEUE && state.queue.isNotEmpty()) {
+                        if (state.shareLoading) {
+                            Box(modifier = Modifier.size(48.dp), contentAlignment = Alignment.Center) {
+                                CircularProgressIndicator(modifier = Modifier.size(20.dp), strokeWidth = 2.dp)
+                            }
+                        } else {
+                            IconButton(onClick = { showShareQueueExpiryDialog = true }) {
+                                Icon(
+                                    imageVector = Icons.Default.Share,
+                                    contentDescription = "Share queue"
+                                )
+                            }
+                        }
+                    }
                     // Auto-DJ toggle — headphones icon, lit when enabled
                     IconToggleButton(
                         checked = state.autoDjEnabled,
@@ -126,6 +143,17 @@ fun NowPlayingScreen(
                 PAGE_QUEUE       -> QueuePage(state, viewModel)
             }
         }
+    }
+
+    // ── Share queue — ask for expiry before creating the link (mStream Velvet style) ──
+    if (showShareQueueExpiryDialog) {
+        ShareExpiryDialog(
+            onConfirm = { expiryDays ->
+                showShareQueueExpiryDialog = false
+                viewModel.shareQueue(expiryDays)
+            },
+            onDismiss = { showShareQueueExpiryDialog = false }
+        )
     }
 }
 
@@ -187,11 +215,13 @@ private fun NowPlayingPage(state: PlayerState, viewModel: PlayerViewModel) {
             )
         }
 
-        // Song info
+        Spacer(Modifier.height(24.dp))
+
+        // ── Title + subtitle — kept tight, they read as one block ──────────────
         Column(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(horizontal = 28.dp),
+                .padding(horizontal = 32.dp),
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.spacedBy(4.dp)
         ) {
@@ -218,81 +248,98 @@ private fun NowPlayingPage(state: PlayerState, viewModel: PlayerViewModel) {
                     overflow = TextOverflow.Ellipsis
                 )
             }
+        }
 
-            // Format (mp3, flac, ogg…) and live bitrate — Now Playing only, not the mini player
-            val formatLabel = buildString {
-                state.currentSong!!.suffix?.takeIf { it.isNotBlank() }?.let { append(it) }
-                state.audioBitrateKbps?.let {
-                    if (isNotEmpty()) append("  ·  ")
-                    append("$it kbps")
-                }
+        // ── Secondary info: format/bitrate + star rating share one airy row ────
+        // (rather than stacking — keeps the block under the title compact and lets
+        // the rating breathe on its own line of visual weight)
+        val formatLabel = buildString {
+            state.currentSong!!.suffix?.takeIf { it.isNotBlank() }?.let { append(it.uppercase()) }
+            state.audioBitrateKbps?.let {
+                if (isNotEmpty()) append("  ·  ")
+                append("$it kbps")
             }
-            if (formatLabel.isNotBlank()) {
-                Text(
-                    text = formatLabel,
-                    style = MaterialTheme.typography.labelMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis
-                )
-            }
-
-            // Star rating — Now Playing only (the mini player has no room for it).
-            // mStream's native scale is 0–10 (half-star precision); shown here as 0–5 stars.
-            // Subsonic search-result songs carry a numeric ID with no native filepath,
-            // so they can't be rated through the native rate-song endpoint.
-            val ratableSong = !state.currentSong!!.id.all { it.isDigit() }
-            if (ratableSong) {
-                Spacer(Modifier.height(6.dp))
-                RatingStars(
-                    rating = (state.currentSong!!.rating ?: 0) / 2,
-                    onRate = viewModel::rateCurrentSong
-                )
-            }
-
-            Spacer(Modifier.height(12.dp))
-
-            // Playback controls
+        }
+        // Subsonic search-result songs carry a numeric ID with no native filepath,
+        // so they can't be rated through the native rate-song endpoint.
+        val ratableSong = !state.currentSong!!.id.all { it.isDigit() }
+        if (formatLabel.isNotBlank() || ratableSong) {
+            Spacer(Modifier.height(14.dp))
             Row(
-                horizontalArrangement = Arrangement.spacedBy(20.dp),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 32.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                IconButton(
-                    onClick = { viewModel.skipPrev() },
-                    enabled = state.queueIndex > 0
-                ) {
-                    Icon(Icons.Default.SkipPrevious, contentDescription = "Previous",
-                        modifier = Modifier.size(36.dp))
+                if (formatLabel.isNotBlank()) {
+                    Text(
+                        text = formatLabel,
+                        style = MaterialTheme.typography.labelMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.65f),
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                        modifier = Modifier.weight(1f)
+                    )
+                } else {
+                    Spacer(Modifier.weight(1f))
                 }
-                FilledIconButton(
-                    onClick = { viewModel.playPause() },
-                    modifier = Modifier.size(64.dp)
-                ) {
-                    Icon(
-                        imageVector = if (state.isPlaying) Icons.Default.Pause else Icons.Default.PlayArrow,
-                        contentDescription = null,
-                        modifier = Modifier.size(36.dp)
+                if (ratableSong) {
+                    RatingStars(
+                        rating = (state.currentSong!!.rating ?: 0) / 2,
+                        onRate = viewModel::rateCurrentSong
                     )
                 }
-                IconButton(
-                    onClick = { viewModel.skipNext() },
-                    enabled = state.queueIndex < state.queue.lastIndex
-                ) {
-                    Icon(Icons.Default.SkipNext, contentDescription = "Next",
-                        modifier = Modifier.size(36.dp))
-                }
             }
+        }
 
-            Spacer(Modifier.height(4.dp))
+        Spacer(Modifier.height(32.dp))
 
-            // ── Seek bar ─────────────────────────────────────────────────
-            if (state.durationMs > 0L) {
-                var dragging by remember { mutableStateOf(false) }
-                var dragValue by remember { mutableFloatStateOf(0f) }
+        // ── Playback controls — generously spaced, the visual anchor of the page ──
+        Row(
+            horizontalArrangement = Arrangement.spacedBy(28.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            IconButton(
+                onClick = { viewModel.skipPrev() },
+                enabled = state.queueIndex > 0
+            ) {
+                Icon(Icons.Default.SkipPrevious, contentDescription = "Previous",
+                    modifier = Modifier.size(36.dp))
+            }
+            FilledIconButton(
+                onClick = { viewModel.playPause() },
+                modifier = Modifier.size(68.dp)
+            ) {
+                Icon(
+                    imageVector = if (state.isPlaying) Icons.Default.Pause else Icons.Default.PlayArrow,
+                    contentDescription = null,
+                    modifier = Modifier.size(36.dp)
+                )
+            }
+            IconButton(
+                onClick = { viewModel.skipNext() },
+                enabled = state.queueIndex < state.queue.lastIndex
+            ) {
+                Icon(Icons.Default.SkipNext, contentDescription = "Next",
+                    modifier = Modifier.size(36.dp))
+            }
+        }
 
-                val sliderValue = if (dragging) dragValue
-                    else (state.currentPositionMs.toFloat() / state.durationMs.toFloat()).coerceIn(0f, 1f)
+        Spacer(Modifier.height(20.dp))
 
+        // ── Seek bar ────────────────────────────────────────────────────────────
+        if (state.durationMs > 0L) {
+            var dragging by remember { mutableStateOf(false) }
+            var dragValue by remember { mutableFloatStateOf(0f) }
+
+            val sliderValue = if (dragging) dragValue
+                else (state.currentPositionMs.toFloat() / state.durationMs.toFloat()).coerceIn(0f, 1f)
+
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 28.dp)
+            ) {
                 Slider(
                     value = sliderValue,
                     onValueChange = { v ->
@@ -321,13 +368,20 @@ private fun NowPlayingPage(state: PlayerState, viewModel: PlayerViewModel) {
                     )
                 }
             }
+        }
 
-            Spacer(Modifier.height(8.dp))
+        Spacer(Modifier.height(28.dp))
 
-            // Share + Add to playlist buttons
+        // ── Actions: Share / Add to playlist — own breathing room from the controls ──
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 28.dp),
+            verticalArrangement = Arrangement.spacedBy(10.dp)
+        ) {
             Row(
                 modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(8.dp)
+                horizontalArrangement = Arrangement.spacedBy(10.dp)
             ) {
                 if (state.shareLoading) {
                     Box(modifier = Modifier.weight(1f), contentAlignment = Alignment.Center) {
@@ -340,7 +394,7 @@ private fun NowPlayingPage(state: PlayerState, viewModel: PlayerViewModel) {
                     ) {
                         Icon(Icons.Default.Share, contentDescription = null,
                             modifier = Modifier.size(18.dp))
-                        Spacer(Modifier.width(4.dp))
+                        Spacer(Modifier.width(6.dp))
                         Text("Share")
                     }
                 }
@@ -350,10 +404,11 @@ private fun NowPlayingPage(state: PlayerState, viewModel: PlayerViewModel) {
                 ) {
                     Icon(Icons.Default.QueueMusic, contentDescription = null,
                         modifier = Modifier.size(18.dp))
-                    Spacer(Modifier.width(4.dp))
+                    Spacer(Modifier.width(6.dp))
                     Text("Playlist")
                 }
             }
+
             state.shareError?.let {
                 Text(it, color = MaterialTheme.colorScheme.error,
                     style = MaterialTheme.typography.bodySmall)
@@ -361,7 +416,6 @@ private fun NowPlayingPage(state: PlayerState, viewModel: PlayerViewModel) {
 
             // Playback error (stream failed)
             state.playbackError?.let { err ->
-                Spacer(Modifier.height(4.dp))
                 Row(
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.spacedBy(6.dp),
@@ -381,29 +435,34 @@ private fun NowPlayingPage(state: PlayerState, viewModel: PlayerViewModel) {
 
             // Hint: swipe for queue
             if (state.queue.size > 1) {
-                Spacer(Modifier.height(4.dp))
                 Text(
                     "← Swipe for queue",
                     style = MaterialTheme.typography.labelSmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f)
-                )
-            }
-
-            // ── File path ────────────────────────────────────────────────
-            state.currentSong?.path?.let { path ->
-                Spacer(Modifier.height(8.dp))
-                HorizontalDivider()
-                Spacer(Modifier.height(4.dp))
-                Text(
-                    text = path,
-                    style = MaterialTheme.typography.labelSmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.45f),
-                    maxLines = 2,
-                    overflow = TextOverflow.Ellipsis,
-                    modifier = Modifier.fillMaxWidth()
+                    color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f),
+                    modifier = Modifier.fillMaxWidth(),
+                    textAlign = TextAlign.Center
                 )
             }
         }
+
+        // ── File path — tucked away as a quiet footnote, not competing for attention ──
+        state.currentSong?.path?.let { path ->
+            Spacer(Modifier.height(20.dp))
+            HorizontalDivider(modifier = Modifier.padding(horizontal = 28.dp))
+            Text(
+                text = path,
+                style = MaterialTheme.typography.labelSmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.4f),
+                maxLines = 2,
+                overflow = TextOverflow.Ellipsis,
+                textAlign = TextAlign.Center,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 28.dp, vertical = 10.dp)
+            )
+        }
+
+        Spacer(Modifier.height(12.dp))
     }
 
     // ── Share — ask for expiry before creating the link (mStream Velvet style) ──

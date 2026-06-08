@@ -7,8 +7,8 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.Menu
 import androidx.compose.material.icons.filled.Star
 import androidx.compose.material.icons.filled.StarBorder
 import androidx.compose.material3.*
@@ -230,8 +230,10 @@ fun AutoDjSettingsScreen(
             TopAppBar(
                 title = { Text("Auto-DJ") },
                 navigationIcon = {
+                    // Keep the hamburger glyph here too — reached via the drawer,
+                    // tapping it again exits this screen back to the browser.
                     IconButton(onClick = onBack) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
+                        Icon(Icons.Default.Menu, contentDescription = "Menu")
                     }
                 }
             )

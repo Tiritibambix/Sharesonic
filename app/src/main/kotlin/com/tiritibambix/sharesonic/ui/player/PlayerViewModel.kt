@@ -521,6 +521,38 @@ class PlayerViewModel(
     }
 
     /**
+     * Create a public share link for the *entire current queue* as a single shared
+     * playlist (mirrors mStream Velvet's "share queue" behaviour). Only native
+     * filepath-identified songs can be shared this way — Subsonic search-result
+     * songs (numeric IDs) are silently skipped from the shared playlist.
+     *
+     * @param expiryDays Number of days until the link expires; null → permanent link.
+     */
+    fun shareQueue(expiryDays: Int? = null) {
+        val filepaths = _state.value.queue.map { it.id }.filterNot { it.isSubsonicNumericId() }
+        if (filepaths.isEmpty()) {
+            _state.update { it.copy(shareError = "Nothing shareable in the queue") }
+            return
+        }
+        _state.update { it.copy(shareLoading = true, shareUrl = null, shareError = null) }
+        viewModelScope.launch {
+            val settings = settings()
+            val token = ensureToken(settings) ?: run {
+                _state.update { it.copy(shareLoading = false, shareError = "Authentication failed") }
+                return@launch
+            }
+            val mStream = MStreamRepository(MStreamClient.build(settings.serverUrl))
+            when (val r = mStream.shareQueue(token, filepaths, expiryDays)) {
+                is Result.Success -> {
+                    val url = settings.serverUrl.trimEnd('/') + "/shared/${r.data}"
+                    _state.update { it.copy(shareLoading = false, shareUrl = url) }
+                }
+                is Result.Error -> _state.update { it.copy(shareLoading = false, shareError = r.message) }
+            }
+        }
+    }
+
+    /**
      * Rate the currently playing track — Now Playing screen only (mini player has no room).
      * Sharesonic shows 0–5 stars; mStream's native scale is 0–10 (half-star precision),
      * so [stars] is doubled before being sent. Tapping the already-set star clears the rating.
@@ -532,10 +564,20 @@ class PlayerViewModel(
     fun rateCurrentSong(stars: Int) {
         val song = _state.value.currentSong ?: return
         if (song.id.isSubsonicNumericId()) return
-        val newRating = if (song.rating == stars) 0 else stars
+
+        // `song.rating` is stored on the **native 0–10** scale (half-star precision);
+        // [stars] arrives on the **UI 0–5** scale (the tapped star's index). The two
+        // must be converted to the same scale before comparing — comparing them
+        // directly was the bug that made tapping a star behave erratically (it would
+        // "toggle off" stars that weren't actually active, or leave the wrong rating
+        // stored on the EntryDto, which the UI then divided by 2 a second time).
+        val currentStars = (song.rating ?: 0) / 2
+        val newStars = if (currentStars == stars) 0 else stars
+        val newRatingNative = newStars.takeIf { it > 0 }?.times(2)
 
         // Optimistic update — reflect immediately in currentSong and the queue entry.
-        fun applyRating(s: EntryDto) = if (s.id == song.id) s.copy(rating = newRating) else s
+        // EntryDto.rating always holds the native 0–10 value, so the UI's `/ 2` stays correct.
+        fun applyRating(s: EntryDto) = if (s.id == song.id) s.copy(rating = newRatingNative) else s
         _state.update {
             it.copy(
                 currentSong = it.currentSong?.let(::applyRating),
@@ -547,7 +589,8 @@ class PlayerViewModel(
             val settings = settings()
             val token = ensureToken(settings) ?: return@launch
             val mStream = MStreamRepository(MStreamClient.build(settings.serverUrl))
-            val result = mStream.rateSong(token, song.id, newRating.takeIf { it > 0 })
+            // rateSong() expects the UI 0–5 scale and doubles it internally — pass `newStars`, not the native value.
+            val result = mStream.rateSong(token, song.id, newStars.takeIf { it > 0 })
             if (result is Result.Error) {
                 // Revert on failure — keep state truthful to what the server holds.
                 fun revert(s: EntryDto) = if (s.id == song.id) s.copy(rating = song.rating) else s

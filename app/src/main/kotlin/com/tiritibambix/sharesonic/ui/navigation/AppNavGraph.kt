@@ -182,7 +182,10 @@ fun AppNavGraph() {
                 onOpenFolder = { path, name ->
                     navController.navigate(Screen.Browser.createRoute(path, name))
                 },
-                onOpenSettings = { navController.navigate(Screen.Settings.route) },
+                onOpenServerSettings = { navController.navigate(Screen.ServerSettings.route) },
+                onOpenAutoDjSettings = { navController.navigate(Screen.AutoDjSettings.route) },
+                onOpenThemeSettings = { navController.navigate(Screen.ThemeSettings.route) },
+                onOpenPublicLinks = { navController.navigate(Screen.PublicLinks.route) },
                 onOpenNowPlaying = { navController.navigate(Screen.NowPlaying.route) },
                 onOpenSearch = { navController.navigate(Screen.Search.route) },
                 onOpenPlaylists = { navController.navigate(Screen.Playlists.route) },

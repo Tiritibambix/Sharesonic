@@ -43,7 +43,10 @@ fun FolderBrowserScreen(
     viewModel: FolderBrowserViewModel,
     playerViewModel: PlayerViewModel,
     onOpenFolder: (id: String, name: String) -> Unit,
-    onOpenSettings: () -> Unit,
+    onOpenServerSettings: () -> Unit,
+    onOpenAutoDjSettings: () -> Unit,
+    onOpenThemeSettings: () -> Unit,
+    onOpenPublicLinks: () -> Unit,
     onOpenNowPlaying: () -> Unit,
     onOpenSearch: () -> Unit,
     onOpenPlaylists: () -> Unit,
@@ -130,25 +133,31 @@ fun FolderBrowserScreen(
                 )
                 HorizontalDivider()
                 NavigationDrawerItem(
-                    label = { Text("Search") },
-                    icon = { Icon(Icons.Default.Search, contentDescription = null) },
+                    label = { Text("Server") },
+                    icon = { Icon(Icons.Default.Dns, contentDescription = null) },
                     selected = false,
-                    onClick = { closeDrawer(); onOpenSearch() },
+                    onClick = { closeDrawer(); onOpenServerSettings() },
                     modifier = Modifier.padding(horizontal = 12.dp, vertical = 4.dp)
                 )
                 NavigationDrawerItem(
-                    label = { Text("Playlists") },
-                    icon = { Icon(Icons.Default.QueueMusic, contentDescription = null) },
+                    label = { Text("Auto-DJ") },
+                    icon = { Icon(Icons.Default.Headphones, contentDescription = null) },
                     selected = false,
-                    onClick = { closeDrawer(); onOpenPlaylists() },
+                    onClick = { closeDrawer(); onOpenAutoDjSettings() },
                     modifier = Modifier.padding(horizontal = 12.dp, vertical = 4.dp)
                 )
-                HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
                 NavigationDrawerItem(
-                    label = { Text("Settings") },
-                    icon = { Icon(Icons.Default.Settings, contentDescription = null) },
+                    label = { Text("Theme") },
+                    icon = { Icon(Icons.Default.Palette, contentDescription = null) },
                     selected = false,
-                    onClick = { closeDrawer(); onOpenSettings() },
+                    onClick = { closeDrawer(); onOpenThemeSettings() },
+                    modifier = Modifier.padding(horizontal = 12.dp, vertical = 4.dp)
+                )
+                NavigationDrawerItem(
+                    label = { Text("Public Links") },
+                    icon = { Icon(Icons.Default.Link, contentDescription = null) },
+                    selected = false,
+                    onClick = { closeDrawer(); onOpenPublicLinks() },
                     modifier = Modifier.padding(horizontal = 12.dp, vertical = 4.dp)
                 )
             }
@@ -161,6 +170,14 @@ fun FolderBrowserScreen(
                 navigationIcon = {
                     IconButton(onClick = { drawerScope.launch { drawerState.open() } }) {
                         Icon(Icons.Default.Menu, contentDescription = "Menu")
+                    }
+                },
+                actions = {
+                    IconButton(onClick = onOpenSearch) {
+                        Icon(Icons.Default.Search, contentDescription = "Search")
+                    }
+                    IconButton(onClick = onOpenPlaylists) {
+                        Icon(Icons.Default.QueueMusic, contentDescription = "Playlists")
                     }
                 }
             )

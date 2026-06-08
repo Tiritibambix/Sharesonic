@@ -153,6 +153,19 @@ class MStreamRepository(private val api: MStreamApiService) {
         return shareFilepaths(token, songs.map { it.id }, expiryDays)
     }
 
+    /**
+     * Create a public share link for an explicit list of filepaths — used to share
+     * the current playback queue as a single shared playlist (mirrors mStream
+     * Velvet's "share queue" behaviour). Pass only native filepath IDs; Subsonic
+     * numeric-ID songs aren't shareable through this endpoint (filter them out first).
+     *
+     * @return the playlistId — caller builds URL as <serverUrl>/shared/<playlistId>
+     */
+    suspend fun shareQueue(token: String, filepaths: List<String>, expiryDays: Int? = null): Result<String> {
+        if (filepaths.isEmpty()) return Result.Error("Queue is empty")
+        return shareFilepaths(token, filepaths, expiryDays)
+    }
+
     private suspend fun shareFilepaths(
         token: String,
         filepaths: List<String>,
