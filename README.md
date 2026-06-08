@@ -1,3 +1,7 @@
+<p align="center">
+  <img src="docs/icon.svg" width="400" alt="Sharesonic app icon">
+</p>
+
 # Sharesonic
 
 > *Rediscover your music library. One shuffle at a time. Share what you find.*
@@ -40,16 +44,20 @@ Sharesonic is built for the other scenario — the large, chaotic, lovingly diso
 | **Folder browsing** | Navigate your full directory tree from root to individual tracks |
 | **Shuffle library** | Server-side random pick via native Velvet API — 30 tracks, no repeats |
 | **Shuffle folder** | Recursive collect + shuffle on any sub-directory |
-| **Auto-DJ** | Continuous smart queue: BPM continuity, harmonic mixing (Camelot wheel), similar artists, artist cooldown, genre filter, crossfade — toggle ∞ in mini player or Now Playing |
+| **Auto-DJ** | Continuous smart queue: BPM continuity, harmonic mixing (Camelot wheel), similar artists, artist cooldown, genre filter, crossfade — toggle the headphones icon in the mini player or Now Playing |
 | **Share link** | Native mStream share API → public `server/shared/XXXXXXXXXX` URL → Android share sheet |
-| **Now Playing** | Cover art, seek bar with elapsed/total time, artist · album info |
+| **Share queue** | Generate one public link for the *entire current queue* in a single tap, straight from the queue view |
+| **Star ratings** | Rate the current track 0–5 stars from Now Playing — synced live to mStream's native rating, with an explicit one-tap way back to "unrated" |
+| **Now Playing** | Airy, uncluttered full-screen player: cover art, seek bar with elapsed/total time, artist · album info, format/bitrate, ratings and a tap-to-reveal file-details dialog (filename + full path, selectable for copying) — nothing requires scrolling |
+| **Navigation drawer** | Hamburger menu (always reachable, even from inside Server/Auto-DJ/Theme/Public Links) opens a frosted-glass, 80%-width sheet — Search and Playlists stay one tap away in the top bar at all times |
 | **Mini player** | Persistent bottom bar with progress strip, controls and art — folds up during navigation |
-| **Queue view** | Swipe left from Now Playing — full scrollable queue, tap to jump, swipe to remove |
+| **Queue view** | Swipe left from Now Playing — full scrollable queue, tap to jump, swipe to remove, share the whole queue |
 | **Add to queue** | Swipe left on any track in the browser |
 | **Playlist management** | Create, rename, delete playlists; add/remove tracks; play all or shuffle |
 | **Add to playlist** | Swipe right on a track in the browser, or tap "Playlist" in Now Playing |
-| **Search** | Full-text search across songs, albums, artists |
-| **Settings** | Server URL, username, password, one-tap connection test |
+| **Search** | Pill-shaped, Material You search bar with full-text search across songs, albums, artists |
+| **Media notification** | Tap the playback notification to jump straight back into Now Playing |
+| **Settings** | Server URL, username, password, one-tap connection test — reachable via the navigation drawer |
 | **Cover art** | Loaded from mStream's native `/album-art/` endpoint |
 | **Scrobbling** | Playback reported to mStream → forwarded to Last.fm + ListenBrainz (no API keys needed) |
 | **Dark theme only** | Deep purple Material You palette — no light mode, no compromise |
@@ -140,7 +148,8 @@ Sharesonic uses two separate APIs from mStream:
 | `POST /api/v1/file-explorer` | Folder browsing + file metadata |
 | `GET /media/<filepath>?token=<jwt>` | Audio streaming |
 | `GET /album-art/<file>?token=<jwt>` | Cover art |
-| `POST /api/v1/share` | Generate public share link (`time` = days) |
+| `POST /api/v1/share` | Generate public share link for a track or the whole queue (`time` = days) |
+| `POST /api/v1/db/rate-song` | Rate / clear the rating of a track (native 0–10 half-star scale) |
 | `GET /api/v1/share/list` | List own share links |
 | `DELETE /api/v1/share/:id` | Revoke a share link |
 | `POST /api/v1/db/random-songs` | Random song for shuffle (called 30×) and Auto-DJ (called 1× with BPM/key/artist filters) |

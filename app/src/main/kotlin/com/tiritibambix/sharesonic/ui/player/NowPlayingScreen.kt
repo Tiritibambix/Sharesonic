@@ -13,6 +13,7 @@ import androidx.compose.foundation.pager.HorizontalPager
 import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.selection.SelectionContainer
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.*
@@ -163,6 +164,7 @@ fun NowPlayingScreen(
 private fun NowPlayingPage(state: PlayerState, viewModel: PlayerViewModel) {
     var showPlaylistPicker by remember { mutableStateOf(false) }
     var showShareExpiryDialog by remember { mutableStateOf(false) }
+    var showFileInfoDialog by remember { mutableStateOf(false) }
     val playlists by viewModel.playlists.collectAsState()
 
     Column(
@@ -445,21 +447,37 @@ private fun NowPlayingPage(state: PlayerState, viewModel: PlayerViewModel) {
             }
         }
 
-        // ── File path — tucked away as a quiet footnote, not competing for attention ──
+        // ── File details — a single, compact, tappable line; the full filename and
+        // path (which can be long enough to force scrolling if shown inline) live
+        // in an info dialog instead, so the main view stays sober and short. ──
         state.currentSong?.path?.let { path ->
             Spacer(Modifier.height(20.dp))
             HorizontalDivider(modifier = Modifier.padding(horizontal = 28.dp))
-            Text(
-                text = path,
-                style = MaterialTheme.typography.labelSmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.4f),
-                maxLines = 2,
-                overflow = TextOverflow.Ellipsis,
-                textAlign = TextAlign.Center,
+            Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(horizontal = 28.dp, vertical = 10.dp)
-            )
+                    .clip(RoundedCornerShape(10.dp))
+                    .clickable { showFileInfoDialog = true }
+                    .padding(horizontal = 28.dp, vertical = 12.dp),
+                horizontalArrangement = Arrangement.Center,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Icon(
+                    imageVector = Icons.Default.Info,
+                    contentDescription = null,
+                    modifier = Modifier.size(15.dp),
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.4f)
+                )
+                Spacer(Modifier.width(6.dp))
+                Text(
+                    text = path.substringAfterLast('/'),
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f),
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                    modifier = Modifier.weight(1f, fill = false)
+                )
+            }
         }
 
         Spacer(Modifier.height(12.dp))
@@ -474,6 +492,49 @@ private fun NowPlayingPage(state: PlayerState, viewModel: PlayerViewModel) {
             },
             onDismiss = { showShareExpiryDialog = false }
         )
+    }
+
+    // ── File info dialog — full filename and path, selectable for copying.
+    // Keeps the main scrollable view compact (no forced scroll to read these),
+    // while still surfacing the exact details on demand. ──
+    if (showFileInfoDialog) {
+        state.currentSong?.path?.let { path ->
+            AlertDialog(
+                onDismissRequest = { showFileInfoDialog = false },
+                title = { Text("File details") },
+                text = {
+                    SelectionContainer {
+                        Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                            Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                                Text(
+                                    "Filename",
+                                    style = MaterialTheme.typography.labelSmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                                Text(
+                                    path.substringAfterLast('/'),
+                                    style = MaterialTheme.typography.bodyMedium
+                                )
+                            }
+                            Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                                Text(
+                                    "Path",
+                                    style = MaterialTheme.typography.labelSmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                                Text(
+                                    path,
+                                    style = MaterialTheme.typography.bodyMedium
+                                )
+                            }
+                        }
+                    }
+                },
+                confirmButton = {
+                    TextButton(onClick = { showFileInfoDialog = false }) { Text("Close") }
+                }
+            )
+        }
     }
 
     // ── Add-to-playlist dialog ─────────────────────────────────────────────────
@@ -520,15 +581,20 @@ private fun NowPlayingPage(state: PlayerState, viewModel: PlayerViewModel) {
 
 /**
  * 0–5 star rating row for the currently playing track. Tapping a star sets the
- * rating to that many stars; tapping the already-active star clears it back to
+ * rating to that many stars; tapping the already-active star toggles it back to
  * "unrated" — [PlayerViewModel.rateCurrentSong] handles that toggle.
+ *
+ * Mirrors the Auto-DJ "Minimum rating" picker ([StarRatingPicker] in
+ * AutoDjSettingsScreen): the toggle-the-active-star gesture alone wasn't
+ * discoverable enough — once a rating was set, people couldn't find their way
+ * back to "unrated" — so an explicit, always-visible clear button is included too.
  */
 @Composable
 private fun RatingStars(
     rating: Int,
     onRate: (Int) -> Unit
 ) {
-    Row(horizontalArrangement = Arrangement.spacedBy(2.dp)) {
+    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(2.dp)) {
         (1..5).forEach { star ->
             IconButton(
                 onClick = { onRate(star) },
@@ -542,6 +608,21 @@ private fun RatingStars(
                     modifier = Modifier.size(22.dp)
                 )
             }
+        }
+        // Explicit, always-visible way back to "unrated" — same affordance as the
+        // Auto-DJ minimum-rating picker's clear button (see rationale above).
+        IconButton(
+            onClick = { onRate(0) },
+            enabled = rating != 0,
+            modifier = Modifier.size(30.dp)
+        ) {
+            Icon(
+                imageVector = Icons.Default.Close,
+                contentDescription = "Clear rating",
+                tint = if (rating != 0) MaterialTheme.colorScheme.onSurfaceVariant
+                       else MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.25f),
+                modifier = Modifier.size(18.dp)
+            )
         }
     }
 }

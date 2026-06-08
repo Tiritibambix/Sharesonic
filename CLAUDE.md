@@ -9,9 +9,11 @@ The goal is an app that does a handful of things well:
 * Browse music by real filesystem folder structure via mStream's native API
 * Shuffle play on a folder or the entire library
 * Auto-DJ: continuous smart queue with BPM continuity, harmonic mixing (Camelot wheel), similar artists (Last.fm), artist cooldown, genre filter, crossfade
-* Generate a public share link for any track
+* Generate a public share link for any track — or for the entire current queue in one tap
+* Rate tracks 0–5 stars from Now Playing, with an explicit way to clear back to "unrated"
 * Manage playlists (create, rename, delete; add/remove tracks; play all / shuffle)
 * Persistent mini player during navigation
+* Hamburger navigation drawer (Server, Auto-DJ, Themes, Public Links) reachable from anywhere, with Search and Playlists always pinned in the top bar
 
 ## Core Requirements
 
@@ -21,9 +23,12 @@ The goal is an app that does a handful of things well:
 * Shuffle play on any folder or on the full library
 * Auto-DJ: when enabled, the queue never stops — the app continuously fetches the next track using BPM continuity, harmonic key (Camelot wheel), similar artists via Last.fm, artist cooldown, genre filter, and optional crossfade
 * Share link generation: tap a track → generate a `server/shared/XXXXXXXXXX` public URL via the mStream native share API → Android share sheet opens with that URL ready to send
-* Settings screen: mStream server URL, username, password, connection test button (tests JWT login)
+* Share queue: from the queue view, generate a single public link covering every track currently queued (same native share endpoint, fed the queue's filepaths); Subsonic-search-origin tracks are skipped since they aren't shareable through it
+* Star ratings: rate the current track 0–5 stars from Now Playing (synced to mStream's native 0–10 half-star scale); tapping the active star — or an explicit always-visible clear button — resets it back to "unrated", mirroring the Auto-DJ "minimum rating" picker's affordance
+* Settings reachable via a hamburger navigation drawer containing **Server**, **Auto-DJ**, **Themes** and **Public Links**; the hamburger glyph stays in the top-left of every drawer destination so users can tap back out; Search and Playlists icons remain pinned top-right in the Folder Browser at all times
 * Playlist management: create, rename, delete playlists; add/remove tracks; play all / shuffle; add from browser (swipe right) or from Now Playing
 * Persistent mini player bar during navigation: thumbnail, title/artist, skip/play-pause controls, live progress strip; folds away on the Now Playing screen
+* Tapping the playback media-style notification brings the app to the foreground straight into Now Playing
 * Queue management: swipe left in browser to add to queue; swipe to remove from queue in the queue view
 * Offline-safe: graceful error handling when the server is unreachable
 
@@ -46,14 +51,16 @@ The goal is an app that does a handful of things well:
 
 ### Key Screens
 
-1. **Settings** — mStream server URL, username, password, test connection
-2. **Folder Browser** — real filesystem tree via native API; swipe right → add to playlist, swipe left → add to queue; long press → context menu; alphabetical letter strip
-3. **Now Playing** — full player (cover art, seek bar, share + add-to-playlist buttons); swipe left for queue view
-4. **Queue** — scrollable queue, tap to jump, swipe left to remove
-5. **Mini player** — persistent bottom bar on all screens except Now Playing; folds up/down without fade
-6. **Playlists** — list of playlists with real track counts; create / rename / delete
-7. **Playlist detail** — track list; play all / shuffle FABs; swipe to remove; add songs via search dialog
-8. **Share confirmation** — shows the generated link with a copy + send button
+1. **Navigation drawer** — hamburger menu opening a frosted-glass sheet sized to ~80% of the screen width (`Modifier.width(maxWidth * 0.8f)` + `Modifier.blur()` on the content behind it via `animateDpAsState`), so a blurred sliver of the browser stays visible and tappable on the right — making the swipe-to-dismiss gesture obvious without anyone having to discover it. Lists **Server**, **Auto-DJ**, **Themes**, **Public Links**; each destination keeps the hamburger glyph as its `navigationIcon` so tapping it again exits straight back out
+2. **Server / Auto-DJ / Themes / Public Links settings** — each is its own screen reachable only via the drawer; Server holds the mStream URL, username, password and connection test
+3. **Folder Browser** — real filesystem tree via native API; swipe right → add to playlist, swipe left → add to queue; long press → context menu; alphabetical letter strip; Search and Playlists icons are pinned in the top-right of the `TopAppBar` at all times (not folded into the drawer)
+4. **Now Playing** — airy, single-screen player redesigned to avoid feeling cramped: cover art, title/artist, a combined format/bitrate + star-rating row, generously spaced playback controls and seek bar, and an Actions area (share, add-to-playlist, queue-share). The exact filename and full path collapse into one compact tappable line that opens an info dialog with selectable text — so nothing requires scrolling. Swipe left for queue view
+5. **Queue** — scrollable queue, tap to jump, swipe left to remove; a top-bar share icon (visible only here) generates one public link for the whole queue
+6. **Mini player** — persistent bottom bar on all screens except Now Playing; folds up/down without fade
+7. **Playlists** — list of playlists with real track counts; create / rename / delete
+8. **Playlist detail** — track list; play all / shuffle FABs; swipe to remove; add songs via search dialog
+9. **Search** — pill-shaped Material You search field living in the screen body (not the `TopAppBar` title slot, which clipped it); auto-focuses on entry
+10. **Share confirmation** — shows the generated link with a copy + send button
 
 ## Technical Stack
 
@@ -169,6 +176,29 @@ Content-Type: application/json
 * `expires` in the response = Unix timestamp in seconds (or `null` for permanent links).
 
 The public share URL is `<serverUrl>/shared/<playlistId>`.
+
+**Sharing the queue** reuses this exact endpoint — `MStreamRepository.shareQueue()` /
+`PlayerViewModel.shareQueue()` collect every queued song's filepath (`EntryDto.id`, skipping
+any Subsonic numeric-ID entries from search results, which this endpoint can't share) and pass
+them as the `playlist` array in a single request, producing one link for the whole queue.
+
+### Native rate song
+
+```
+POST /api/v1/db/rate-song
+x-access-token: <token>
+Content-Type: application/json
+
+{ "filepath": "library/Artist/Album/track.mp3", "rating": 8 }
+```
+
+* `rating` is on mStream's **native 0–10 scale with half-star precision**. Sharesonic's UI
+  shows **0–5 stars**; `PlayerViewModel.rateCurrentSong(stars)` converts both ways
+  (`stars * 2` when sending, `rating / 2` when reading `EntryDto.rating` back) — comparing or
+  storing the two scales directly was a real bug (stars lit up wrong / didn't toggle).
+* Pass `rating: null` (UI: tap the active star again, or the explicit clear button) to reset
+  a track back to "unrated" — mirrors the Auto-DJ "minimum rating" picker's always-visible
+  clear affordance, which is the UX pattern the rating UI was changed to follow.
 
 ### Share list and revoke
 

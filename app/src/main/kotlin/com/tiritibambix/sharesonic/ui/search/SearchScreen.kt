@@ -42,7 +42,15 @@ fun SearchScreen(
     val searchState by viewModel.searchState.collectAsState()
     val focusRequester = remember { FocusRequester() }
 
-    LaunchedEffect(Unit) { focusRequester.requestFocus() }
+    // Auto-focus the search field on entry. During the very first composition pass
+    // the BasicTextField's focus target may not be attached to this FocusRequester
+    // yet (it mounts once the Scaffold/Column layout settles) — calling
+    // requestFocus() too early throws IllegalStateException("FocusRequester is not
+    // initialized"), which was crashing this screen almost every time it opened.
+    // A missed auto-focus is harmless; a crash on every search isn't — swallow the race.
+    LaunchedEffect(Unit) {
+        runCatching { focusRequester.requestFocus() }
+    }
 
     Scaffold(
         topBar = {

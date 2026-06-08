@@ -1,0 +1,66 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+    Sharesonic app icon — standalone SVG re-composition for use in the README
+    (GitHub renders SVGs from the repo inline). Faithfully reproduces the
+    Android adaptive icon split across:
+      app/src/main/res/drawable/ic_launcher_background.xml  (Velvet navy/purple gradient)
+      app/src/main/res/drawable/ic_launcher_foreground.xml  (waves, play hub, shuffle + share glyphs)
+    on a single 108x108 canvas with rounded corners, matching the masked
+    launcher shape closely enough for a clean README hero image.
+-->
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 108 108" width="400" height="400" role="img" aria-label="Sharesonic app icon">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="108" y2="108" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#1a1a2e"/>
+      <stop offset="1" stop-color="#16213e"/>
+    </linearGradient>
+    <linearGradient id="accent" x1="115" y1="598" x2="555" y2="140" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#8b5cf6"/>
+      <stop offset="1" stop-color="#60a5fa"/>
+    </linearGradient>
+    <clipPath id="roundedSquare">
+      <rect x="0" y="0" width="108" height="108" rx="22" ry="22"/>
+    </clipPath>
+  </defs>
+
+  <g clip-path="url(#roundedSquare)">
+    <!-- Background — full-bleed Velvet gradient -->
+    <rect x="0" y="0" width="108" height="108" fill="url(#bg)"/>
+    <!-- Faint glass highlight along the top edge -->
+    <rect x="0" y="0" width="108" height="30" fill="#FFFFFF" opacity="0.025"/>
+
+    <!-- Foreground composition — scaled ×0.15 and recentered, exactly mirroring
+         the <group> transform in ic_launcher_foreground.xml -->
+    <g transform="translate(4,-1) scale(0.15)">
+      <!-- Sound waves — left -->
+      <path d="M 240,210 Q 195,300 240,390" stroke="url(#accent)" stroke-width="14" stroke-opacity="0.9" stroke-linecap="round" fill="none"/>
+      <path d="M 200,175 Q 145,300 200,425" stroke="url(#accent)" stroke-width="11" stroke-opacity="0.6" stroke-linecap="round" fill="none"/>
+      <path d="M 160,140 Q 90,300 160,460" stroke="url(#accent)" stroke-width="8" stroke-opacity="0.35" stroke-linecap="round" fill="none"/>
+
+      <!-- Sound waves — right (mirror around x=340) -->
+      <path d="M 440,210 Q 485,300 440,390" stroke="url(#accent)" stroke-width="14" stroke-opacity="0.9" stroke-linecap="round" fill="none"/>
+      <path d="M 480,175 Q 535,300 480,425" stroke="url(#accent)" stroke-width="11" stroke-opacity="0.6" stroke-linecap="round" fill="none"/>
+      <path d="M 520,140 Q 590,300 520,460" stroke="url(#accent)" stroke-width="8" stroke-opacity="0.35" stroke-linecap="round" fill="none"/>
+
+      <!-- Center hub (navy disc with glow ring) + play triangle -->
+      <path d="M 340,300 m -78,0 a 78,78 0 1,0 156,0 a 78,78 0 1,0 -156,0" fill="#0f3460" stroke="url(#accent)" stroke-width="3"/>
+      <path d="M 317,266 L 317,334 L 385,300 Z" fill="url(#accent)"/>
+
+      <!-- Separator -->
+      <path d="M 340,490 L 340,590" stroke="#2a3a5e" stroke-width="2" stroke-linecap="round"/>
+
+      <!-- Shuffle — symmetric crossing arrows (purple ↔ blue) -->
+      <path d="M 115,578 L 141,578 Q 165,578 185,558 L 225,518 Q 245,498 269,498 L 295,498" stroke="#8b5cf6" stroke-width="10" stroke-linecap="round" stroke-opacity="0.92" fill="none"/>
+      <path d="M 293,492 L 301,498 L 293,504 Z" fill="#8b5cf6" fill-opacity="0.92"/>
+      <path d="M 115,498 L 141,498 Q 165,498 185,518 L 225,558 Q 245,578 269,578 L 295,578" stroke="#60a5fa" stroke-width="10" stroke-linecap="round" stroke-opacity="0.92" fill="none"/>
+      <path d="M 293,572 L 301,578 L 293,584 Z" fill="#60a5fa" fill-opacity="0.92"/>
+
+      <!-- Share — source node + two recipient nodes -->
+      <path d="M 420,540 m -14,0 a 14,14 0 1,0 28,0 a 14,14 0 1,0 -28,0" fill="#0f3460" stroke="#8b5cf6" stroke-width="3"/>
+      <path d="M 502,496 m -14,0 a 14,14 0 1,0 28,0 a 14,14 0 1,0 -28,0" fill="#0f3460" stroke="#60a5fa" stroke-width="3"/>
+      <path d="M 502,584 m -14,0 a 14,14 0 1,0 28,0 a 14,14 0 1,0 -28,0" fill="#0f3460" stroke="#60a5fa" stroke-width="3"/>
+      <path d="M 433,532 L 489,504" stroke="url(#accent)" stroke-width="3.5" stroke-linecap="round" stroke-opacity="0.8" fill="none"/>
+      <path d="M 433,548 L 489,576" stroke="url(#accent)" stroke-width="3.5" stroke-linecap="round" stroke-opacity="0.8" fill="none"/>
+    </g>
+  </g>
+</svg>

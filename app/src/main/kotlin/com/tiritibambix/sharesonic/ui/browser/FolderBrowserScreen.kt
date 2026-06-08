@@ -20,6 +20,7 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.blur
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.hapticfeedback.HapticFeedback
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
@@ -121,10 +122,20 @@ fun FolderBrowserScreen(
     val drawerScope = rememberCoroutineScope()
     fun closeDrawer() = drawerScope.launch { drawerState.close() }
 
+    // Frosted-glass cue: blur the browser behind the drawer while it's open, and
+    // size the sheet to ~80% of the screen width so a blurred sliver of the browser
+    // stays visible (and tappable-to-dismiss) on the right — making it obvious that
+    // there's content behind the drawer and a way back out besides the swipe gesture.
+    val contentBlur by animateDpAsState(
+        targetValue = if (drawerState.isOpen) 14.dp else 0.dp,
+        label = "drawerContentBlur"
+    )
+
     ModalNavigationDrawer(
         drawerState = drawerState,
         drawerContent = {
-            ModalDrawerSheet {
+            BoxWithConstraints {
+                ModalDrawerSheet(modifier = Modifier.width(maxWidth * 0.8f)) {
                 Spacer(Modifier.height(12.dp))
                 Text(
                     "Sharesonic",
@@ -160,10 +171,12 @@ fun FolderBrowserScreen(
                     onClick = { closeDrawer(); onOpenPublicLinks() },
                     modifier = Modifier.padding(horizontal = 12.dp, vertical = 4.dp)
                 )
-            }
+                } // ModalDrawerSheet
+            } // BoxWithConstraints
         }
     ) {
     Scaffold(
+        modifier = Modifier.blur(contentBlur),
         topBar = {
             TopAppBar(
                 title = { Text(folderName, maxLines = 1, overflow = TextOverflow.Ellipsis) },
