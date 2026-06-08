@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="docs/icon.svg" width="400" alt="Sharesonic app icon">
+  <img src="docs/sharesonic_icon.svg" width="300" alt="Sharesonic app icon">
 </p>
 
 # Sharesonic

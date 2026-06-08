@@ -1,0 +1,86 @@
+<svg width="100%" viewBox="0 0 680 680" role="img" xmlns="http://www.w3.org/2000/svg">
+  <title>Icône ShareSonic</title>
+  <desc>Icône navy/violet : ondes audio larges, play centré, shuffle et share en bas</desc>
+
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#1a1a2e"/>
+      <stop offset="100%" stop-color="#16213e"/>
+    </linearGradient>
+    <linearGradient id="glow" x1="0" y1="1" x2="1" y2="0">
+      <stop offset="0%" stop-color="#8b5cf6"/>
+      <stop offset="100%" stop-color="#60a5fa"/>
+    </linearGradient>
+    <clipPath id="icon-clip">
+      <rect x="40" y="40" width="600" height="600" rx="130" ry="130"/>
+    </clipPath>
+    <marker id="arr-purple" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="5" markerHeight="5" orient="auto">
+      <path d="M2 1L8 5L2 9" fill="none" stroke="#8b5cf6" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+    </marker>
+    <marker id="arr-blue" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="5" markerHeight="5" orient="auto">
+      <path d="M2 1L8 5L2 9" fill="none" stroke="#60a5fa" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+    </marker>
+  </defs>
+
+  <rect x="40" y="40" width="600" height="600" rx="130" ry="130" fill="url(#bg)"/>
+
+  <!-- Grille centrée sur 340,340 — pas de 80px, 9 colonnes x 9 lignes -->
+  <g clip-path="url(#icon-clip)" opacity="0.06" fill="#8b5cf6">
+    <circle cx="60"  cy="60"  r="3"/><circle cx="140" cy="60"  r="3"/><circle cx="220" cy="60"  r="3"/><circle cx="300" cy="60"  r="3"/><circle cx="380" cy="60"  r="3"/><circle cx="460" cy="60"  r="3"/><circle cx="540" cy="60"  r="3"/><circle cx="620" cy="60"  r="3"/>
+    <circle cx="60"  cy="140" r="3"/><circle cx="140" cy="140" r="3"/><circle cx="220" cy="140" r="3"/><circle cx="300" cy="140" r="3"/><circle cx="380" cy="140" r="3"/><circle cx="460" cy="140" r="3"/><circle cx="540" cy="140" r="3"/><circle cx="620" cy="140" r="3"/>
+    <circle cx="60"  cy="220" r="3"/><circle cx="140" cy="220" r="3"/><circle cx="220" cy="220" r="3"/><circle cx="300" cy="220" r="3"/><circle cx="380" cy="220" r="3"/><circle cx="460" cy="220" r="3"/><circle cx="540" cy="220" r="3"/><circle cx="620" cy="220" r="3"/>
+    <circle cx="60"  cy="300" r="3"/><circle cx="140" cy="300" r="3"/><circle cx="220" cy="300" r="3"/><circle cx="300" cy="300" r="3"/><circle cx="380" cy="300" r="3"/><circle cx="460" cy="300" r="3"/><circle cx="540" cy="300" r="3"/><circle cx="620" cy="300" r="3"/>
+    <circle cx="60"  cy="380" r="3"/><circle cx="140" cy="380" r="3"/><circle cx="220" cy="380" r="3"/><circle cx="300" cy="380" r="3"/><circle cx="380" cy="380" r="3"/><circle cx="460" cy="380" r="3"/><circle cx="540" cy="380" r="3"/><circle cx="620" cy="380" r="3"/>
+    <circle cx="60"  cy="460" r="3"/><circle cx="140" cy="460" r="3"/><circle cx="220" cy="460" r="3"/><circle cx="300" cy="460" r="3"/><circle cx="380" cy="460" r="3"/><circle cx="460" cy="460" r="3"/><circle cx="540" cy="460" r="3"/><circle cx="620" cy="460" r="3"/>
+    <circle cx="60"  cy="540" r="3"/><circle cx="140" cy="540" r="3"/><circle cx="220" cy="540" r="3"/><circle cx="300" cy="540" r="3"/><circle cx="380" cy="540" r="3"/><circle cx="460" cy="540" r="3"/><circle cx="540" cy="540" r="3"/><circle cx="620" cy="540" r="3"/>
+    <circle cx="60"  cy="620" r="3"/><circle cx="140" cy="620" r="3"/><circle cx="220" cy="620" r="3"/><circle cx="300" cy="620" r="3"/><circle cx="380" cy="620" r="3"/><circle cx="460" cy="620" r="3"/><circle cx="540" cy="620" r="3"/><circle cx="620" cy="620" r="3"/>
+  </g>
+
+  <!--
+    Cercle : cx=340, cy=300, r=78 → s'étend de y=222 à y=378
+    Onde 1 (proche)  : y=210..390 → hauteur 180, point x=240/440, ctrl x=195/485
+    Onde 2 (moyenne) : y=175..425 → hauteur 250, point x=200/480, ctrl x=145/535
+    Onde 3 (large)   : y=140..460 → hauteur 320, point x=160/520, ctrl x=90/590
+  -->
+
+  <!-- Ondes gauche -->
+  <g fill="none" stroke="url(#glow)" stroke-linecap="round" clip-path="url(#icon-clip)">
+    <path d="M 240 210 Q 195 300 240 390" stroke-width="14" opacity="0.9"/>
+    <path d="M 200 175 Q 145 300 200 425" stroke-width="11" opacity="0.6"/>
+    <path d="M 160 140 Q 90 300 160 460" stroke-width="8" opacity="0.35"/>
+  </g>
+
+  <!-- Ondes droite — miroir exact autour de x=340 -->
+  <g fill="none" stroke="url(#glow)" stroke-linecap="round" clip-path="url(#icon-clip)">
+    <path d="M 440 210 Q 485 300 440 390" stroke-width="14" opacity="0.9"/>
+    <path d="M 480 175 Q 535 300 480 425" stroke-width="11" opacity="0.6"/>
+    <path d="M 520 140 Q 590 300 520 460" stroke-width="8" opacity="0.35"/>
+  </g>
+
+  <!-- Cercle central cx=340, cy=300 -->
+  <circle cx="340" cy="300" r="78" fill="#0f3460" stroke="url(#glow)" stroke-width="3"/>
+
+  <!-- Triangle play centré sur 340,300 -->
+  <polygon points="317,266 317,334 385,300" fill="url(#glow)"/>
+
+  <!-- Séparateur centré x=340 -->
+  <line x1="340" y1="490" x2="340" y2="590" stroke="#2a3a5e" stroke-width="2" stroke-linecap="round"/>
+
+  <!-- SHUFFLE centré sur x=205, y=540 -->
+  <path d="M 115 578 L 141 578 Q 165 578 185 558 L 225 518 Q 245 498 269 498 L 295 498"
+        fill="none" stroke="#8b5cf6" stroke-width="10" stroke-linecap="round"
+        marker-end="url(#arr-purple)" opacity="0.92"/>
+  <path d="M 115 498 L 141 498 Q 165 498 185 518 L 225 558 Q 245 578 269 578 L 295 578"
+        fill="none" stroke="#60a5fa" stroke-width="10" stroke-linecap="round"
+        marker-end="url(#arr-blue)" opacity="0.92"/>
+
+  <!-- SHARE centré sur x=475, y=540 -->
+  <circle cx="420" cy="540" r="14" fill="#0f3460" stroke="#8b5cf6" stroke-width="3"/>
+  <circle cx="502" cy="496" r="14" fill="#0f3460" stroke="#60a5fa" stroke-width="3"/>
+  <circle cx="502" cy="584" r="14" fill="#0f3460" stroke="#60a5fa" stroke-width="3"/>
+  <line x1="433" y1="532" x2="489" y2="504" stroke="url(#glow)" stroke-width="3.5" stroke-linecap="round" opacity="0.8"/>
+  <line x1="433" y1="548" x2="489" y2="576" stroke="url(#glow)" stroke-width="3.5" stroke-linecap="round" opacity="0.8"/>
+
+  <!-- Reflet -->
+  <rect x="40" y="40" width="600" height="180" rx="130" ry="130" fill="white" opacity="0.025" clip-path="url(#icon-clip)"/>
+</svg>
