@@ -13,7 +13,6 @@ import androidx.compose.foundation.pager.HorizontalPager
 import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.foundation.text.selection.SelectionContainer
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.*
@@ -164,7 +163,6 @@ fun NowPlayingScreen(
 private fun NowPlayingPage(state: PlayerState, viewModel: PlayerViewModel) {
     var showPlaylistPicker by remember { mutableStateOf(false) }
     var showShareExpiryDialog by remember { mutableStateOf(false) }
-    var showFileInfoDialog by remember { mutableStateOf(false) }
     val playlists by viewModel.playlists.collectAsState()
 
     Column(
@@ -217,7 +215,7 @@ private fun NowPlayingPage(state: PlayerState, viewModel: PlayerViewModel) {
             )
         }
 
-        Spacer(Modifier.height(24.dp))
+        Spacer(Modifier.height(16.dp))
 
         // ── Title + subtitle — kept tight, they read as one block ──────────────
         Column(
@@ -252,9 +250,11 @@ private fun NowPlayingPage(state: PlayerState, viewModel: PlayerViewModel) {
             }
         }
 
-        // ── Secondary info: format/bitrate + star rating share one airy row ────
-        // (rather than stacking — keeps the block under the title compact and lets
-        // the rating breathe on its own line of visual weight)
+        // ── Secondary info: format/bitrate, then star rating ────────────────────
+        // Stacked rather than sharing a row: when both are present, the rating's
+        // five stars + clear button were wide enough to squeeze the format/bitrate
+        // label into an ellipsis. Stacking gives the label the full row width so
+        // it's always completely readable, and centers the rating beneath it.
         val formatLabel = buildString {
             state.currentSong!!.suffix?.takeIf { it.isNotBlank() }?.let { append(it.uppercase()) }
             state.audioBitrateKbps?.let {
@@ -266,12 +266,13 @@ private fun NowPlayingPage(state: PlayerState, viewModel: PlayerViewModel) {
         // so they can't be rated through the native rate-song endpoint.
         val ratableSong = !state.currentSong!!.id.all { it.isDigit() }
         if (formatLabel.isNotBlank() || ratableSong) {
-            Spacer(Modifier.height(14.dp))
-            Row(
+            Spacer(Modifier.height(10.dp))
+            Column(
                 modifier = Modifier
                     .fillMaxWidth()
                     .padding(horizontal = 32.dp),
-                verticalAlignment = Alignment.CenterVertically
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.spacedBy(6.dp)
             ) {
                 if (formatLabel.isNotBlank()) {
                     Text(
@@ -280,10 +281,9 @@ private fun NowPlayingPage(state: PlayerState, viewModel: PlayerViewModel) {
                         color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.65f),
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis,
-                        modifier = Modifier.weight(1f)
+                        textAlign = TextAlign.Center,
+                        modifier = Modifier.fillMaxWidth()
                     )
-                } else {
-                    Spacer(Modifier.weight(1f))
                 }
                 if (ratableSong) {
                     RatingStars(
@@ -294,7 +294,7 @@ private fun NowPlayingPage(state: PlayerState, viewModel: PlayerViewModel) {
             }
         }
 
-        Spacer(Modifier.height(32.dp))
+        Spacer(Modifier.height(22.dp))
 
         // ── Playback controls — generously spaced, the visual anchor of the page ──
         Row(
@@ -327,7 +327,7 @@ private fun NowPlayingPage(state: PlayerState, viewModel: PlayerViewModel) {
             }
         }
 
-        Spacer(Modifier.height(20.dp))
+        Spacer(Modifier.height(14.dp))
 
         // ── Seek bar ────────────────────────────────────────────────────────────
         if (state.durationMs > 0L) {
@@ -372,7 +372,7 @@ private fun NowPlayingPage(state: PlayerState, viewModel: PlayerViewModel) {
             }
         }
 
-        Spacer(Modifier.height(28.dp))
+        Spacer(Modifier.height(18.dp))
 
         // ── Actions: Share / Add to playlist — own breathing room from the controls ──
         Column(
@@ -447,40 +447,24 @@ private fun NowPlayingPage(state: PlayerState, viewModel: PlayerViewModel) {
             }
         }
 
-        // ── File details — a single, compact, tappable line; the full filename and
-        // path (which can be long enough to force scrolling if shown inline) live
-        // in an info dialog instead, so the main view stays sober and short. ──
+        // ── File path — the full path, shown directly (not just the filename) so
+        // nothing is hidden behind a tap; kept as a quiet footnote with tight
+        // spacing so it (and everything above it) fits without forcing a scroll. ──
         state.currentSong?.path?.let { path ->
-            Spacer(Modifier.height(20.dp))
+            Spacer(Modifier.height(10.dp))
             HorizontalDivider(modifier = Modifier.padding(horizontal = 28.dp))
-            Row(
+            Text(
+                text = path,
+                style = MaterialTheme.typography.labelSmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.45f),
+                maxLines = 2,
+                overflow = TextOverflow.Ellipsis,
+                textAlign = TextAlign.Center,
                 modifier = Modifier
                     .fillMaxWidth()
-                    .clip(RoundedCornerShape(10.dp))
-                    .clickable { showFileInfoDialog = true }
-                    .padding(horizontal = 28.dp, vertical = 12.dp),
-                horizontalArrangement = Arrangement.Center,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Icon(
-                    imageVector = Icons.Default.Info,
-                    contentDescription = null,
-                    modifier = Modifier.size(15.dp),
-                    tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.4f)
-                )
-                Spacer(Modifier.width(6.dp))
-                Text(
-                    text = path.substringAfterLast('/'),
-                    style = MaterialTheme.typography.labelSmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f),
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis,
-                    modifier = Modifier.weight(1f, fill = false)
-                )
-            }
+                    .padding(horizontal = 28.dp, vertical = 8.dp)
+            )
         }
-
-        Spacer(Modifier.height(12.dp))
     }
 
     // ── Share — ask for expiry before creating the link (mStream Velvet style) ──
@@ -492,49 +476,6 @@ private fun NowPlayingPage(state: PlayerState, viewModel: PlayerViewModel) {
             },
             onDismiss = { showShareExpiryDialog = false }
         )
-    }
-
-    // ── File info dialog — full filename and path, selectable for copying.
-    // Keeps the main scrollable view compact (no forced scroll to read these),
-    // while still surfacing the exact details on demand. ──
-    if (showFileInfoDialog) {
-        state.currentSong?.path?.let { path ->
-            AlertDialog(
-                onDismissRequest = { showFileInfoDialog = false },
-                title = { Text("File details") },
-                text = {
-                    SelectionContainer {
-                        Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                            Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
-                                Text(
-                                    "Filename",
-                                    style = MaterialTheme.typography.labelSmall,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                                )
-                                Text(
-                                    path.substringAfterLast('/'),
-                                    style = MaterialTheme.typography.bodyMedium
-                                )
-                            }
-                            Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
-                                Text(
-                                    "Path",
-                                    style = MaterialTheme.typography.labelSmall,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                                )
-                                Text(
-                                    path,
-                                    style = MaterialTheme.typography.bodyMedium
-                                )
-                            }
-                        }
-                    }
-                },
-                confirmButton = {
-                    TextButton(onClick = { showFileInfoDialog = false }) { Text("Close") }
-                }
-            )
-        }
     }
 
     // ── Add-to-playlist dialog ─────────────────────────────────────────────────
