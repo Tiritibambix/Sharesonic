@@ -236,6 +236,8 @@ class MStreamRepository(private val api: MStreamApiService) {
             }
 
             Result.Success(SearchResult3(song = songs, album = albums, artist = artists))
+        } catch (e: kotlinx.coroutines.CancellationException) {
+            throw e // never swallow cancellation — structured concurrency depends on it
         } catch (e: Exception) {
             Result.Error(e.message ?: "Network error")
         }

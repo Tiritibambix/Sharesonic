@@ -41,21 +41,27 @@ class SearchViewModel(private val settingsRepo: SettingsRepository) : ViewModel(
             return
         }
         debounceJob = viewModelScope.launch {
-            delay(350) // debounce
-            _searchState.update { SearchState.Loading }
-            val settings = settingsRepo.settings.first()
-            if (!settings.isConfigured) {
-                _searchState.update { SearchState.Error("Server not configured") }
-                return@launch
-            }
-            val token = settings.jwtToken.ifEmpty {
-                _searchState.update { SearchState.Error("Not authenticated — open Settings") }
-                return@launch
-            }
-            val repo = MStreamRepository(MStreamClient.build(settings.serverUrl))
-            when (val r = repo.search(token, q.trim())) {
-                is Result.Success -> _searchState.update { SearchState.Results(r.data) }
-                is Result.Error   -> _searchState.update { SearchState.Error(r.message) }
+            try {
+                delay(350) // debounce
+                _searchState.update { SearchState.Loading }
+                val settings = settingsRepo.settings.first()
+                if (!settings.isConfigured) {
+                    _searchState.update { SearchState.Error("Server not configured") }
+                    return@launch
+                }
+                val token = settings.jwtToken.ifEmpty {
+                    _searchState.update { SearchState.Error("Not authenticated — open Settings") }
+                    return@launch
+                }
+                val repo = MStreamRepository(MStreamClient.build(settings.serverUrl))
+                when (val r = repo.search(token, q.trim())) {
+                    is Result.Success -> _searchState.update { SearchState.Results(r.data) }
+                    is Result.Error   -> _searchState.update { SearchState.Error(r.message) }
+                }
+            } catch (e: kotlinx.coroutines.CancellationException) {
+                throw e // structured concurrency — must rethrow
+            } catch (e: Exception) {
+                _searchState.update { SearchState.Error(e.message ?: "Unexpected error") }
             }
         }
     }
