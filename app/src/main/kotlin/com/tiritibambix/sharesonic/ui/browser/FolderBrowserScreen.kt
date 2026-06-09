@@ -15,7 +15,14 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
+import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.animateDpAsState
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.slideInHorizontally
+import androidx.compose.animation.slideOutHorizontally
+import androidx.compose.foundation.clickable
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -135,48 +142,29 @@ fun FolderBrowserScreen(
 
     ModalNavigationDrawer(
         drawerState = drawerState,
+        gesturesEnabled = !isTV,
         drawerContent = {
-            BoxWithConstraints {
-                ModalDrawerSheet(modifier = Modifier.width(maxWidth * 0.8f)) {
-                Spacer(Modifier.height(12.dp))
-                Text(
-                    "Sharesonic",
-                    style = MaterialTheme.typography.titleLarge,
-                    modifier = Modifier.padding(horizontal = 28.dp, vertical = 8.dp)
-                )
-                HorizontalDivider()
-                NavigationDrawerItem(
-                    label = { Text("Server") },
-                    icon = { Icon(Icons.Default.Dns, contentDescription = null) },
-                    selected = false,
-                    onClick = { closeDrawer(); onOpenServerSettings() },
-                    modifier = Modifier.padding(horizontal = 12.dp, vertical = 4.dp)
-                )
-                NavigationDrawerItem(
-                    label = { Text("Auto-DJ") },
-                    icon = { Icon(Icons.Default.Headphones, contentDescription = null) },
-                    selected = false,
-                    onClick = { closeDrawer(); onOpenAutoDjSettings() },
-                    modifier = Modifier.padding(horizontal = 12.dp, vertical = 4.dp)
-                )
-                NavigationDrawerItem(
-                    label = { Text("Theme") },
-                    icon = { Icon(Icons.Default.Palette, contentDescription = null) },
-                    selected = false,
-                    onClick = { closeDrawer(); onOpenThemeSettings() },
-                    modifier = Modifier.padding(horizontal = 12.dp, vertical = 4.dp)
-                )
-                NavigationDrawerItem(
-                    label = { Text("Public Links") },
-                    icon = { Icon(Icons.Default.Link, contentDescription = null) },
-                    selected = false,
-                    onClick = { closeDrawer(); onOpenPublicLinks() },
-                    modifier = Modifier.padding(horizontal = 12.dp, vertical = 4.dp)
-                )
-                } // ModalDrawerSheet
-            } // BoxWithConstraints
+            // Phone: render the sheet sized to 80% of the screen width.
+            // TV: intentionally empty — ModalNavigationDrawer's offset-based hide mechanism
+            // doesn't work on TV (the sheet stays at x=0 even when "closed", covering the
+            // browser). The actual drawer panel is provided by the AnimatedVisibility overlay
+            // inside the Box below, driven by the same drawerState.
+            if (!isTV) {
+                BoxWithConstraints {
+                    ModalDrawerSheet(modifier = Modifier.width(maxWidth * 0.8f)) {
+                        DrawerMenuItems(
+                            onClose = { closeDrawer() },
+                            onOpenServerSettings = onOpenServerSettings,
+                            onOpenAutoDjSettings = onOpenAutoDjSettings,
+                            onOpenThemeSettings = onOpenThemeSettings,
+                            onOpenPublicLinks = onOpenPublicLinks
+                        )
+                    }
+                }
+            }
         }
     ) {
+    Box(Modifier.fillMaxSize()) {
     Scaffold(
         modifier = Modifier.blur(contentBlur),
         topBar = {
@@ -429,6 +417,37 @@ fun FolderBrowserScreen(
             }
         }
     }
+    // ── TV overlay drawer ─────────────────────────────────────────────────────
+    // Driven by the same drawerState as the phone drawer — the hamburger icon and
+    // closeDrawer() work identically on both platforms.
+    if (isTV) {
+        AnimatedVisibility(
+            visible = drawerState.isOpen,
+            enter = slideInHorizontally { -it } + fadeIn(animationSpec = tween(200)),
+            exit  = slideOutHorizontally { -it } + fadeOut(animationSpec = tween(200))
+        ) {
+            Row(Modifier.fillMaxSize()) {
+                ModalDrawerSheet(Modifier.width(320.dp)) {
+                    DrawerMenuItems(
+                        onClose = { closeDrawer() },
+                        onOpenServerSettings = onOpenServerSettings,
+                        onOpenAutoDjSettings = onOpenAutoDjSettings,
+                        onOpenThemeSettings = onOpenThemeSettings,
+                        onOpenPublicLinks = onOpenPublicLinks
+                    )
+                }
+                // Scrim — tapping the dim area closes the drawer
+                Box(
+                    Modifier
+                        .weight(1f)
+                        .fillMaxHeight()
+                        .background(MaterialTheme.colorScheme.scrim.copy(alpha = 0.32f))
+                        .clickable { closeDrawer() }
+                )
+            }
+        }
+    }
+    } // Box
     } // ModalNavigationDrawer content
 
     // ── Playlist picker (swipe-to-add) ───────────────────────────────────────
@@ -580,6 +599,58 @@ fun FolderBrowserScreen(
             confirmButton = { TextButton(onClick = { shuffleError = null }) { Text("OK") } }
         )
     }
+}
+
+// ── Drawer menu items ─────────────────────────────────────────────────────────
+
+/**
+ * The four navigation items shown inside the hamburger drawer.
+ * Shared by the phone [ModalDrawerSheet] (inside [ModalNavigationDrawer]) and
+ * the TV [AnimatedVisibility] overlay, so the content is never duplicated.
+ */
+@Composable
+private fun DrawerMenuItems(
+    onClose: () -> Unit,
+    onOpenServerSettings: () -> Unit,
+    onOpenAutoDjSettings: () -> Unit,
+    onOpenThemeSettings: () -> Unit,
+    onOpenPublicLinks: () -> Unit
+) {
+    Spacer(Modifier.height(12.dp))
+    Text(
+        "Sharesonic",
+        style = MaterialTheme.typography.titleLarge,
+        modifier = Modifier.padding(horizontal = 28.dp, vertical = 8.dp)
+    )
+    HorizontalDivider()
+    NavigationDrawerItem(
+        label = { Text("Server") },
+        icon = { Icon(Icons.Default.Dns, contentDescription = null) },
+        selected = false,
+        onClick = { onClose(); onOpenServerSettings() },
+        modifier = Modifier.padding(horizontal = 12.dp, vertical = 4.dp)
+    )
+    NavigationDrawerItem(
+        label = { Text("Auto-DJ") },
+        icon = { Icon(Icons.Default.Headphones, contentDescription = null) },
+        selected = false,
+        onClick = { onClose(); onOpenAutoDjSettings() },
+        modifier = Modifier.padding(horizontal = 12.dp, vertical = 4.dp)
+    )
+    NavigationDrawerItem(
+        label = { Text("Theme") },
+        icon = { Icon(Icons.Default.Palette, contentDescription = null) },
+        selected = false,
+        onClick = { onClose(); onOpenThemeSettings() },
+        modifier = Modifier.padding(horizontal = 12.dp, vertical = 4.dp)
+    )
+    NavigationDrawerItem(
+        label = { Text("Public Links") },
+        icon = { Icon(Icons.Default.Link, contentDescription = null) },
+        selected = false,
+        onClick = { onClose(); onOpenPublicLinks() },
+        modifier = Modifier.padding(horizontal = 12.dp, vertical = 4.dp)
+    )
 }
 
 // ── Entry row ─────────────────────────────────────────────────────────────────
