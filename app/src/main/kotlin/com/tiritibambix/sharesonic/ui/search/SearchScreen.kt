@@ -4,6 +4,7 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.material.icons.Icons
@@ -210,7 +211,7 @@ private fun SearchResults(
             item {
                 SectionHeader("Artists")
             }
-            items(result.artist, key = { "artist_${it.id}" }) { artist ->
+            itemsIndexed(result.artist, key = { idx, _ -> "artist_$idx" }) { _, artist ->
                 ArtistRow(
                     artist = artist,
                     onClick = { onOpenFolder(artist.id, artist.name) }
@@ -222,7 +223,7 @@ private fun SearchResults(
         // ── Albums ───────────────────────────────────────────────────────
         if (result.album.isNotEmpty()) {
             item { SectionHeader("Albums") }
-            items(result.album, key = { "album_${it.id}" }) { album ->
+            itemsIndexed(result.album, key = { idx, _ -> "album_$idx" }) { _, album ->
                 EntryRow(
                     entry = album,
                     coverArtUrl = album.coverArt?.let { nativeCoverArtUrl(settings, it) },
@@ -236,7 +237,7 @@ private fun SearchResults(
         // ── Songs ────────────────────────────────────────────────────────
         if (result.song.isNotEmpty()) {
             item { SectionHeader("Songs") }
-            items(result.song, key = { "song_${it.id}" }) { song ->
+            itemsIndexed(result.song, key = { idx, _ -> "song_$idx" }) { _, song ->
                 EntryRow(
                     entry = song,
                     coverArtUrl = song.coverArt?.let { nativeCoverArtUrl(settings, it) },

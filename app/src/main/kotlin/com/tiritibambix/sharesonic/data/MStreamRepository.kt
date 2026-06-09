@@ -220,7 +220,12 @@ class MStreamRepository(private val api: MStreamApiService) {
             }
 
             val albums = resp.albums.mapNotNull { item ->
-                val fp = item.filepath?.takeIf { it.isNotBlank() } ?: return@mapNotNull null
+                // mStream returns `filepath: false` (JSON boolean) for album entries because
+                // albums are directories, not files. Gson coerces the boolean to the string
+                // "false", which is non-blank but not a valid path. Guard: a real mStream
+                // filepath always contains at least one '/' (e.g. "library/Artist/Album").
+                val fp = item.filepath?.takeIf { it.isNotBlank() && it.contains('/') }
+                    ?: return@mapNotNull null
                 EntryDto(
                     id       = fp,
                     title    = item.name?.takeIf { it.isNotBlank() } ?: fp.substringAfterLast('/'),
