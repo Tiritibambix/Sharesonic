@@ -16,6 +16,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.tiritibambix.sharesonic.data.api.models.EntryDto
 import com.tiritibambix.sharesonic.ui.player.PlayerViewModel
+import com.tiritibambix.sharesonic.utils.LocalIsTV
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -224,6 +225,7 @@ fun PlaylistDetailScreen(
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
                     } else {
+                        val isTV = LocalIsTV.current
                         LazyColumn(
                             modifier = Modifier.fillMaxSize(),
                             contentPadding = PaddingValues(bottom = listBottomPadding)
@@ -231,6 +233,7 @@ fun PlaylistDetailScreen(
                             items(s.entries, key = { it.entryId }) { entry ->
                                 SwipeToRemoveSongRow(
                                     entry = entry,
+                                    isTV = isTV,
                                     onPlay = {
                                         playerViewModel.playSong(entry.dto)
                                         onOpenNowPlaying()
@@ -251,28 +254,50 @@ fun PlaylistDetailScreen(
 @Composable
 private fun SwipeToRemoveSongRow(
     entry: PlaylistEntry,
+    isTV: Boolean,
     onPlay: () -> Unit,
     onRemove: () -> Unit
 ) {
-    val dismissState = rememberSwipeToDismissBoxState(
-        confirmValueChange = { value ->
-            if (value == SwipeToDismissBoxValue.EndToStart) { onRemove(); true } else false
-        }
-    )
-    SwipeToDismissBox(
-        state = dismissState,
-        enableDismissFromStartToEnd = false,
-        backgroundContent = {
-            Box(
-                modifier = Modifier.fillMaxSize().padding(horizontal = 16.dp),
-                contentAlignment = Alignment.CenterEnd
+    if (isTV) {
+        // TV: no swipe — show a visible ✕ button at the end of each row
+        Surface(color = MaterialTheme.colorScheme.surface) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically
             ) {
-                Icon(Icons.Default.Delete, contentDescription = "Remove", tint = MaterialTheme.colorScheme.error)
+                Box(modifier = Modifier.weight(1f)) {
+                    SongRow(song = entry.dto, onClick = onPlay)
+                }
+                IconButton(onClick = onRemove, modifier = Modifier.size(40.dp).padding(end = 8.dp)) {
+                    Icon(
+                        Icons.Default.Close,
+                        contentDescription = "Remove from playlist",
+                        tint = MaterialTheme.colorScheme.error
+                    )
+                }
             }
         }
-    ) {
-        Surface(color = MaterialTheme.colorScheme.surface) {
-            SongRow(song = entry.dto, onClick = onPlay)
+    } else {
+        val dismissState = rememberSwipeToDismissBoxState(
+            confirmValueChange = { value ->
+                if (value == SwipeToDismissBoxValue.EndToStart) { onRemove(); true } else false
+            }
+        )
+        SwipeToDismissBox(
+            state = dismissState,
+            enableDismissFromStartToEnd = false,
+            backgroundContent = {
+                Box(
+                    modifier = Modifier.fillMaxSize().padding(horizontal = 16.dp),
+                    contentAlignment = Alignment.CenterEnd
+                ) {
+                    Icon(Icons.Default.Delete, contentDescription = "Remove", tint = MaterialTheme.colorScheme.error)
+                }
+            }
+        ) {
+            Surface(color = MaterialTheme.colorScheme.surface) {
+                SongRow(song = entry.dto, onClick = onPlay)
+            }
         }
     }
 }

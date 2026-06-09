@@ -30,6 +30,8 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import coil.compose.AsyncImage
 import com.tiritibambix.sharesonic.ui.share.ShareExpiryDialog
+import com.tiritibambix.sharesonic.utils.LocalIsTV
+import kotlinx.coroutines.launch
 
 private const val PAGE_NOW_PLAYING = 0
 private const val PAGE_QUEUE = 1
@@ -41,6 +43,8 @@ fun NowPlayingScreen(
     onBack: () -> Unit,
     onShareCreated: (url: String) -> Unit
 ) {
+    val isTV = LocalIsTV.current
+    val coroutineScope = rememberCoroutineScope()
     val state by viewModel.state.collectAsState()
     val pagerState = rememberPagerState(initialPage = PAGE_NOW_PLAYING) { 2 }
     var showShareQueueExpiryDialog by remember { mutableStateOf(false) }
@@ -57,30 +61,67 @@ fun NowPlayingScreen(
         topBar = {
             TopAppBar(
                 title = {
-                    // Tab indicator: two dots
-                    Row(
-                        horizontalArrangement = Arrangement.spacedBy(6.dp),
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        repeat(2) { i ->
-                            Box(
-                                modifier = Modifier
-                                    .size(if (pagerState.currentPage == i) 8.dp else 6.dp)
-                                    .clip(CircleShape)
-                                    .background(
-                                        if (pagerState.currentPage == i)
-                                            MaterialTheme.colorScheme.primary
-                                        else
-                                            MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.4f)
-                                    )
+                    if (isTV) {
+                        // TV: explicit tab buttons — D-pad can focus and select them,
+                        // replacing the swipe gesture that doesn't work without touch.
+                        Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                            TextButton(
+                                onClick = {
+                                    coroutineScope.launch {
+                                        pagerState.animateScrollToPage(PAGE_NOW_PLAYING)
+                                    }
+                                }
+                            ) {
+                                Text(
+                                    "Now Playing",
+                                    color = if (pagerState.currentPage == PAGE_NOW_PLAYING)
+                                        MaterialTheme.colorScheme.primary
+                                    else
+                                        MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            }
+                            TextButton(
+                                onClick = {
+                                    coroutineScope.launch {
+                                        pagerState.animateScrollToPage(PAGE_QUEUE)
+                                    }
+                                }
+                            ) {
+                                Text(
+                                    "Queue (${state.queueIndex + 1}/${state.queue.size})",
+                                    color = if (pagerState.currentPage == PAGE_QUEUE)
+                                        MaterialTheme.colorScheme.primary
+                                    else
+                                        MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            }
+                        }
+                    } else {
+                        // Phone: dot indicator + label
+                        Row(
+                            horizontalArrangement = Arrangement.spacedBy(6.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            repeat(2) { i ->
+                                Box(
+                                    modifier = Modifier
+                                        .size(if (pagerState.currentPage == i) 8.dp else 6.dp)
+                                        .clip(CircleShape)
+                                        .background(
+                                            if (pagerState.currentPage == i)
+                                                MaterialTheme.colorScheme.primary
+                                            else
+                                                MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.4f)
+                                        )
+                                )
+                            }
+                            Spacer(Modifier.width(8.dp))
+                            Text(
+                                text = if (pagerState.currentPage == PAGE_NOW_PLAYING) "Now Playing"
+                                       else "Queue  (${state.queueIndex + 1}/${state.queue.size})",
+                                style = MaterialTheme.typography.titleMedium
                             )
                         }
-                        Spacer(Modifier.width(8.dp))
-                        Text(
-                            text = if (pagerState.currentPage == PAGE_NOW_PLAYING) "Now Playing"
-                                   else "Queue  (${state.queueIndex + 1}/${state.queue.size})",
-                            style = MaterialTheme.typography.titleMedium
-                        )
                     }
                 },
                 navigationIcon = {
@@ -156,7 +197,7 @@ fun NowPlayingScreen(
         ) { page ->
             when (page) {
                 PAGE_NOW_PLAYING -> NowPlayingPage(state, viewModel)
-                PAGE_QUEUE       -> QueuePage(state, viewModel)
+                PAGE_QUEUE       -> QueuePage(state, viewModel, isTV)
             }
         }
     }
@@ -590,7 +631,7 @@ private fun RatingStars(
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-private fun QueuePage(state: PlayerState, viewModel: PlayerViewModel) {
+private fun QueuePage(state: PlayerState, viewModel: PlayerViewModel, isTV: Boolean) {
     if (state.queue.isEmpty()) {
         Box(modifier = Modifier.fillMaxSize()) {
             Text(
@@ -615,10 +656,17 @@ private fun QueuePage(state: PlayerState, viewModel: PlayerViewModel) {
             val isCurrent = index == state.queueIndex
 
             if (isCurrent) {
-                // Currently playing track — no swipe
-                QueueSongRow(index, song, isCurrent) { viewModel.jumpTo(index) }
+                // Currently playing track — no remove action
+                QueueSongRow(index, song, isCurrent, onClick = { viewModel.jumpTo(index) }, onRemove = null)
+            } else if (isTV) {
+                // TV: swipe not available — show an always-visible ✕ button instead
+                QueueSongRow(
+                    index, song, isCurrent,
+                    onClick  = { viewModel.jumpTo(index) },
+                    onRemove = { viewModel.removeFromQueue(index) }
+                )
             } else {
-                // Swipe left (EndToStart) → remove from queue
+                // Phone: swipe left (EndToStart) → remove from queue
                 val dismissState = rememberSwipeToDismissBoxState(
                     confirmValueChange = { value ->
                         if (value == SwipeToDismissBoxValue.EndToStart) {
@@ -647,7 +695,7 @@ private fun QueuePage(state: PlayerState, viewModel: PlayerViewModel) {
                         }
                     }
                 ) {
-                    QueueSongRow(index, song, isCurrent) { viewModel.jumpTo(index) }
+                    QueueSongRow(index, song, isCurrent, onClick = { viewModel.jumpTo(index) }, onRemove = null)
                 }
             }
             HorizontalDivider(thickness = 0.5.dp)
@@ -660,7 +708,9 @@ private fun QueueSongRow(
     index: Int,
     song: com.tiritibambix.sharesonic.data.api.models.EntryDto,
     isCurrent: Boolean,
-    onClick: () -> Unit
+    onClick: () -> Unit,
+    /** On TV, passed for non-current rows so a ✕ button is always visible. */
+    onRemove: (() -> Unit)?
 ) {
     Row(
         modifier = Modifier
@@ -720,6 +770,17 @@ private fun QueueSongRow(
                 style = MaterialTheme.typography.labelSmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
+        }
+
+        // TV: always-visible remove button (replaces swipe gesture)
+        if (onRemove != null) {
+            IconButton(onClick = onRemove, modifier = Modifier.size(36.dp)) {
+                Icon(
+                    Icons.Default.Close,
+                    contentDescription = "Remove from queue",
+                    tint = MaterialTheme.colorScheme.error
+                )
+            }
         }
     }
 }

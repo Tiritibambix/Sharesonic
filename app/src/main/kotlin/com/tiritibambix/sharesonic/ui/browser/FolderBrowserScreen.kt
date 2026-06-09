@@ -35,6 +35,7 @@ import coil.compose.AsyncImage
 import com.tiritibambix.sharesonic.data.api.models.EntryDto
 import com.tiritibambix.sharesonic.ui.player.PlayerViewModel
 import com.tiritibambix.sharesonic.ui.share.ShareExpiryDialog
+import com.tiritibambix.sharesonic.utils.LocalIsTV
 import kotlinx.coroutines.launch
 
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalFoundationApi::class)
@@ -53,6 +54,7 @@ fun FolderBrowserScreen(
     onOpenPlaylists: () -> Unit,
     onShareCreated: (url: String) -> Unit
 ) {
+    val isTV = LocalIsTV.current
     val state by viewModel.state.collectAsState()
     val shareState by viewModel.shareState.collectAsState()
     val playerState by playerViewModel.state.collectAsState()
@@ -257,12 +259,36 @@ fun FolderBrowserScreen(
                                 modifier = Modifier.fillMaxSize(),
                                 contentPadding = PaddingValues(
                                     bottom = listBottomPadding,
-                                    end = if (letters.size >= 2) 28.dp else 0.dp
+                                    end = if (!isTV && letters.size >= 2) 28.dp else 0.dp
                                 )
                             ) {
                                 items(s.entries, key = { it.id }) { entry ->
                                     if (!entry.isDir) {
-                                        // Songs: swipe right → playlist picker | swipe left → add to queue
+                                        if (isTV) {
+                                            // TV: no swipe gestures — just the row; the context
+                                            // menu (long-press on phone, "⋮" button here) exposes
+                                            // "Add to queue" and "Add to playlist" via D-pad.
+                                            Surface(color = MaterialTheme.colorScheme.surface) {
+                                                EntryRow(
+                                                    entry = entry,
+                                                    coverArtUrl = entry.coverArt?.let { viewModel.coverArtUrl(it) },
+                                                    isTV = true,
+                                                    onClick = {
+                                                        playerViewModel.playSong(entry)
+                                                        onOpenNowPlaying()
+                                                    },
+                                                    onLongClick = {
+                                                        contextEntry = entry
+                                                        showContextMenu = true
+                                                    },
+                                                    onShowMenu = {
+                                                        contextEntry = entry
+                                                        showContextMenu = true
+                                                    }
+                                                )
+                                            }
+                                        } else {
+                                        // Phone: swipe right → playlist picker | swipe left → add to queue
                                         val dismissState = rememberSwipeToDismissBoxState(
                                             confirmValueChange = { value ->
                                                 when (value) {
@@ -342,6 +368,7 @@ fun FolderBrowserScreen(
                                                 EntryRow(
                                                     entry = entry,
                                                     coverArtUrl = entry.coverArt?.let { viewModel.coverArtUrl(it) },
+                                                    isTV = false,
                                                     onClick = {
                                                         playerViewModel.playSong(entry)
                                                         onOpenNowPlaying()
@@ -349,27 +376,36 @@ fun FolderBrowserScreen(
                                                     onLongClick = {
                                                         contextEntry = entry
                                                         showContextMenu = true
-                                                    }
+                                                    },
+                                                    onShowMenu = null
                                                 )
                                             }
                                         }
+                                        } // end phone branch
                                     } else {
                                         // Folders: no swipe, direct row
                                         EntryRow(
                                             entry = entry,
                                             coverArtUrl = entry.coverArt?.let { viewModel.coverArtUrl(it) },
+                                            isTV = isTV,
                                             onClick = { onOpenFolder(entry.id, entry.displayName) },
                                             onLongClick = {
                                                 contextEntry = entry
                                                 showContextMenu = true
-                                            }
+                                            },
+                                            onShowMenu = if (isTV) ({
+                                                contextEntry = entry
+                                                showContextMenu = true
+                                            }) else null
                                         )
                                     }
                                     HorizontalDivider(thickness = 0.5.dp)
                                 }
                             }
 
-                            if (letters.size >= 2) {
+                            // LetterStrip uses a custom drag gesture — no D-pad
+                            // equivalent possible, so it's hidden on TV.
+                            if (!isTV && letters.size >= 2) {
                                 LetterStrip(
                                     letters = letters,
                                     activeLetter = draggingLetter,
@@ -461,6 +497,21 @@ fun FolderBrowserScreen(
                             },
                             modifier = Modifier.fillMaxWidth()
                         ) { Text("▶  Play") }
+                        TextButton(
+                            onClick = {
+                                showContextMenu = false
+                                playerViewModel.addToQueue(entry)
+                            },
+                            modifier = Modifier.fillMaxWidth()
+                        ) { Text("➕  Add to queue") }
+                        TextButton(
+                            onClick = {
+                                showContextMenu = false
+                                songToAdd = entry
+                                showPlaylistPicker = true
+                            },
+                            modifier = Modifier.fillMaxWidth()
+                        ) { Text("🎵  Add to playlist") }
                     }
                     if (entry.isDir) {
                         TextButton(
@@ -538,8 +589,11 @@ fun FolderBrowserScreen(
 private fun EntryRow(
     entry: EntryDto,
     coverArtUrl: String?,
+    isTV: Boolean,
     onClick: () -> Unit,
-    onLongClick: () -> Unit
+    onLongClick: () -> Unit,
+    /** On TV, tapping this opens the context menu (replaces swipe / long-press). */
+    onShowMenu: (() -> Unit)?
 ) {
     Row(
         modifier = Modifier
@@ -606,6 +660,17 @@ private fun EntryRow(
                 style = MaterialTheme.typography.labelSmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
+        }
+
+        // TV: explicit "⋮" button — opens the context menu instead of swipe/long-press
+        if (isTV && onShowMenu != null) {
+            IconButton(onClick = onShowMenu, modifier = Modifier.size(36.dp)) {
+                Icon(
+                    imageVector = Icons.Default.MoreVert,
+                    contentDescription = "More options",
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
         }
     }
 }
