@@ -69,13 +69,13 @@ Sharesonic is built for the other scenario — the large, chaotic, lovingly diso
 <div align="center">
   <table>
     <tr>
-      <td align="center"><img src="docs/screenshots/1-Menu.png" width="180"/><br/>Menu</td>
-      <td align="center"><img src="docs/screenshots/2-Library.png" width="180"/><br/>Library</td>
-      <td align="center"><img src="docs/screenshots/3-Album.png" width="180"/><br/>Album</td>
-      <td align="center"><img src="docs/screenshots/4-PublicShare.png" width="180"/><br/>Public Share</td>
-      <td align="center"><img src="docs/screenshots/5-Player.png" width="180"/><br/>Player</td>
-      <td align="center"><img src="docs/screenshots/6-OptionsOnFolder.png" width="180"/><br/>Options on Folder</td>
-      <td align="center"><img src="docs/screenshots/7-Queue.png" width="180"/><br/>Queue</td>
+      <td align="center" width="180"><img src="docs/screenshots/1-Menu.png" width="180" height="394" style="width:180px; max-width:180px; height:auto;"/><br/>Menu</td>
+      <td align="center" width="180"><img src="docs/screenshots/2-Library.png" width="180" height="394" style="width:180px; max-width:180px; height:auto;"/><br/>Library</td>
+      <td align="center" width="180"><img src="docs/screenshots/3-Album.png" width="180" height="394" style="width:180px; max-width:180px; height:auto;"/><br/>Album</td>
+      <td align="center" width="180"><img src="docs/screenshots/4-PublicShare.png" width="180" height="394" style="width:180px; max-width:180px; height:auto;"/><br/>Public Share</td>
+      <td align="center" width="180"><img src="docs/screenshots/5-Player.png" width="180" height="394" style="width:180px; max-width:180px; height:auto;"/><br/>Player</td>
+      <td align="center" width="180"><img src="docs/screenshots/6-OptionsOnFolder.png" width="180" height="394" style="width:180px; max-width:180px; height:auto;"/><br/>Options on Folder</td>
+      <td align="center" width="180"><img src="docs/screenshots/7-Queue.png" width="180" height="394" style="width:180px; max-width:180px; height:auto;"/><br/>Queue</td>
     </tr>
   </table>
 </div>
