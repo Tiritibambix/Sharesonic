@@ -45,22 +45,17 @@ Sharesonic is built for the other scenario — the large, chaotic, lovingly diso
 | **Shuffle library** | Server-side random pick via native Velvet API — 30 tracks, no repeats |
 | **Shuffle folder** | Recursive collect + shuffle on any sub-directory |
 | **Auto-DJ** | Continuous smart queue: BPM continuity, harmonic mixing (Camelot wheel), similar artists, artist cooldown, genre filter, crossfade — toggle the headphones icon in the mini player or Now Playing |
-| **Share link** | Native mStream share API → public `server/shared/XXXXXXXXXX` URL → Android share sheet |
+| **Share link on track** | Native mStream share API → public `server/shared/XXXXXXXXXX` URL → Android share sheet |
+| **Share link on folder** | Long-press any folder → recursively collects every track inside it (including subfolders) and generates a single public link for the whole folder |
 | **Share queue** | Generate one public link for the *entire current queue* in a single tap, straight from the queue view |
+| **Manage shared links** | "Public Links" screen (drawer) lists every link you've created with its song count and expiry — copy, open, or revoke each one |
 | **Star ratings** | Rate the current track 0–5 stars from Now Playing — synced live to mStream's native rating, with an explicit one-tap way back to "unrated" |
 | **Now Playing** | Airy, uncluttered full-screen player: cover art, seek bar with elapsed/total time, artist · album info, format/bitrate, ratings and a tap-to-reveal file-details dialog (filename + full path, selectable for copying) — nothing requires scrolling |
-| **Navigation drawer** | Hamburger menu (always reachable, even from inside Server/Auto-DJ/Theme/Public Links) opens a frosted-glass, 80%-width sheet — Search and Playlists stay one tap away in the top bar at all times |
-| **Mini player** | Persistent bottom bar with progress strip, controls and art — folds up during navigation |
-| **Queue view** | Swipe left from Now Playing — full scrollable queue, tap to jump, swipe to remove, share the whole queue |
 | **Add to queue** | Swipe left on any track in the browser |
-| **Playlist management** | Create, rename, delete playlists; add/remove tracks; play all or shuffle |
 | **Add to playlist** | Swipe right on a track in the browser, or tap "Playlist" in Now Playing |
+| **Playlist management** | Create, rename, delete playlists; add/remove tracks; play all or shuffle |
 | **Search** | Pill-shaped, Material You search bar with full-text search across songs, albums, artists |
-| **Media notification** | Tap the playback notification to jump straight back into Now Playing |
-| **Settings** | Server URL, username, password, one-tap connection test — reachable via the navigation drawer |
-| **Cover art** | Loaded from mStream's native `/album-art/` endpoint |
 | **Scrobbling** | Playback reported to mStream → forwarded to Last.fm + ListenBrainz (no API keys needed). Requires **"Scrobble from External Apps"** to be enabled in mStream Velvet's server settings — otherwise mStream silently ignores the scrobble calls |
-| **Dark theme only** | Deep purple Material You palette — no light mode, no compromise |
 
 ---
 
