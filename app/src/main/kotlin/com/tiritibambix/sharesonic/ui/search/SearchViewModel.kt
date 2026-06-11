@@ -1,5 +1,6 @@
 package com.tiritibambix.sharesonic.ui.search
 
+import android.util.Log
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
@@ -52,12 +53,32 @@ class SearchViewModel(private val settingsRepo: SettingsRepository) : ViewModel(
         val token = settings.jwtToken.takeIf { it.isNotEmpty() } ?: return null
 
         val repo = MStreamRepository(MStreamClient.build(settings.serverUrl))
-        val vpaths = settingsRepo.vpaths.first()
+
+        // Vpaths are normally cached from login/connection-test, but if that
+        // never ran (or returned empty), fetch the root listing live — same
+        // fallback AutoDjSettingsViewModel uses — and persist it for next time.
+        var vpaths = settingsRepo.vpaths.first()
+        if (vpaths.isEmpty()) {
+            val root = repo.fileExplorer(token, "")
+            if (root is Result.Success && root.data.directories.isNotEmpty()) {
+                vpaths = root.data.directories.map { it.name }
+                settingsRepo.saveVpaths(vpaths)
+            }
+        }
+
+        Log.d(TAG, "resolveArtistFolder('$artistName'): vpaths=$vpaths")
+
         for (vpath in vpaths) {
             val candidate = "$vpath/$artistName"
-            if (repo.fileExplorer(token, candidate) is Result.Success) return candidate
+            val result = repo.fileExplorer(token, candidate)
+            Log.d(TAG, "  probe '$candidate' -> $result")
+            if (result is Result.Success) return candidate
         }
         return null
+    }
+
+    private companion object {
+        const val TAG = "SharesonicSearch"
     }
 
     fun onQueryChange(q: String) {

@@ -214,6 +214,14 @@ class MStreamRepository(private val api: MStreamApiService) {
         return try {
             val resp = api.nativeSearch(token, NativeSearchRequest(search = query, noFolders = false))
 
+            // Temporary diagnostics for the artist-tap folder resolution issue —
+            // grep logcat for "SharesonicSearch" to see what mStream actually
+            // returns for an artist-name query.
+            android.util.Log.d(
+                "SharesonicSearch",
+                "search('$query'): title=${resp.title} albums=${resp.albums} artists=${resp.artists}"
+            )
+
             val songs = resp.title.mapNotNull { item ->
                 val fp = item.filepath?.takeIf { it.isNotBlank() } ?: return@mapNotNull null
                 // name is "Artist - Title"; split on first " - " if present
