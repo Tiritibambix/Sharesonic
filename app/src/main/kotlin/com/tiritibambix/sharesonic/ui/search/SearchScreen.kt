@@ -1,6 +1,5 @@
 package com.tiritibambix.sharesonic.ui.search
 
-import android.widget.Toast
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
@@ -15,7 +14,6 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
@@ -197,7 +195,6 @@ private fun SearchResults(
     onOpenFolder: (id: String, name: String) -> Unit,
     onOpenNowPlaying: () -> Unit
 ) {
-    val context = LocalContext.current
     val coroutineScope = rememberCoroutineScope()
     val totalCount = result.song.size + result.album.size + result.artist.size
     if (totalCount == 0) {
@@ -211,7 +208,45 @@ private fun SearchResults(
         return
     }
 
+    // Active artist filter — set when an artist row has no resolvable folder
+    // (e.g. its tracks are scattered across compilation/vinyl-rip folders with
+    // no dedicated artist folder). Resets whenever a new search result arrives.
+    var artistFilter by remember(result) { mutableStateOf<String?>(null) }
+
+    val filteredAlbums = artistFilter?.let { f -> result.album.filter { matchesArtist(it, f) } } ?: result.album
+    val filteredSongs = artistFilter?.let { f -> result.song.filter { matchesArtist(it, f) } } ?: result.song
+
     LazyColumn(modifier = Modifier.fillMaxSize()) {
+
+        // ── Active artist filter chip ───────────────────────────────────
+        artistFilter?.let { name ->
+            item {
+                InputChip(
+                    selected = true,
+                    onClick = { artistFilter = null },
+                    label = { Text("Titles for: $name") },
+                    trailingIcon = {
+                        Icon(
+                            Icons.Default.Close,
+                            contentDescription = "Clear filter",
+                            modifier = Modifier.size(18.dp)
+                        )
+                    },
+                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)
+                )
+            }
+            if (filteredAlbums.isEmpty() && filteredSongs.isEmpty()) {
+                item {
+                    Text(
+                        "No tracks found for $name",
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 16.dp, vertical = 8.dp),
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+            }
+        }
 
         // ── Artists ──────────────────────────────────────────────────────
         if (result.artist.isNotEmpty()) {
@@ -222,23 +257,27 @@ private fun SearchResults(
                 ArtistRow(
                     artist = artist,
                     onClick = {
-                        val folderPath = findArtistFolderPath(artist.name, result.song, result.album)
-                        if (folderPath != null) {
-                            onOpenFolder(folderPath, artist.name)
+                        if (artistFilter == artist.name) {
+                            // Tapping the active filter's artist again clears it.
+                            artistFilter = null
                         } else {
-                            // The same-response heuristic found nothing (common for
-                            // artist-only queries) — fall back to probing each known
-                            // library vpath for "<vpath>/<artistName>".
-                            coroutineScope.launch {
-                                val resolved = viewModel.resolveArtistFolder(artist.name)
-                                if (resolved != null) {
-                                    onOpenFolder(resolved, artist.name)
-                                } else {
-                                    Toast.makeText(
-                                        context,
-                                        "No browsable folder found for ${artist.name}",
-                                        Toast.LENGTH_SHORT
-                                    ).show()
+                            val folderPath = findArtistFolderPath(artist.name, result.song, result.album)
+                            if (folderPath != null) {
+                                onOpenFolder(folderPath, artist.name)
+                            } else {
+                                // The same-response heuristic found nothing (common for
+                                // artist-only queries) — fall back to probing each known
+                                // library vpath for "<vpath>/<artistName>".
+                                coroutineScope.launch {
+                                    val resolved = viewModel.resolveArtistFolder(artist.name)
+                                    if (resolved != null) {
+                                        onOpenFolder(resolved, artist.name)
+                                    } else {
+                                        // No folder anywhere for this tag-derived artist
+                                        // name — filter the current results down to the
+                                        // tracks/albums that mention it instead.
+                                        artistFilter = artist.name
+                                    }
                                 }
                             }
                         }
@@ -249,9 +288,9 @@ private fun SearchResults(
         }
 
         // ── Albums ───────────────────────────────────────────────────────
-        if (result.album.isNotEmpty()) {
+        if (filteredAlbums.isNotEmpty()) {
             item { SectionHeader("Albums") }
-            itemsIndexed(result.album, key = { idx, _ -> "album_$idx" }) { _, album ->
+            itemsIndexed(filteredAlbums, key = { idx, _ -> "album_$idx" }) { _, album ->
                 EntryRow(
                     entry = album,
                     coverArtUrl = album.coverArt?.let { nativeCoverArtUrl(settings, it) },
@@ -263,9 +302,9 @@ private fun SearchResults(
         }
 
         // ── Songs ────────────────────────────────────────────────────────
-        if (result.song.isNotEmpty()) {
+        if (filteredSongs.isNotEmpty()) {
             item { SectionHeader("Songs") }
-            itemsIndexed(result.song, key = { idx, _ -> "song_$idx" }) { _, song ->
+            itemsIndexed(filteredSongs, key = { idx, _ -> "song_$idx" }) { _, song ->
                 EntryRow(
                     entry = song,
                     coverArtUrl = song.coverArt?.let { nativeCoverArtUrl(settings, it) },
@@ -418,6 +457,29 @@ private fun findArtistFolderPath(artistName: String, songs: List<EntryDto>, albu
     }?.path?.let { return it.substringBeforeLast('/') }
 
     return null
+}
+
+/** Lowercase + split on runs of non-alphanumeric characters, dropping blanks. */
+private fun words(s: String): List<String> =
+    s.lowercase().split(Regex("[^a-z0-9]+")).filter { it.isNotBlank() }
+
+/** True if [needle] occurs as a contiguous run anywhere within [haystack]. */
+private fun containsWordSequence(haystack: List<String>, needle: List<String>): Boolean {
+    if (needle.isEmpty() || needle.size > haystack.size) return false
+    return (0..haystack.size - needle.size).any { i ->
+        needle.indices.all { j -> haystack[i + j] == needle[j] }
+    }
+}
+
+/**
+ * True if [entry]'s path (or display name, for the album entries whose `path`
+ * is always the JSON boolean `false`) contains [artistName]'s words as a
+ * contiguous run. Used to find tracks belonging to a tag-derived artist name
+ * that has no corresponding on-disk folder anywhere in the library.
+ */
+private fun matchesArtist(entry: EntryDto, artistName: String): Boolean {
+    val haystack = entry.path?.takeIf { it.isNotBlank() && it != "false" } ?: entry.displayName
+    return containsWordSequence(words(haystack), words(artistName))
 }
 
 private fun formatDuration(seconds: Int): String {

@@ -77,6 +77,8 @@ class MStreamRepository(private val api: MStreamApiService) {
                 FileExplorerRequest(directory = path, sort = true, pullMetadata = pullMetadata)
             )
             Result.Success(resp)
+        } catch (e: kotlinx.coroutines.CancellationException) {
+            throw e // never swallow cancellation — structured concurrency depends on it
         } catch (e: Exception) {
             Result.Error(e.message ?: "Network error")
         }
