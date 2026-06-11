@@ -197,8 +197,11 @@ class MStreamRepository(private val api: MStreamApiService) {
      *
      * Songs come back with filepath IDs → stream and share via native endpoints.
      * Artists have no folder path of their own in the native search response
-     * (`NativeSearchArtist` only carries a `name`) — see the `artists` mapping
-     * below for how `id` is derived.
+     * (`NativeSearchArtist` only carries a `name`) — `id = name` is kept as a
+     * stable row identifier. SearchScreen derives a navigable folder path (if
+     * any) from the song/album results in this same response when an artist
+     * row is tapped; if none can be derived, the tap is a no-op rather than
+     * sending an invalid `directory` to file-explorer (which used to 500).
      */
     suspend fun search(token: String, query: String): Result<SearchResult3> {
         return try {
@@ -239,31 +242,7 @@ class MStreamRepository(private val api: MStreamApiService) {
 
             val artists = resp.artists.mapNotNull { a ->
                 val n = a.name?.takeIf { it.isNotBlank() } ?: return@mapNotNull null
-
-                // The native search endpoint doesn't return a folder path for artists,
-                // only a name. Previously `id = n` (the bare artist name) was passed
-                // straight through to onOpenFolder() -> POST /api/v1/file-explorer as
-                // `directory`, which isn't a valid vpath and made the server respond
-                // with HTTP 500. Derive the artist's real folder path from a song or
-                // album in this same response whose path contains a folder matching
-                // the artist name (format: "<vpath>/<Artist>/<Album>[/<track>]").
-                val folderPath = resp.title.firstOrNull { song ->
-                    val name = song.name.orEmpty()
-                    val dashIdx = name.indexOf(" - ")
-                    val songArtist = if (dashIdx >= 0) name.substring(0, dashIdx) else null
-                    songArtist?.equals(n, ignoreCase = true) == true
-                }?.filepath?.takeIf { it.isNotBlank() }?.let { fp ->
-                    val parts = fp.split('/')
-                    if (parts.size >= 3) parts.dropLast(2).joinToString("/") else null
-                } ?: resp.albums.firstOrNull { album ->
-                    val fp = album.filepath
-                    fp != null && fp.contains('/') &&
-                        fp.substringBeforeLast('/').substringAfterLast('/').equals(n, ignoreCase = true)
-                }?.filepath?.substringBeforeLast('/')
-
-                // If no folder path can be derived, skip this artist rather than
-                // navigating to an invalid path and crashing file-explorer with a 500.
-                folderPath?.let { TopLevelDir(id = it, name = n) }
+                TopLevelDir(id = n, name = n)
             }
 
             Result.Success(SearchResult3(song = songs, album = albums, artist = artists))

@@ -1,5 +1,6 @@
 package com.tiritibambix.sharesonic.ui.search
 
+import android.widget.Toast
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
@@ -14,6 +15,7 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
@@ -192,6 +194,7 @@ private fun SearchResults(
     onOpenFolder: (id: String, name: String) -> Unit,
     onOpenNowPlaying: () -> Unit
 ) {
+    val context = LocalContext.current
     val totalCount = result.song.size + result.album.size + result.artist.size
     if (totalCount == 0) {
         Box(modifier = Modifier.fillMaxSize()) {
@@ -214,7 +217,18 @@ private fun SearchResults(
             itemsIndexed(result.artist, key = { idx, _ -> "artist_$idx" }) { _, artist ->
                 ArtistRow(
                     artist = artist,
-                    onClick = { onOpenFolder(artist.id, artist.name) }
+                    onClick = {
+                        val folderPath = findArtistFolderPath(artist.name, result.song, result.album)
+                        if (folderPath != null) {
+                            onOpenFolder(folderPath, artist.name)
+                        } else {
+                            Toast.makeText(
+                                context,
+                                "No browsable folder found for ${artist.name}",
+                                Toast.LENGTH_SHORT
+                            ).show()
+                        }
+                    }
                 )
                 HorizontalDivider(thickness = 0.5.dp)
             }
@@ -358,6 +372,38 @@ private fun EntryRow(
             }
         }
     }
+}
+
+/**
+ * The native search response gives artists only a bare name — no folder path
+ * (see [TopLevelDir]). Derive a navigable vpath by finding a song or album in
+ * the SAME response that belongs to this artist:
+ *
+ * - A song's `path` looks like "<vpath>/<Artist>/<Album>/<track>" — drop the
+ *   last 2 segments to get the artist's folder.
+ * - An album's `path` looks like "<vpath>/<Artist>/<Album>" — drop the last
+ *   segment to get the artist's folder.
+ *
+ * Returns null if no matching song/album is present, in which case the caller
+ * should treat the artist row as non-navigable rather than passing the bare
+ * artist name to file-explorer (which returns HTTP 500 for invalid paths).
+ */
+private fun findArtistFolderPath(artistName: String, songs: List<EntryDto>, albums: List<EntryDto>): String? {
+    songs.firstOrNull { it.artist?.equals(artistName, ignoreCase = true) == true }
+        ?.path
+        ?.takeIf { it.isNotBlank() }
+        ?.let { fp ->
+            val parts = fp.split('/')
+            if (parts.size >= 3) return parts.dropLast(2).joinToString("/")
+        }
+
+    albums.firstOrNull { album ->
+        val fp = album.path
+        fp != null && fp.contains('/') &&
+            fp.substringBeforeLast('/').substringAfterLast('/').equals(artistName, ignoreCase = true)
+    }?.path?.let { return it.substringBeforeLast('/') }
+
+    return null
 }
 
 private fun formatDuration(seconds: Int): String {
