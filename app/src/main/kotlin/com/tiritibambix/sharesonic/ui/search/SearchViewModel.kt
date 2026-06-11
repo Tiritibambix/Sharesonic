@@ -39,13 +39,22 @@ class SearchViewModel(private val settingsRepo: SettingsRepository) : ViewModel(
      *
      * The native search response gives artists only a bare name (no folder
      * path), and for an artist-only query the `title`/`albums` arrays are
-     * often empty too (mStream's FTS matches song/album text, not artist
-     * names), so [SearchScreen]'s same-response heuristic frequently finds
-     * nothing. As a fallback, probe each known library vpath for a
-     * "<vpath>/<artistName>" folder via file-explorer — this matches the
-     * "<vpath>/<Artist>/<Album>/<track>" layout assumed elsewhere in the app.
-     * Returns the first vpath/artist combination that file-explorer accepts
-     * (HTTP 200), or null if none of them exist.
+     * often empty or pathless too (mStream's FTS matches song/album text —
+     * `albums` items even come back with `filepath: false` regardless of
+     * `noFolders`), so [SearchScreen]'s same-response heuristic frequently
+     * finds nothing.
+     *
+     * As a fallback, list the contents of each known top-level vpath (e.g.
+     * "Rock", "Metal" — these are genre folders on this server, one level
+     * above per-artist folders) and look for a subdirectory whose name
+     * matches [artistName] case-insensitively. Directly probing
+     * "<vpath>/<artistName>" via file-explorer doesn't work because
+     * file-explorer 500s on a path that doesn't exist with that exact
+     * case/spelling, and the artist name from search (ID3 tag casing, e.g.
+     * "TOOL") often differs from the on-disk folder name (e.g. "Tool").
+     *
+     * Returns the matched directory's path, or null if no vpath contains a
+     * same-named (case-insensitive) subdirectory.
      */
     suspend fun resolveArtistFolder(artistName: String): String? {
         val settings = settingsRepo.settings.first()
@@ -69,10 +78,16 @@ class SearchViewModel(private val settingsRepo: SettingsRepository) : ViewModel(
         Log.d(TAG, "resolveArtistFolder('$artistName'): vpaths=$vpaths")
 
         for (vpath in vpaths) {
-            val candidate = "$vpath/$artistName"
-            val result = repo.fileExplorer(token, candidate)
-            Log.d(TAG, "  probe '$candidate' -> $result")
-            if (result is Result.Success) return candidate
+            val listing = repo.fileExplorer(token, vpath)
+            if (listing !is Result.Success) {
+                Log.d(TAG, "  list '$vpath' -> $listing")
+                continue
+            }
+            val match = listing.data.directories.firstOrNull { it.name.equals(artistName, ignoreCase = true) }
+            Log.d(TAG, "  list '$vpath': dirs=${listing.data.directories.map { it.name }} match=${match?.name}")
+            if (match != null) {
+                return match.path ?: "$vpath/${match.name}"
+            }
         }
         return null
     }
