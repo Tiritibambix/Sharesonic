@@ -32,6 +32,18 @@ sealed class Screen(val route: String) {
 
     data object Search : Screen("search")
 
+    /**
+     * Standalone "folder-like" results page for an artist tapped in [Search] whose
+     * tag-derived name has no corresponding on-disk folder. The matching songs
+     * themselves travel via the shared SearchViewModel instance (see
+     * `SearchViewModel.artistResults`) — only the display name goes through the
+     * nav route, URL-encoded since artist names can contain arbitrary characters.
+     */
+    data object ArtistResults : Screen("artist-results/{artistName}") {
+        fun createRoute(artistName: String): String = "artist-results/${artistName.urlEncode()}"
+        const val ARG_NAME = "artistName"
+    }
+
     // Share URL held in AppNavGraph state — no URL embedded in route.
     data object ShareConfirm : Screen("shareconfirm")
 

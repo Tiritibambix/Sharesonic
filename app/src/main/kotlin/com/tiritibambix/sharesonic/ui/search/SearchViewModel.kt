@@ -7,6 +7,7 @@ import androidx.lifecycle.viewModelScope
 import com.tiritibambix.sharesonic.data.MStreamRepository
 import com.tiritibambix.sharesonic.data.Result
 import com.tiritibambix.sharesonic.data.api.MStreamClient
+import com.tiritibambix.sharesonic.data.api.models.EntryDto
 import com.tiritibambix.sharesonic.data.api.models.SearchResult3
 import com.tiritibambix.sharesonic.data.settings.SettingsRepository
 import kotlinx.coroutines.Job
@@ -31,6 +32,18 @@ class SearchViewModel(private val settingsRepo: SettingsRepository) : ViewModel(
 
     private val _searchState = MutableStateFlow<SearchState>(SearchState.Idle)
     val searchState: StateFlow<SearchState> = _searchState
+
+    // Songs from the most recent search result that match a tapped artist with
+    // no resolvable on-disk folder (see SearchScreen's matchesArtist()). Stashed
+    // here so the dedicated ArtistResultsScreen — which shares this ViewModel
+    // instance via the Search back stack entry — can display them as a
+    // standalone "folder" of tracks.
+    private val _artistResults = MutableStateFlow<List<EntryDto>>(emptyList())
+    val artistResults: StateFlow<List<EntryDto>> = _artistResults
+
+    fun setArtistResults(songs: List<EntryDto>) {
+        _artistResults.update { songs }
+    }
 
     private var debounceJob: Job? = null
 

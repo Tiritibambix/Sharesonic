@@ -31,6 +31,7 @@ import com.tiritibambix.sharesonic.ui.browser.FolderBrowserViewModelFactory
 import com.tiritibambix.sharesonic.ui.player.NowPlayingScreen
 import com.tiritibambix.sharesonic.ui.player.PlayerViewModel
 import com.tiritibambix.sharesonic.ui.player.PlayerViewModelFactory
+import com.tiritibambix.sharesonic.ui.search.ArtistResultsScreen
 import com.tiritibambix.sharesonic.ui.search.SearchScreen
 import com.tiritibambix.sharesonic.ui.search.SearchViewModel
 import com.tiritibambix.sharesonic.ui.search.SearchViewModelFactory
@@ -255,8 +256,43 @@ fun AppNavGraph() {
                 onOpenFolder = { path, name ->
                     navController.navigate(Screen.Browser.createRoute(path, name))
                 },
+                onOpenArtistResults = { artistName ->
+                    navController.navigate(Screen.ArtistResults.createRoute(artistName))
+                },
                 onOpenNowPlaying = { navController.navigate(Screen.NowPlaying.route) },
                 onShareCreated = ::onShareCreated
+            )
+        }
+
+        composable(
+            route = Screen.ArtistResults.route,
+            arguments = listOf(
+                navArgument(Screen.ArtistResults.ARG_NAME) { type = NavType.StringType }
+            )
+        ) { backStackEntry ->
+            val rawName = backStackEntry.arguments?.getString(Screen.ArtistResults.ARG_NAME) ?: ""
+            val artistName = runCatching { java.net.URLDecoder.decode(rawName, "UTF-8") }
+                .getOrDefault(rawName)
+
+            // Share the SearchViewModel instance with the Search screen still on the
+            // back stack below us — the matching songs were stashed there via
+            // SearchViewModel.setArtistResults() before navigating here.
+            val searchEntry = remember(backStackEntry) {
+                navController.getBackStackEntry(Screen.Search.route)
+            }
+            val searchVm: SearchViewModel = viewModel(
+                factory = SearchViewModelFactory(settingsRepo),
+                viewModelStoreOwner = searchEntry
+            )
+            val songs by searchVm.artistResults.collectAsState()
+
+            ArtistResultsScreen(
+                artistName = artistName,
+                songs = songs,
+                settings = settings,
+                playerViewModel = playerVm,
+                onBack = { navController.popBackStack() },
+                onOpenNowPlaying = { navController.navigate(Screen.NowPlaying.route) }
             )
         }
 

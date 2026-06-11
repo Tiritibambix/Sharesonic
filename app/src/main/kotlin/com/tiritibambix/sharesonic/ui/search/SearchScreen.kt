@@ -37,6 +37,7 @@ fun SearchScreen(
     settings: ServerSettings,
     onBack: () -> Unit,
     onOpenFolder: (id: String, name: String) -> Unit,
+    onOpenArtistResults: (artistName: String) -> Unit,
     onOpenNowPlaying: () -> Unit,
     onShareCreated: (url: String) -> Unit
 ) {
@@ -106,6 +107,7 @@ fun SearchScreen(
                             viewModel = viewModel,
                             playerViewModel = playerViewModel,
                             onOpenFolder = onOpenFolder,
+                            onOpenArtistResults = onOpenArtistResults,
                             onOpenNowPlaying = onOpenNowPlaying
                         )
                     }
@@ -193,6 +195,7 @@ private fun SearchResults(
     viewModel: SearchViewModel,
     playerViewModel: PlayerViewModel,
     onOpenFolder: (id: String, name: String) -> Unit,
+    onOpenArtistResults: (artistName: String) -> Unit,
     onOpenNowPlaying: () -> Unit
 ) {
     val coroutineScope = rememberCoroutineScope()
@@ -208,45 +211,7 @@ private fun SearchResults(
         return
     }
 
-    // Active artist filter — set when an artist row has no resolvable folder
-    // (e.g. its tracks are scattered across compilation/vinyl-rip folders with
-    // no dedicated artist folder). Resets whenever a new search result arrives.
-    var artistFilter by remember(result) { mutableStateOf<String?>(null) }
-
-    val filteredAlbums = artistFilter?.let { f -> result.album.filter { matchesArtist(it, f) } } ?: result.album
-    val filteredSongs = artistFilter?.let { f -> result.song.filter { matchesArtist(it, f) } } ?: result.song
-
     LazyColumn(modifier = Modifier.fillMaxSize()) {
-
-        // ── Active artist filter chip ───────────────────────────────────
-        artistFilter?.let { name ->
-            item {
-                InputChip(
-                    selected = true,
-                    onClick = { artistFilter = null },
-                    label = { Text("Titles for: $name") },
-                    trailingIcon = {
-                        Icon(
-                            Icons.Default.Close,
-                            contentDescription = "Clear filter",
-                            modifier = Modifier.size(18.dp)
-                        )
-                    },
-                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)
-                )
-            }
-            if (filteredAlbums.isEmpty() && filteredSongs.isEmpty()) {
-                item {
-                    Text(
-                        "No tracks found for $name",
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(horizontal = 16.dp, vertical = 8.dp),
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                }
-            }
-        }
 
         // ── Artists ──────────────────────────────────────────────────────
         if (result.artist.isNotEmpty()) {
@@ -257,27 +222,24 @@ private fun SearchResults(
                 ArtistRow(
                     artist = artist,
                     onClick = {
-                        if (artistFilter == artist.name) {
-                            // Tapping the active filter's artist again clears it.
-                            artistFilter = null
+                        val folderPath = findArtistFolderPath(artist.name, result.song, result.album)
+                        if (folderPath != null) {
+                            onOpenFolder(folderPath, artist.name)
                         } else {
-                            val folderPath = findArtistFolderPath(artist.name, result.song, result.album)
-                            if (folderPath != null) {
-                                onOpenFolder(folderPath, artist.name)
-                            } else {
-                                // The same-response heuristic found nothing (common for
-                                // artist-only queries) — fall back to probing each known
-                                // library vpath for "<vpath>/<artistName>".
-                                coroutineScope.launch {
-                                    val resolved = viewModel.resolveArtistFolder(artist.name)
-                                    if (resolved != null) {
-                                        onOpenFolder(resolved, artist.name)
-                                    } else {
-                                        // No folder anywhere for this tag-derived artist
-                                        // name — filter the current results down to the
-                                        // tracks/albums that mention it instead.
-                                        artistFilter = artist.name
-                                    }
+                            // The same-response heuristic found nothing (common for
+                            // artist-only queries) — fall back to probing each known
+                            // library vpath for "<vpath>/<artistName>".
+                            coroutineScope.launch {
+                                val resolved = viewModel.resolveArtistFolder(artist.name)
+                                if (resolved != null) {
+                                    onOpenFolder(resolved, artist.name)
+                                } else {
+                                    // No folder anywhere for this tag-derived artist name
+                                    // — open a dedicated results screen listing the
+                                    // songs in this response that mention it.
+                                    val matches = result.song.filter { matchesArtist(it, artist.name) }
+                                    viewModel.setArtistResults(matches)
+                                    onOpenArtistResults(artist.name)
                                 }
                             }
                         }
@@ -288,9 +250,9 @@ private fun SearchResults(
         }
 
         // ── Albums ───────────────────────────────────────────────────────
-        if (filteredAlbums.isNotEmpty()) {
+        if (result.album.isNotEmpty()) {
             item { SectionHeader("Albums") }
-            itemsIndexed(filteredAlbums, key = { idx, _ -> "album_$idx" }) { _, album ->
+            itemsIndexed(result.album, key = { idx, _ -> "album_$idx" }) { _, album ->
                 EntryRow(
                     entry = album,
                     coverArtUrl = album.coverArt?.let { nativeCoverArtUrl(settings, it) },
@@ -302,9 +264,9 @@ private fun SearchResults(
         }
 
         // ── Songs ────────────────────────────────────────────────────────
-        if (filteredSongs.isNotEmpty()) {
+        if (result.song.isNotEmpty()) {
             item { SectionHeader("Songs") }
-            itemsIndexed(filteredSongs, key = { idx, _ -> "song_$idx" }) { _, song ->
+            itemsIndexed(result.song, key = { idx, _ -> "song_$idx" }) { _, song ->
                 EntryRow(
                     entry = song,
                     coverArtUrl = song.coverArt?.let { nativeCoverArtUrl(settings, it) },
@@ -358,7 +320,7 @@ private fun ArtistRow(artist: TopLevelDir, onClick: () -> Unit) {
 }
 
 @Composable
-private fun EntryRow(
+internal fun EntryRow(
     entry: EntryDto,
     coverArtUrl: String?,
     isAlbum: Boolean,
@@ -482,7 +444,7 @@ private fun matchesArtist(entry: EntryDto, artistName: String): Boolean {
     return containsWordSequence(words(haystack), words(artistName))
 }
 
-private fun formatDuration(seconds: Int): String {
+internal fun formatDuration(seconds: Int): String {
     val m = seconds / 60
     val s = seconds % 60
     return "%d:%02d".format(m, s)
@@ -490,5 +452,5 @@ private fun formatDuration(seconds: Int): String {
 
 /** Build a native album-art URL. Search results come from the native API so
  *  coverArt is always a cache filename (e.g. "abc123.jpg"), never a Subsonic ID. */
-private fun nativeCoverArtUrl(settings: ServerSettings, filename: String): String =
+internal fun nativeCoverArtUrl(settings: ServerSettings, filename: String): String =
     "${settings.serverUrl.trimEnd('/')}/album-art/$filename?token=${settings.jwtToken}"
