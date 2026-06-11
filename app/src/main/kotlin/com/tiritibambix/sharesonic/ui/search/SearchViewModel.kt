@@ -46,15 +46,17 @@ class SearchViewModel(private val settingsRepo: SettingsRepository) : ViewModel(
      *
      * As a fallback, list the contents of each known top-level vpath (e.g.
      * "Rock", "Metal" — these are genre folders on this server, one level
-     * above per-artist folders) and look for a subdirectory whose name
-     * matches [artistName] case-insensitively. Directly probing
-     * "<vpath>/<artistName>" via file-explorer doesn't work because
-     * file-explorer 500s on a path that doesn't exist with that exact
-     * case/spelling, and the artist name from search (ID3 tag casing, e.g.
-     * "TOOL") often differs from the on-disk folder name (e.g. "Tool").
+     * above per-artist folders) and score every subdirectory against
+     * [artistName] using [matchScore]. The best-scoring directory across all
+     * vpaths is returned, or null if nothing scores above zero.
      *
-     * Returns the matched directory's path, or null if no vpath contains a
-     * same-named (case-insensitive) subdirectory.
+     * Directly probing "<vpath>/<artistName>" via file-explorer doesn't work
+     * because file-explorer 500s on a path that doesn't exist with that exact
+     * case/spelling — and the artist name from search comes from ID3 tags,
+     * which often combine multiple artists (e.g. "Bob MARLEY & The Wailers")
+     * while the on-disk folder is just the primary artist (e.g. "Bob
+     * Marley"). [matchScore] handles both the casing mismatch and the
+     * combined-artist-name case.
      */
     suspend fun resolveArtistFolder(artistName: String): String? {
         val settings = settingsRepo.settings.first()
@@ -77,23 +79,54 @@ class SearchViewModel(private val settingsRepo: SettingsRepository) : ViewModel(
 
         Log.d(TAG, "resolveArtistFolder('$artistName'): vpaths=$vpaths")
 
+        var bestPath: String? = null
+        var bestScore = 0
+        var bestName: String? = null
+
         for (vpath in vpaths) {
             val listing = repo.fileExplorer(token, vpath)
             if (listing !is Result.Success) {
                 Log.d(TAG, "  list '$vpath' -> $listing")
                 continue
             }
-            val match = listing.data.directories.firstOrNull { it.name.equals(artistName, ignoreCase = true) }
-            Log.d(TAG, "  list '$vpath': dirs=${listing.data.directories.map { it.name }} match=${match?.name}")
-            if (match != null) {
-                return match.path ?: "$vpath/${match.name}"
+            for (dir in listing.data.directories) {
+                val score = matchScore(dir.name, artistName)
+                if (score > bestScore) {
+                    bestScore = score
+                    bestName = dir.name
+                    bestPath = dir.path ?: "$vpath/${dir.name}"
+                }
             }
         }
-        return null
+
+        Log.d(TAG, "  best match: name='$bestName' path='$bestPath' score=$bestScore")
+        return if (bestScore > 0) bestPath else null
     }
 
     private companion object {
         const val TAG = "SharesonicSearch"
+
+        /** Lowercase + split on runs of non-alphanumeric characters, dropping blanks. */
+        fun words(s: String): List<String> =
+            s.lowercase().split(Regex("[^a-z0-9]+")).filter { it.isNotBlank() }
+
+        /**
+         * Scores how well an on-disk folder name matches a (possibly tag-combined)
+         * artist name, by comparing their word sequences.
+         *
+         * Returns the number of leading words the two have in common, but only if
+         * one word list is a complete prefix of the other (e.g. "Bob Marley" vs
+         * "Bob Marley & The Wailers" → 2; "Bob" vs "Bob Marley & The Wailers" → 1;
+         * "Pink Floyd" vs "Bob Marley & The Wailers" → 0). A higher score means a
+         * more specific match — callers should prefer the highest-scoring folder.
+         */
+        fun matchScore(folderName: String, artistName: String): Int {
+            val f = words(folderName)
+            val a = words(artistName)
+            if (f.isEmpty() || a.isEmpty()) return 0
+            val common = f.zip(a).takeWhile { (x, y) -> x == y }.size
+            return if (common > 0 && (common == f.size || common == a.size)) common else 0
+        }
     }
 
     fun onQueryChange(q: String) {
