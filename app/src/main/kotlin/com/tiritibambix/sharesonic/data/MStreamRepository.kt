@@ -195,6 +195,13 @@ class MStreamRepository(private val api: MStreamApiService) {
      * Full-text search using the native Velvet API (JWT auth — no Subsonic password needed).
      * Maps results to [SearchResult3] so the SearchScreen can consume them unchanged.
      *
+     * `noFolders = false`: with the default `true`, mStream omits real folder
+     * paths from `albums` results (filepath comes back as the JSON boolean
+     * `false`, coerced by Gson to the string `"false"`), which made the Albums
+     * section of search results always empty AND made it impossible to derive
+     * a folder path for an artist-only query. Passing `false` makes mStream
+     * include real album filepaths.
+     *
      * Songs come back with filepath IDs → stream and share via native endpoints.
      * Artists have no folder path of their own in the native search response
      * (`NativeSearchArtist` only carries a `name`) — `id = name` is kept as a
@@ -205,7 +212,7 @@ class MStreamRepository(private val api: MStreamApiService) {
      */
     suspend fun search(token: String, query: String): Result<SearchResult3> {
         return try {
-            val resp = api.nativeSearch(token, NativeSearchRequest(search = query))
+            val resp = api.nativeSearch(token, NativeSearchRequest(search = query, noFolders = false))
 
             val songs = resp.title.mapNotNull { item ->
                 val fp = item.filepath?.takeIf { it.isNotBlank() } ?: return@mapNotNull null
@@ -225,10 +232,11 @@ class MStreamRepository(private val api: MStreamApiService) {
             }
 
             val albums = resp.albums.mapNotNull { item ->
-                // mStream returns `filepath: false` (JSON boolean) for album entries because
-                // albums are directories, not files. Gson coerces the boolean to the string
-                // "false", which is non-blank but not a valid path. Guard: a real mStream
-                // filepath always contains at least one '/' (e.g. "library/Artist/Album").
+                // With noFolders=false mStream should send a real folder filepath for
+                // albums, but keep the defensive guard: if it ever sends the JSON
+                // boolean `false` (Gson-coerced to the string "false"), that's
+                // non-blank but not a valid path. A real mStream filepath always
+                // contains at least one '/' (e.g. "library/Artist/Album").
                 val fp = item.filepath?.takeIf { it.isNotBlank() && it.contains('/') }
                     ?: return@mapNotNull null
                 EntryDto(
