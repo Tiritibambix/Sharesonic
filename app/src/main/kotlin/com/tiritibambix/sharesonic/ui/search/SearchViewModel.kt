@@ -33,6 +33,33 @@ class SearchViewModel(private val settingsRepo: SettingsRepository) : ViewModel(
 
     private var debounceJob: Job? = null
 
+    /**
+     * Best-effort resolution of a folder path for an artist returned by [search].
+     *
+     * The native search response gives artists only a bare name (no folder
+     * path), and for an artist-only query the `title`/`albums` arrays are
+     * often empty too (mStream's FTS matches song/album text, not artist
+     * names), so [SearchScreen]'s same-response heuristic frequently finds
+     * nothing. As a fallback, probe each known library vpath for a
+     * "<vpath>/<artistName>" folder via file-explorer — this matches the
+     * "<vpath>/<Artist>/<Album>/<track>" layout assumed elsewhere in the app.
+     * Returns the first vpath/artist combination that file-explorer accepts
+     * (HTTP 200), or null if none of them exist.
+     */
+    suspend fun resolveArtistFolder(artistName: String): String? {
+        val settings = settingsRepo.settings.first()
+        if (!settings.isConfigured) return null
+        val token = settings.jwtToken.takeIf { it.isNotEmpty() } ?: return null
+
+        val repo = MStreamRepository(MStreamClient.build(settings.serverUrl))
+        val vpaths = settingsRepo.vpaths.first()
+        for (vpath in vpaths) {
+            val candidate = "$vpath/$artistName"
+            if (repo.fileExplorer(token, candidate) is Result.Success) return candidate
+        }
+        return null
+    }
+
     fun onQueryChange(q: String) {
         _query.update { q }
         debounceJob?.cancel()

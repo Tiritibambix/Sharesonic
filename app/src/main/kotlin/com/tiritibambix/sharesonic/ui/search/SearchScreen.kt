@@ -29,6 +29,7 @@ import com.tiritibambix.sharesonic.data.api.models.SearchResult3
 import com.tiritibambix.sharesonic.data.api.models.TopLevelDir
 import com.tiritibambix.sharesonic.data.settings.ServerSettings
 import com.tiritibambix.sharesonic.ui.player.PlayerViewModel
+import kotlinx.coroutines.launch
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -104,6 +105,7 @@ fun SearchScreen(
                         SearchResults(
                             result = s.result,
                             settings = settings,
+                            viewModel = viewModel,
                             playerViewModel = playerViewModel,
                             onOpenFolder = onOpenFolder,
                             onOpenNowPlaying = onOpenNowPlaying
@@ -190,11 +192,13 @@ private fun SearchField(
 private fun SearchResults(
     result: SearchResult3,
     settings: ServerSettings,
+    viewModel: SearchViewModel,
     playerViewModel: PlayerViewModel,
     onOpenFolder: (id: String, name: String) -> Unit,
     onOpenNowPlaying: () -> Unit
 ) {
     val context = LocalContext.current
+    val coroutineScope = rememberCoroutineScope()
     val totalCount = result.song.size + result.album.size + result.artist.size
     if (totalCount == 0) {
         Box(modifier = Modifier.fillMaxSize()) {
@@ -222,11 +226,21 @@ private fun SearchResults(
                         if (folderPath != null) {
                             onOpenFolder(folderPath, artist.name)
                         } else {
-                            Toast.makeText(
-                                context,
-                                "No browsable folder found for ${artist.name}",
-                                Toast.LENGTH_SHORT
-                            ).show()
+                            // The same-response heuristic found nothing (common for
+                            // artist-only queries) — fall back to probing each known
+                            // library vpath for "<vpath>/<artistName>".
+                            coroutineScope.launch {
+                                val resolved = viewModel.resolveArtistFolder(artist.name)
+                                if (resolved != null) {
+                                    onOpenFolder(resolved, artist.name)
+                                } else {
+                                    Toast.makeText(
+                                        context,
+                                        "No browsable folder found for ${artist.name}",
+                                        Toast.LENGTH_SHORT
+                                    ).show()
+                                }
+                            }
                         }
                     }
                 )
