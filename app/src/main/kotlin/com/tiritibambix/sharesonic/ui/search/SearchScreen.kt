@@ -234,12 +234,30 @@ private fun SearchResults(
                                 if (resolved != null) {
                                     onOpenFolder(resolved, artist.name)
                                 } else {
-                                    // No folder anywhere for this tag-derived artist name
-                                    // — open a dedicated results screen listing the
-                                    // songs in this response that mention it.
-                                    val matches = result.song.filter { matchesArtist(it, artist.name) }
-                                    viewModel.setArtistResults(matches)
-                                    onOpenArtistResults(artist.name)
+                                    // Still nothing — re-search using the artist's own
+                                    // name. The original query's song/album matches were
+                                    // against titles/album names, not the artist tag, so
+                                    // an artist that only matched via its tag has none
+                                    // here. This second search can surface them (and for
+                                    // tag-derived "artists" that are really compilation
+                                    // titles, often resolves directly to a folder).
+                                    val secondary = viewModel.searchSongsForArtist(artist.name)
+                                    val combinedSongs = (result.song + secondary?.song.orEmpty())
+                                        .distinctBy { it.id }
+                                    val combinedAlbums = (result.album + secondary?.album.orEmpty())
+                                        .distinctBy { it.id }
+
+                                    val folderPath2 = findArtistFolderPath(artist.name, combinedSongs, combinedAlbums)
+                                    if (folderPath2 != null) {
+                                        onOpenFolder(folderPath2, artist.name)
+                                    } else {
+                                        // No folder anywhere for this tag-derived artist
+                                        // name — open a dedicated results screen listing
+                                        // every song (from both searches) that mentions it.
+                                        val matches = combinedSongs.filter { matchesArtist(it, artist.name) }
+                                        viewModel.setArtistResults(matches)
+                                        onOpenArtistResults(artist.name)
+                                    }
                                 }
                             }
                         }
@@ -417,6 +435,16 @@ private fun findArtistFolderPath(artistName: String, songs: List<EntryDto>, albu
         fp != null && fp.contains('/') &&
             fp.substringBeforeLast('/').substringAfterLast('/').equals(artistName, ignoreCase = true)
     }?.path?.let { return it.substringBeforeLast('/') }
+
+    // The tag-derived "artist" name may actually be a compilation/album title
+    // rather than a true artist (common for vinyl-rip / "Various Artists"
+    // folders) — check whether any album's OWN folder name matches it.
+    albums.firstOrNull { album ->
+        val fp = album.path?.takeIf { it.isNotBlank() && it.contains('/') } ?: return@firstOrNull false
+        val folderWords = words(fp.substringAfterLast('/'))
+        val nameWords = words(artistName)
+        containsWordSequence(folderWords, nameWords) || containsWordSequence(nameWords, folderWords)
+    }?.path?.let { return it }
 
     return null
 }

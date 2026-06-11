@@ -116,6 +116,32 @@ class SearchViewModel(private val settingsRepo: SettingsRepository) : ViewModel(
         return if (bestScore > 0) bestPath else null
     }
 
+    /**
+     * Last-resort fallback for artist taps that found neither a same-response
+     * match ([SearchScreen.findArtistFolderPath]) nor an on-disk folder
+     * ([resolveArtistFolder]).
+     *
+     * mStream's `title`/`albums` arrays in a search response are matched
+     * independently against song titles / album names — NOT against the
+     * artist tag. So an "artist" whose name matched the original query only
+     * via its artist tag (e.g. "Sip-A-Cup-All_Roots_&_Marley", where no track
+     * title or album name contains "marley") has zero songs/albums in that
+     * response, even though its tracks exist. Re-running the search using the
+     * artist's own name as the query can surface those entries — and for
+     * tag-derived "artists" that are really compilation/album titles, this
+     * often returns an `albums` entry whose own folder matches directly.
+     */
+    suspend fun searchSongsForArtist(artistName: String): SearchResult3? {
+        val settings = settingsRepo.settings.first()
+        if (!settings.isConfigured) return null
+        val token = settings.jwtToken.takeIf { it.isNotEmpty() } ?: return null
+        val repo = MStreamRepository(MStreamClient.build(settings.serverUrl))
+        return when (val r = repo.search(token, artistName)) {
+            is Result.Success -> r.data
+            is Result.Error -> null
+        }
+    }
+
     private companion object {
         const val TAG = "SharesonicSearch"
 
