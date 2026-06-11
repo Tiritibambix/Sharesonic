@@ -1,7 +1,7 @@
 <#
 .SYNOPSIS
     Build the current branch via the existing GitHub Actions CI workflow, then
-    download the resulting debug APK and install it on a connected device —
+    download the resulting debug APK and install it on a connected device -
     without pushing to main or creating a release tag.
 
 .DESCRIPTION
@@ -25,7 +25,7 @@ param(
 
 $ErrorActionPreference = "Stop"
 
-# ── Resolve adb ──────────────────────────────────────────────────────────────
+# -- Resolve adb --------------------------------------------------------------
 function Resolve-Adb {
     param([string]$Override)
     if ($Override) { return $Override }
@@ -43,13 +43,13 @@ if ($DeviceSerial) { $adbArgs += @("-s", $DeviceSerial) }
 Write-Host "Using adb: $adb"
 & $adb @adbArgs devices
 
-# ── Push current branch if needed ───────────────────────────────────────────
+# -- Push current branch if needed -------------------------------------------
 $branch = (git branch --show-current).Trim()
 if (-not $branch) { throw "Not on a branch (detached HEAD?)." }
 
 $ahead = (git rev-list '@{u}..HEAD' --count 2>$null)
 if ($LASTEXITCODE -ne 0) {
-    Write-Host "Branch '$branch' has no upstream yet — pushing with -u..."
+    Write-Host "Branch '$branch' has no upstream yet - pushing with -u..."
     git push -u origin $branch
 } elseif ([int]$ahead -gt 0) {
     Write-Host "Pushing $ahead unpushed commit(s) on '$branch'..."
@@ -61,7 +61,7 @@ if ($LASTEXITCODE -ne 0) {
 $sha = (git rev-parse HEAD).Trim()
 Write-Host "Branch: $branch  Commit: $sha"
 
-# ── Find the workflow run for this commit (poll until it appears) ──────────
+# -- Find the workflow run for this commit (poll until it appears) ----------
 Write-Host "Waiting for the CI run to appear..."
 $runId = $null
 for ($i = 0; $i -lt 30; $i++) {
@@ -73,11 +73,11 @@ for ($i = 0; $i -lt 30; $i++) {
 }
 if (-not $runId) { throw "No workflow run found for commit $sha after 2.5 minutes." }
 
-Write-Host "Run ID: $runId — watching until it finishes (this can take a few minutes)..."
+Write-Host "Run ID: $runId - watching until it finishes (this can take a few minutes)..."
 gh run watch $runId --exit-status
 if ($LASTEXITCODE -ne 0) { throw "CI run $runId failed. Run 'gh run view $runId --log-failed' for details." }
 
-# ── Download the debug APK artifact ─────────────────────────────────────────
+# -- Download the debug APK artifact -----------------------------------------
 $dest = Join-Path $env:TEMP "sharesonic-debug-$sha"
 if (Test-Path $dest) { Remove-Item -Recurse -Force $dest }
 New-Item -ItemType Directory -Path $dest | Out-Null
@@ -88,7 +88,7 @@ gh run download $runId -n sharesonic-debug -D $dest
 $apk = Get-ChildItem -Path $dest -Filter *.apk -Recurse | Select-Object -First 1
 if (-not $apk) { throw "No APK found in downloaded artifact." }
 
-# ── Install on device ────────────────────────────────────────────────────────
+# -- Install on device --------------------------------------------------------
 Write-Host "Installing $($apk.Name) on device..."
 & $adb @adbArgs install -r $apk.FullName
 
