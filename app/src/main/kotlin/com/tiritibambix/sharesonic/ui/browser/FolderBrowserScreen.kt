@@ -187,9 +187,21 @@ fun FolderBrowserScreen(
         },
         floatingActionButton = {
             // Column + Spacer: the Spacer grows when the mini player is visible,
-            // pushing the FAB up above it without touching Scaffold's own FAB logic.
-            Column(horizontalAlignment = Alignment.End) {
-                ExtendedFloatingActionButton(
+            // pushing the FABs up above it without touching Scaffold's own FAB logic.
+            Column(horizontalAlignment = Alignment.End, verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                // Leaf folder = contains tracks but no subfolders — offer to play
+                // them in their displayed (sorted) order, alongside Shuffle.
+                if (entries.isNotEmpty() && entries.none { it.isDir }) {
+                    FloatingActionButton(
+                        onClick = {
+                            playerViewModel.playQueue(entries)
+                            onOpenNowPlaying()
+                        }
+                    ) {
+                        Icon(Icons.Default.PlayArrow, contentDescription = "Play in order")
+                    }
+                }
+                FloatingActionButton(
                     onClick = {
                         shuffleLoading = true
                         viewModel.shuffleCurrent(
@@ -203,15 +215,13 @@ fun FolderBrowserScreen(
                                 shuffleError = err
                             }
                         )
-                    },
-                    icon = {
-                        if (shuffleLoading)
-                            CircularProgressIndicator(modifier = Modifier.size(20.dp), strokeWidth = 2.dp)
-                        else
-                            Icon(Icons.Default.Shuffle, contentDescription = null)
-                    },
-                    text = { Text("Shuffle") }
-                )
+                    }
+                ) {
+                    if (shuffleLoading)
+                        CircularProgressIndicator(modifier = Modifier.size(20.dp), strokeWidth = 2.dp)
+                    else
+                        Icon(Icons.Default.Shuffle, contentDescription = "Shuffle")
+                }
                 Spacer(modifier = Modifier.height(fabBottomPadding))
             }
         }

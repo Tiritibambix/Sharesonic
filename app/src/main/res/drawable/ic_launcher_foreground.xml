@@ -75,9 +75,9 @@
 
         <!-- Shuffle — symmetric crossing arrows (purple ↔ blue) -->
         <path android:pathData="M 115,578 L 141,578 Q 165,578 185,558 L 225,518 Q 245,498 269,498 L 295,498" android:strokeColor="#8b5cf6" android:strokeWidth="10" android:strokeLineCap="round" android:strokeAlpha="0.92" android:fillColor="#00000000"/>
-        <path android:pathData="M 293,492 L 301,498 L 293,504 Z" android:fillColor="#8b5cf6" android:fillAlpha="0.92"/>
+        <path android:pathData="M 289,486 L 313,498 L 289,510 Z" android:fillColor="#8b5cf6" android:fillAlpha="0.92"/>
         <path android:pathData="M 115,498 L 141,498 Q 165,498 185,518 L 225,558 Q 245,578 269,578 L 295,578" android:strokeColor="#60a5fa" android:strokeWidth="10" android:strokeLineCap="round" android:strokeAlpha="0.92" android:fillColor="#00000000"/>
-        <path android:pathData="M 293,572 L 301,578 L 293,584 Z" android:fillColor="#60a5fa" android:fillAlpha="0.92"/>
+        <path android:pathData="M 289,566 L 313,578 L 289,590 Z" android:fillColor="#60a5fa" android:fillAlpha="0.92"/>
 
         <!-- Share — source node + two recipient nodes -->
         <path android:pathData="M 420,540 m -14,0 a 14,14 0 1,0 28,0 a 14,14 0 1,0 -28,0" android:fillColor="#0f3460" android:strokeColor="#8b5cf6" android:strokeWidth="3"/>
