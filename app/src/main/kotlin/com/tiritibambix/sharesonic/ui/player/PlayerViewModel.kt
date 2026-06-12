@@ -113,7 +113,13 @@ class PlayerViewModel(
                         val queue = _state.value.queue
                         if (idx in queue.indices) {
                             val song = queue[idx]
-                            _state.update { it.copy(queueIndex = idx, currentSong = song) }
+                            // jumpTo() already sets coverArtUrl for manual skips/queue
+                            // taps, but auto-advance (track end, Auto-DJ enqueue, or a
+                            // notification "skip") reaches this listener directly —
+                            // without recomputing it here, the artwork (or lack of it)
+                            // from the previous track stuck around indefinitely.
+                            val coverUrl = cachedSettings?.let { coverArtUrl(it, song) }
+                            _state.update { it.copy(queueIndex = idx, currentSong = song, coverArtUrl = coverUrl) }
                             // Reset 50% threshold for new track and fire "now playing"
                             scrobbleFiredFor = null
                             if (song.id != scrobbleNowPlayingFiredFor) {
