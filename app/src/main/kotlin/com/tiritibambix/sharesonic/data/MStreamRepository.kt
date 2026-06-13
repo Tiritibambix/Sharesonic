@@ -129,6 +129,25 @@ class MStreamRepository(private val api: MStreamApiService) {
     }
 
     /**
+     * Cover art for a "leaf" folder — i.e. one containing only audio files, no
+     * subdirectories. Used by the browser to show album art instead of a generic
+     * folder icon for album-like folders.
+     *
+     * Returns the album-art cache filename of the first track that has one, or
+     * null if [path] has subdirectories, has no files, or none of its files carry
+     * embedded art.
+     */
+    suspend fun leafFolderArt(token: String, path: String): String? {
+        val result = fileExplorer(token, path, pullMetadata = true)
+        if (result !is Result.Success) return null
+
+        val resp = result.data
+        if (resp.directories.isNotEmpty()) return null
+
+        return resp.files.firstNotNullOfOrNull { it.metadata?.metadata?.albumArt }
+    }
+
+    /**
      * Create a public share link for a single track.
      *
      * @param token      JWT bearer token

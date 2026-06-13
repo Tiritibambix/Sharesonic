@@ -20,6 +20,8 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.sync.Semaphore
+import kotlinx.coroutines.sync.withPermit
 
 sealed interface BrowserState {
     data object Loading : BrowserState
@@ -116,6 +118,42 @@ class FolderBrowserViewModel(
     }
 
     fun refresh() = load()
+
+    // ── Leaf folder cover art ────────────────────────────────────────────────
+
+    /**
+     * Album-art filename per leaf-folder path (or null if the folder isn't a leaf,
+     * or has no embedded art). Populated lazily by [loadFolderArt] as rows appear,
+     * and cached for the lifetime of this ViewModel to avoid repeat lookups.
+     */
+    private val _folderArt = MutableStateFlow<Map<String, String?>>(emptyMap())
+    val folderArt: StateFlow<Map<String, String?>> = _folderArt
+
+    private val folderArtInFlight = mutableSetOf<String>()
+
+    /** Caps concurrent /file-explorer lookups triggered by scrolling the browser. */
+    private val folderArtSemaphore = Semaphore(4)
+
+    /**
+     * Resolve and cache the leaf-folder cover art for [path], if not already known.
+     * Safe to call repeatedly (e.g. from a per-row LaunchedEffect) — no-ops once
+     * cached or while a lookup for [path] is already in flight.
+     */
+    fun loadFolderArt(path: String) {
+        if (_folderArt.value.containsKey(path) || !folderArtInFlight.add(path)) return
+        viewModelScope.launch {
+            val settings = settingsRepo.settings.first()
+            val token = ensureToken(settings)
+            val art = if (token != null) {
+                val mStream = MStreamRepository(MStreamClient.build(settings.serverUrl))
+                folderArtSemaphore.withPermit { mStream.leafFolderArt(token, path) }
+            } else {
+                null
+            }
+            _folderArt.update { it + (path to art) }
+            folderArtInFlight.remove(path)
+        }
+    }
 
     // ── Shuffle ───────────────────────────────────────────────────────────────
 

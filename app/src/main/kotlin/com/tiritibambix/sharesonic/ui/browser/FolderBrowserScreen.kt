@@ -65,6 +65,7 @@ fun FolderBrowserScreen(
     val state by viewModel.state.collectAsState()
     val shareState by viewModel.shareState.collectAsState()
     val playerState by playerViewModel.state.collectAsState()
+    val folderArt by viewModel.folderArt.collectAsState()
 
     // Animate FAB and list padding up when the mini player bar is visible
     val miniPlayerVisible = playerState.currentSong != null
@@ -402,10 +403,16 @@ fun FolderBrowserScreen(
                                         }
                                         } // end phone branch
                                     } else {
-                                        // Folders: no swipe, direct row
+                                        // Folders: no swipe, direct row. Leaf folders (no
+                                        // subdirectories) that contain an image get that
+                                        // image as their thumbnail instead of the folder icon.
+                                        LaunchedEffect(entry.id) {
+                                            viewModel.loadFolderArt(entry.id)
+                                        }
+                                        val folderArtFile = folderArt[entry.id]
                                         EntryRow(
                                             entry = entry,
-                                            coverArtUrl = entry.coverArt?.let { viewModel.coverArtUrl(it) },
+                                            coverArtUrl = folderArtFile?.let { viewModel.coverArtUrl(it) },
                                             isTV = isTV,
                                             onClick = { onOpenFolder(entry.id, entry.displayName) },
                                             onLongClick = {
