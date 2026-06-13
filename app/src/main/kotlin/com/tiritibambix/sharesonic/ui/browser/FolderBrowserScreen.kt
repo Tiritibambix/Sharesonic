@@ -84,6 +84,21 @@ fun FolderBrowserScreen(
     var shuffleLoading by remember { mutableStateOf(false) }
     var shuffleError by remember { mutableStateOf<String?>(null) }
 
+    fun triggerShuffle() {
+        shuffleLoading = true
+        viewModel.shuffleCurrent(
+            onReady = { songs ->
+                shuffleLoading = false
+                playerViewModel.playQueue(songs)
+                onOpenNowPlaying()
+            },
+            onError = { err ->
+                shuffleLoading = false
+                shuffleError = err
+            }
+        )
+    }
+
     // ── Swipe-to-add-to-playlist state ────────────────────────────────────────
     var songToAdd by remember { mutableStateOf<EntryDto?>(null) }
     var showPlaylistPicker by remember { mutableStateOf(false) }
@@ -102,6 +117,12 @@ fun FolderBrowserScreen(
     // Build letter → first-item-index map whenever the entry list changes.
     // Computed at top level (not inside `when`) to comply with Compose rules.
     val entries = (state as? BrowserState.Ready)?.entries ?: emptyList()
+
+    fun playInOrder() {
+        playerViewModel.playQueue(entries)
+        onOpenNowPlaying()
+    }
+
     val letterIndex: Map<Char, Int> = remember(entries) {
         buildMap {
             entries.forEachIndexed { idx, entry ->
@@ -176,6 +197,22 @@ fun FolderBrowserScreen(
                     }
                 },
                 actions = {
+                    // TV: the bottom-end FAB column isn't reachable via D-pad, so
+                    // Play-in-order/Shuffle are exposed here instead, alongside the
+                    // already-reachable Search/Playlists icons.
+                    if (isTV) {
+                        if (entries.isNotEmpty() && entries.none { it.isDir }) {
+                            IconButton(onClick = ::playInOrder) {
+                                Icon(Icons.Default.PlayArrow, contentDescription = "Play in order")
+                            }
+                        }
+                        IconButton(onClick = ::triggerShuffle) {
+                            if (shuffleLoading)
+                                CircularProgressIndicator(modifier = Modifier.size(20.dp), strokeWidth = 2.dp)
+                            else
+                                Icon(Icons.Default.Shuffle, contentDescription = "Shuffle")
+                        }
+                    }
                     IconButton(onClick = onOpenSearch) {
                         Icon(Icons.Default.Search, contentDescription = "Search")
                     }
@@ -186,43 +223,27 @@ fun FolderBrowserScreen(
             )
         },
         floatingActionButton = {
-            // Column + Spacer: the Spacer grows when the mini player is visible,
-            // pushing the FABs up above it without touching Scaffold's own FAB logic.
-            Column(horizontalAlignment = Alignment.End, verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                // Leaf folder = contains tracks but no subfolders — offer to play
-                // them in their displayed (sorted) order, alongside Shuffle.
-                if (entries.isNotEmpty() && entries.none { it.isDir }) {
-                    FloatingActionButton(
-                        onClick = {
-                            playerViewModel.playQueue(entries)
-                            onOpenNowPlaying()
+            // Unreachable via D-pad on TV — Play-in-order/Shuffle are exposed in the
+            // TopAppBar actions instead (see topBar above).
+            if (!isTV) {
+                // Column + Spacer: the Spacer grows when the mini player is visible,
+                // pushing the FABs up above it without touching Scaffold's own FAB logic.
+                Column(horizontalAlignment = Alignment.End, verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                    // Leaf folder = contains tracks but no subfolders — offer to play
+                    // them in their displayed (sorted) order, alongside Shuffle.
+                    if (entries.isNotEmpty() && entries.none { it.isDir }) {
+                        FloatingActionButton(onClick = ::playInOrder) {
+                            Icon(Icons.Default.PlayArrow, contentDescription = "Play in order")
                         }
-                    ) {
-                        Icon(Icons.Default.PlayArrow, contentDescription = "Play in order")
                     }
-                }
-                FloatingActionButton(
-                    onClick = {
-                        shuffleLoading = true
-                        viewModel.shuffleCurrent(
-                            onReady = { songs ->
-                                shuffleLoading = false
-                                playerViewModel.playQueue(songs)
-                                onOpenNowPlaying()
-                            },
-                            onError = { err ->
-                                shuffleLoading = false
-                                shuffleError = err
-                            }
-                        )
+                    FloatingActionButton(onClick = ::triggerShuffle) {
+                        if (shuffleLoading)
+                            CircularProgressIndicator(modifier = Modifier.size(20.dp), strokeWidth = 2.dp)
+                        else
+                            Icon(Icons.Default.Shuffle, contentDescription = "Shuffle")
                     }
-                ) {
-                    if (shuffleLoading)
-                        CircularProgressIndicator(modifier = Modifier.size(20.dp), strokeWidth = 2.dp)
-                    else
-                        Icon(Icons.Default.Shuffle, contentDescription = "Shuffle")
+                    Spacer(modifier = Modifier.height(fabBottomPadding))
                 }
-                Spacer(modifier = Modifier.height(fabBottomPadding))
             }
         }
     ) { padding ->
@@ -546,18 +567,7 @@ fun FolderBrowserScreen(
                         TextButton(
                             onClick = {
                                 showContextMenu = false
-                                shuffleLoading = true
-                                viewModel.shuffleCurrent(
-                                    onReady = { songs ->
-                                        shuffleLoading = false
-                                        playerViewModel.playQueue(songs)
-                                        onOpenNowPlaying()
-                                    },
-                                    onError = { err ->
-                                        shuffleLoading = false
-                                        shuffleError = err
-                                    }
-                                )
+                                triggerShuffle()
                             },
                             modifier = Modifier.fillMaxWidth()
                         ) { Text("🔀  Shuffle folder") }
