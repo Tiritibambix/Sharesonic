@@ -1,7 +1,10 @@
 package com.tiritibambix.sharesonic.data
 
 import android.util.Log
+import com.google.gson.GsonBuilder
 import com.tiritibambix.sharesonic.data.api.MStreamApiService
+import okhttp3.MediaType.Companion.toMediaType
+import okhttp3.RequestBody.Companion.toRequestBody
 import retrofit2.HttpException
 import com.tiritibambix.sharesonic.data.api.models.EntryDto
 import com.tiritibambix.sharesonic.data.api.models.FileExplorerRequest
@@ -30,6 +33,9 @@ import com.tiritibambix.sharesonic.data.api.models.TopLevelDir
 class MStreamRepository(private val api: MStreamApiService) {
 
     companion object { private const val TAG = "MStreamRepository" }
+
+    /** Used only by [rateSong] — see the comment there for why null serialization is needed. */
+    private val rateSongGson = GsonBuilder().serializeNulls().create()
 
     /** Authenticate and return the JWT token. */
     suspend fun login(username: String, password: String): Result<String> {
@@ -412,7 +418,12 @@ class MStreamRepository(private val api: MStreamApiService) {
      *              half-star scale (`stars * 2`) before sending. Pass `null` to clear the rating.
      */
     suspend fun rateSong(token: String, filepath: String, stars: Int?): Result<Unit> = try {
-        api.rateSong(token, MStreamRateSongRequest(filepath = filepath, rating = stars?.times(2)))
+        // The shared Retrofit Gson omits null fields by default (other endpoints rely on
+        // that to mean "omit this optional field"), so a clear request needs its own
+        // Gson with serializeNulls() to actually send "rating": null instead of dropping
+        // the key — the server treats a missing key as a no-op, not as "clear".
+        val json = rateSongGson.toJson(MStreamRateSongRequest(filepath = filepath, rating = stars?.times(2)))
+        api.rateSong(token, json.toRequestBody("application/json".toMediaType()))
         Result.Success(Unit)
     } catch (e: Exception) { Result.Error(friendlyNetworkErrorMessage(e)) }
 

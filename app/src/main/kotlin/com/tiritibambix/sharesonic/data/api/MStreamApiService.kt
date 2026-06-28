@@ -18,13 +18,13 @@ import com.tiritibambix.sharesonic.data.api.models.ScrobbleFilepathRequest
 import com.tiritibambix.sharesonic.data.api.models.MStreamLoginRequest
 import com.tiritibambix.sharesonic.data.api.models.MStreamLoginResponse
 import com.tiritibambix.sharesonic.data.api.models.MStreamRandomSongsRequest
-import com.tiritibambix.sharesonic.data.api.models.MStreamRateSongRequest
 import com.tiritibambix.sharesonic.data.api.models.MStreamRandomSongsResponse
 import com.tiritibambix.sharesonic.data.api.models.MStreamRefreshResponse
 import com.tiritibambix.sharesonic.data.api.models.MStreamShareListItem
 import com.tiritibambix.sharesonic.data.api.models.MStreamShareRequest
 import com.tiritibambix.sharesonic.data.api.models.MStreamShareResponse
 import com.tiritibambix.sharesonic.data.api.models.SimilarArtistsResponse
+import okhttp3.RequestBody
 import okhttp3.ResponseBody
 import retrofit2.http.Body
 import retrofit2.http.DELETE
@@ -90,11 +90,16 @@ interface MStreamApiService {
     /**
      * Rate a track — mStream's native scale is 0–10 (half-star precision); the
      * Sharesonic UI shows 0–5 stars, so `rating = stars * 2`. Pass `null` to clear.
+     *
+     * Takes a raw [RequestBody] (built by [MStreamRepository.rateSong] with a Gson
+     * instance that serializes nulls) rather than [MStreamRateSongRequest] directly —
+     * the shared converter's Gson omits null fields by default, which would drop
+     * `rating` entirely from a clear request instead of sending `"rating": null`.
      */
     @POST("api/v1/db/rate-song")
     suspend fun rateSong(
         @Header("x-access-token") token: String,
-        @Body request: MStreamRateSongRequest
+        @Body body: RequestBody
     ): ResponseBody
 
     // ── On-demand art ─────────────────────────────────────────────────────────

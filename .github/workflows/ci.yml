@@ -50,13 +50,20 @@ jobs:
         if: github.ref_type == 'tag'
         run: echo "${{ secrets.KEYSTORE_BASE64 }}" | base64 -d > app/release.keystore
 
+      - name: Derive version from tag
+        if: github.ref_type == 'tag'
+        run: |
+          VERSION="${GITHUB_REF_NAME#v}"
+          VERSION="${VERSION#.}"
+          echo "APP_VERSION_NAME=$VERSION" >> "$GITHUB_ENV"
+
       - name: Build release APK
         if: github.ref_type == 'tag'
         env:
           STORE_PASSWORD: ${{ secrets.STORE_PASSWORD }}
           KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
           KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
-        run: ./gradlew assembleRelease --no-daemon
+        run: ./gradlew assembleRelease --no-daemon -PversionName=$APP_VERSION_NAME -PversionCode=${{ github.run_number }}
 
       - name: Create GitHub Release
         if: github.ref_type == 'tag'

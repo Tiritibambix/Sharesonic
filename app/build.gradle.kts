@@ -12,8 +12,11 @@ android {
         applicationId = "com.tiritibambix.sharesonic"
         minSdk = 26
         targetSdk = 35
-        versionCode = 1
-        versionName = "0.1.0"
+        // CI overrides these via -PversionCode=<run number> -PversionName=<tag> on
+        // tagged release builds, so the APK's actual version always matches the tag
+        // it was built from. The literals below are only the local/debug fallback.
+        versionCode = (project.findProperty("versionCode") as String?)?.toIntOrNull() ?: 1
+        versionName = project.findProperty("versionName") as String? ?: "0.1.0"
     }
 
     signingConfigs {
@@ -43,6 +46,15 @@ android {
 
     buildFeatures {
         compose = true
+    }
+
+    // Name output APKs from the resolved versionName (e.g. "sharesonic-v0.3.0.apk")
+    // instead of AGP's generic "<module>-<buildType>.apk" default.
+    applicationVariants.all {
+        outputs.all {
+            (this as com.android.build.gradle.internal.api.BaseVariantOutputImpl)
+                .outputFileName = "sharesonic-v${versionName}.apk"
+        }
     }
 }
 
