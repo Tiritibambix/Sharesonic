@@ -2,6 +2,7 @@ package com.tiritibambix.sharesonic.ui.player
 
 import android.content.ComponentName
 import android.content.Context
+import android.net.Uri
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
@@ -705,10 +706,14 @@ class PlayerViewModel(
             "$base/rest/stream.view?id=${song.id}&u=${settings.username}&p=${settings.password}&v=1.16.1&c=Sharesonic&f=json"
         } else {
             val filepath = song.path ?: song.id
+            // Percent-encode each path segment (keeping '/' separators) exactly like
+            // the mStream Velvet webapp's encodeFp(). The previous version only escaped
+            // %, # and ? — it left spaces, '&', '+' and accented characters (é, è, à,
+            // ç…) literal, which 404'd the /media/ request for any such path. On a
+            // French library those are everywhere, so playback failed constantly.
             val encoded = filepath.trimStart('/')
-                .replace("%", "%25")
-                .replace("#", "%23")
-                .replace("?", "%3F")
+                .split('/')
+                .joinToString("/") { Uri.encode(it) }
             "$base/media/$encoded?token=${settings.jwtToken}"
         }
     }

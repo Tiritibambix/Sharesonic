@@ -217,6 +217,18 @@ data class NativeSearchItem(
 )
 
 /**
+ * A folder result from the native search endpoint — a real on-disk directory
+ * whose name matched the query (Velvet trigram-searches folder names). This is
+ * the precise, server-provided way to reach an artist/album folder: no path
+ * guessing. [browsePath] is `/vpath/dirpath`, directly usable as a
+ * file-explorer `directory` argument.
+ */
+data class NativeSearchFolder(
+    @SerializedName("folder_name") val folderName: String? = null,
+    @SerializedName("browse_path") val browsePath: String? = null
+)
+
+/**
  * An artist result from the native search endpoint.
  *
  * [name] is a normalized/cleaned display name (e.g. "Ben Liebrand" grouping
@@ -233,7 +245,9 @@ data class NativeSearchResponse(
     /** Song results — each item has filepath and name formatted as "Artist - Title". */
     val title: List<NativeSearchItem> = emptyList(),
     val albums: List<NativeSearchItem> = emptyList(),
-    val artists: List<NativeSearchArtist> = emptyList()
+    val artists: List<NativeSearchArtist> = emptyList(),
+    /** Real folders whose name matched the query — only present when noFolders=false. */
+    val folders: List<NativeSearchFolder> = emptyList()
 )
 
 /**

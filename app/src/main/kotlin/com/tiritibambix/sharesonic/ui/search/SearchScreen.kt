@@ -199,7 +199,7 @@ private fun SearchResults(
     onOpenNowPlaying: () -> Unit
 ) {
     val coroutineScope = rememberCoroutineScope()
-    val totalCount = result.song.size + result.album.size + result.artist.size
+    val totalCount = result.folder.size + result.song.size + result.album.size + result.artist.size
     if (totalCount == 0) {
         Box(modifier = Modifier.fillMaxSize()) {
             Text(
@@ -212,6 +212,22 @@ private fun SearchResults(
     }
 
     LazyColumn(modifier = Modifier.fillMaxSize()) {
+
+        // ── Folders ──────────────────────────────────────────────────────
+        // Real on-disk folders whose name matched the query. This is the
+        // precise, server-provided navigation path (browse_path) — exactly what
+        // the Velvet webapp surfaces as its "Folders" section — so tapping one
+        // opens the correct folder with zero client-side path guessing.
+        if (result.folder.isNotEmpty()) {
+            item { SectionHeader("Folders") }
+            itemsIndexed(result.folder, key = { idx, _ -> "folder_$idx" }) { _, folder ->
+                FolderRow(
+                    name = folder.displayName,
+                    onClick = { onOpenFolder(folder.id, folder.displayName) }
+                )
+                HorizontalDivider(thickness = 0.5.dp)
+            }
+        }
 
         // ── Artists ──────────────────────────────────────────────────────
         if (result.artist.isNotEmpty()) {
@@ -295,6 +311,31 @@ private fun SectionHeader(title: String) {
             .fillMaxWidth()
             .padding(horizontal = 16.dp, vertical = 8.dp)
     )
+}
+
+@Composable
+private fun FolderRow(name: String, onClick: () -> Unit) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable(onClick = onClick)
+            .padding(horizontal = 16.dp, vertical = 10.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(12.dp)
+    ) {
+        Icon(
+            Icons.Default.Folder,
+            contentDescription = null,
+            tint = MaterialTheme.colorScheme.primary,
+            modifier = Modifier.size(40.dp).padding(4.dp)
+        )
+        Text(
+            name,
+            style = MaterialTheme.typography.bodyLarge,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis
+        )
+    }
 }
 
 @Composable

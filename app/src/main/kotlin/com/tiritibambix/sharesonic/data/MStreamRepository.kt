@@ -289,7 +289,20 @@ class MStreamRepository(private val api: MStreamApiService) {
                 TopLevelDir(id = n, name = n, variants = a.variants.orEmpty())
             }
 
-            Result.Success(SearchResult3(song = songs, album = albums, artist = artists))
+            // Real folders matched by name — the precise, server-provided way to
+            // reach an artist/album folder (browsePath is a valid file-explorer
+            // directory), no client-side path guessing needed.
+            val folders = resp.folders.mapNotNull { f ->
+                val bp = f.browsePath?.takeIf { it.isNotBlank() } ?: return@mapNotNull null
+                EntryDto(
+                    id    = bp,
+                    title = f.folderName?.takeIf { it.isNotBlank() } ?: bp.trimEnd('/').substringAfterLast('/'),
+                    isDir = true,
+                    path  = bp
+                )
+            }
+
+            Result.Success(SearchResult3(song = songs, album = albums, artist = artists, folder = folders))
         } catch (e: kotlinx.coroutines.CancellationException) {
             throw e // never swallow cancellation — structured concurrency depends on it
         } catch (e: Exception) {

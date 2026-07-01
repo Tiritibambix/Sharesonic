@@ -66,7 +66,9 @@ data class RandomSongsContainer(val song: List<EntryDto> = emptyList())
 data class SearchResult3(
     val song: List<EntryDto> = emptyList(),
     val album: List<EntryDto> = emptyList(),
-    val artist: List<TopLevelDir> = emptyList()
+    val artist: List<TopLevelDir> = emptyList(),
+    /** Real on-disk folders whose name matched the query (each isDir=true, id=browse_path). */
+    val folder: List<EntryDto> = emptyList()
 )
 
 /**
