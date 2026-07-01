@@ -21,10 +21,11 @@ import com.tiritibambix.sharesonic.ui.player.PlayerViewModel
 /**
  * Standalone "folder-like" results page for an artist whose tag-derived name has
  * no corresponding on-disk folder anywhere in the library (its tracks are
- * scattered across compilation/vinyl-rip folders). Reached by tapping such an
- * artist in [SearchScreen] — shows every song from that search response whose
- * path mentions the artist (see [matchesArtist]), with Play all / Shuffle FABs
- * just like a real folder.
+ * scattered across compilation/vinyl-rip folders, or share no common ancestor
+ * that's actually named after the artist). Reached by tapping such an artist in
+ * [SearchScreen] — shows every song the server returned for that artist tag via
+ * [SearchViewModel.fetchArtistSongsRaw], with Play all / Shuffle FABs just like
+ * a real folder.
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable

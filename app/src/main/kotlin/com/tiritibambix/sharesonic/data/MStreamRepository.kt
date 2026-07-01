@@ -6,6 +6,7 @@ import com.tiritibambix.sharesonic.data.api.MStreamApiService
 import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.RequestBody.Companion.toRequestBody
 import retrofit2.HttpException
+import com.tiritibambix.sharesonic.data.api.models.ArtistFolderSongsRequest
 import com.tiritibambix.sharesonic.data.api.models.EntryDto
 import com.tiritibambix.sharesonic.data.api.models.FileExplorerRequest
 import com.tiritibambix.sharesonic.data.api.models.FileExplorerResponse
@@ -285,12 +286,33 @@ class MStreamRepository(private val api: MStreamApiService) {
 
             val artists = resp.artists.mapNotNull { a ->
                 val n = a.name?.takeIf { it.isNotBlank() } ?: return@mapNotNull null
-                TopLevelDir(id = n, name = n)
+                TopLevelDir(id = n, name = n, variants = a.variants.orEmpty())
             }
 
             Result.Success(SearchResult3(song = songs, album = albums, artist = artists))
         } catch (e: kotlinx.coroutines.CancellationException) {
             throw e // never swallow cancellation — structured concurrency depends on it
+        } catch (e: Exception) {
+            Result.Error(e.message ?: "Network error")
+        }
+    }
+
+    /**
+     * Every song whose artist/album_artist tag exactly matches one of [artistNames] —
+     * pass a search-result artist's normalized name PLUS all of its raw tag
+     * [com.tiritibambix.sharesonic.data.api.models.NativeSearchArtist.variants], since
+     * the server match is exact-string against the raw tag, not the normalized name.
+     *
+     * Used to resolve an artist tapped in search to its real on-disk folder: every
+     * returned entry's [EntryDto.path] is a server-verified filepath, so the caller
+     * can derive a real containing folder without any client-side path guessing.
+     */
+    suspend fun artistFolderSongs(token: String, artistNames: List<String>): Result<List<EntryDto>> {
+        return try {
+            val rows = api.artistFolderSongs(token, ArtistFolderSongsRequest(artists = artistNames))
+            Result.Success(rows.mapNotNull { fileMetaWrapperToEntryDto(it) })
+        } catch (e: kotlinx.coroutines.CancellationException) {
+            throw e
         } catch (e: Exception) {
             Result.Error(e.message ?: "Network error")
         }

@@ -222,44 +222,29 @@ private fun SearchResults(
                 ArtistRow(
                     artist = artist,
                     onClick = {
-                        val folderPath = findArtistFolderPath(artist.name, result.song, result.album)
-                        if (folderPath != null) {
-                            onOpenFolder(folderPath, artist.name)
-                        } else {
-                            // The same-response heuristic found nothing (common for
-                            // artist-only queries) — fall back to probing each known
-                            // library vpath for "<vpath>/<artistName>".
-                            coroutineScope.launch {
-                                val resolved = viewModel.resolveArtistFolder(artist.name)
-                                if (resolved != null) {
-                                    onOpenFolder(resolved, artist.name)
-                                } else {
-                                    // Still nothing — re-search using the artist's own
-                                    // name. The original query's song/album matches were
-                                    // against titles/album names, not the artist tag, so
-                                    // an artist that only matched via its tag has none
-                                    // here. This second search can surface them (and for
-                                    // tag-derived "artists" that are really compilation
-                                    // titles, often resolves directly to a folder).
-                                    val secondary = viewModel.searchSongsForArtist(artist.name)
-                                    val combinedSongs = (result.song + secondary?.song.orEmpty())
-                                        .distinctBy { it.id }
-                                    val combinedAlbums = (result.album + secondary?.album.orEmpty())
-                                        .distinctBy { it.id }
-
-                                    val folderPath2 = findArtistFolderPath(artist.name, combinedSongs, combinedAlbums)
-                                    if (folderPath2 != null) {
-                                        onOpenFolder(folderPath2, artist.name)
-                                    } else {
-                                        // No folder anywhere for this tag-derived artist
-                                        // name — open a dedicated results screen listing
-                                        // every song (from both searches) that mentions it.
-                                        val matches = combinedSongs.filter { matchesArtist(it, artist.name) }
-                                        viewModel.setArtistResults(matches)
-                                        onOpenArtistResults(artist.name)
-                                    }
-                                }
+                        coroutineScope.launch {
+                            // Tier 1: server-authoritative resolution — every song the
+                            // server has for this artist tag (+ raw tag variants) comes
+                            // back with a verified real filepath, so the derived folder
+                            // can never be a wrong-depth guess (see SearchViewModel).
+                            val resolved = viewModel.resolveArtistFolderAuthoritative(artist.name, artist.variants)
+                            if (resolved != null) {
+                                onOpenFolder(resolved, artist.name)
+                                return@launch
                             }
+                            // Tier 2: scan every known vpath for a matching subfolder —
+                            // only ever returns paths observed directly via file-explorer.
+                            val viaVpathScan = viewModel.resolveArtistFolder(artist.name)
+                            if (viaVpathScan != null) {
+                                onOpenFolder(viaVpathScan, artist.name)
+                                return@launch
+                            }
+                            // Tier 3: no real on-disk folder found anywhere — show the
+                            // dedicated results screen, fed by the same server-verified
+                            // song list Tier 1 already fetched (if any).
+                            val songs = viewModel.fetchArtistSongsRaw(artist.name, artist.variants).orEmpty()
+                            viewModel.setArtistResults(songs)
+                            onOpenArtistResults(artist.name)
                         }
                     }
                 )
@@ -405,71 +390,6 @@ internal fun EntryRow(
             }
         }
     }
-}
-
-/**
- * The native search response gives artists only a bare name — no folder path
- * (see [TopLevelDir]). Derive a navigable vpath by finding a song or album in
- * the SAME response that belongs to this artist:
- *
- * - A song's `path` looks like "<vpath>/<Artist>/<Album>/<track>" — drop the
- *   last 2 segments to get the artist's folder.
- * - An album's `path` looks like "<vpath>/<Artist>/<Album>" — drop the last
- *   segment to get the artist's folder.
- *
- * Returns null if no matching song/album is present, in which case the caller
- * should treat the artist row as non-navigable rather than passing the bare
- * artist name to file-explorer (which returns HTTP 500 for invalid paths).
- */
-private fun findArtistFolderPath(artistName: String, songs: List<EntryDto>, albums: List<EntryDto>): String? {
-    songs.firstOrNull { it.artist?.equals(artistName, ignoreCase = true) == true }
-        ?.path
-        ?.takeIf { it.isNotBlank() }
-        ?.let { fp ->
-            val parts = fp.split('/')
-            if (parts.size >= 3) return parts.dropLast(2).joinToString("/")
-        }
-
-    albums.firstOrNull { album ->
-        val fp = album.path
-        fp != null && fp.contains('/') &&
-            fp.substringBeforeLast('/').substringAfterLast('/').equals(artistName, ignoreCase = true)
-    }?.path?.let { return it.substringBeforeLast('/') }
-
-    // The tag-derived "artist" name may actually be a compilation/album title
-    // rather than a true artist (common for vinyl-rip / "Various Artists"
-    // folders) — check whether any album's OWN folder name matches it.
-    albums.firstOrNull { album ->
-        val fp = album.path?.takeIf { it.isNotBlank() && it.contains('/') } ?: return@firstOrNull false
-        val folderWords = words(fp.substringAfterLast('/'))
-        val nameWords = words(artistName)
-        containsWordSequence(folderWords, nameWords) || containsWordSequence(nameWords, folderWords)
-    }?.path?.let { return it }
-
-    return null
-}
-
-/** Lowercase + split on runs of non-alphanumeric characters, dropping blanks. */
-private fun words(s: String): List<String> =
-    s.lowercase().split(Regex("[^a-z0-9]+")).filter { it.isNotBlank() }
-
-/** True if [needle] occurs as a contiguous run anywhere within [haystack]. */
-private fun containsWordSequence(haystack: List<String>, needle: List<String>): Boolean {
-    if (needle.isEmpty() || needle.size > haystack.size) return false
-    return (0..haystack.size - needle.size).any { i ->
-        needle.indices.all { j -> haystack[i + j] == needle[j] }
-    }
-}
-
-/**
- * True if [entry]'s path (or display name, for the album entries whose `path`
- * is always the JSON boolean `false`) contains [artistName]'s words as a
- * contiguous run. Used to find tracks belonging to a tag-derived artist name
- * that has no corresponding on-disk folder anywhere in the library.
- */
-private fun matchesArtist(entry: EntryDto, artistName: String): Boolean {
-    val haystack = entry.path?.takeIf { it.isNotBlank() && it != "false" } ?: entry.displayName
-    return containsWordSequence(words(haystack), words(artistName))
 }
 
 internal fun formatDuration(seconds: Int): String {

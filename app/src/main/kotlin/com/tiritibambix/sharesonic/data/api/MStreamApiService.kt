@@ -1,5 +1,6 @@
 package com.tiritibambix.sharesonic.data.api
 
+import com.tiritibambix.sharesonic.data.api.models.ArtistFolderSongsRequest
 import com.tiritibambix.sharesonic.data.api.models.FileExplorerRequest
 import com.tiritibambix.sharesonic.data.api.models.NativePlaylist
 import com.tiritibambix.sharesonic.data.api.models.NativePlaylistAddSongRequest
@@ -12,6 +13,7 @@ import com.tiritibambix.sharesonic.data.api.models.NativePlaylistLoadRequest
 import com.tiritibambix.sharesonic.data.api.models.NativePlaylistSaveRequest
 import com.tiritibambix.sharesonic.data.api.models.FileExplorerResponse
 import com.tiritibambix.sharesonic.data.api.models.MStreamArtResponse
+import com.tiritibambix.sharesonic.data.api.models.MStreamFileMetaWrapper
 import com.tiritibambix.sharesonic.data.api.models.NativeSearchRequest
 import com.tiritibambix.sharesonic.data.api.models.NativeSearchResponse
 import com.tiritibambix.sharesonic.data.api.models.ScrobbleFilepathRequest
@@ -122,6 +124,18 @@ interface MStreamApiService {
         @Header("x-access-token") token: String,
         @Body request: NativeSearchRequest
     ): NativeSearchResponse
+
+    /**
+     * Every song whose artist/album_artist tag exactly matches one of the
+     * requested names — see [ArtistFolderSongsRequest]. Response is a bare
+     * array (not wrapped in an object), same shape as pullMetadata=true
+     * file-explorer entries and [MStreamRandomSongsResponse.songs].
+     */
+    @POST("api/v1/db/artist-folder-songs")
+    suspend fun artistFolderSongs(
+        @Header("x-access-token") token: String,
+        @Body request: ArtistFolderSongsRequest
+    ): List<MStreamFileMetaWrapper>
 
     // ── Native playlists ──────────────────────────────────────────────────────
 

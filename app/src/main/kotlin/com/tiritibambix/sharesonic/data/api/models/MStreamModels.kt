@@ -218,9 +218,16 @@ data class NativeSearchItem(
 
 /**
  * An artist result from the native search endpoint.
- * The server also returns a `variants` array which we ignore.
+ *
+ * [name] is a normalized/cleaned display name (e.g. "Ben Liebrand" grouping
+ * the raw tag "01 Ben Liebrand"). [variants] lists every raw artist/album_artist
+ * tag value that normalizes to this name — the server computes this specifically
+ * so callers can query by tag across all mistagged variants at once (see
+ * artists_normalized in the Velvet server). Required by
+ * [com.tiritibambix.sharesonic.data.MStreamRepository.artistFolderSongs], whose
+ * server-side match is an exact match against the raw tag, not the normalized name.
  */
-data class NativeSearchArtist(val name: String? = null)
+data class NativeSearchArtist(val name: String? = null, val variants: List<String>? = null)
 
 data class NativeSearchResponse(
     /** Song results — each item has filepath and name formatted as "Artist - Title". */
@@ -228,6 +235,15 @@ data class NativeSearchResponse(
     val albums: List<NativeSearchItem> = emptyList(),
     val artists: List<NativeSearchArtist> = emptyList()
 )
+
+/**
+ * Request body for POST /api/v1/db/artist-folder-songs — returns every song
+ * whose artist/album_artist tag exactly matches one of [artists]. Callers
+ * should pass an artist's normalized display name PLUS all of its raw tag
+ * [NativeSearchArtist.variants], since the server match is exact-string
+ * against the raw tag column, not the normalized name.
+ */
+data class ArtistFolderSongsRequest(val artists: List<String>)
 
 // ── Native playlists (POST /api/v1/playlist/*) ────────────────────────────────
 

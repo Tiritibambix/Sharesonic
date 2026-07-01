@@ -33,11 +33,11 @@ class SearchViewModel(private val settingsRepo: SettingsRepository) : ViewModel(
     private val _searchState = MutableStateFlow<SearchState>(SearchState.Idle)
     val searchState: StateFlow<SearchState> = _searchState
 
-    // Songs from the most recent search result that match a tapped artist with
-    // no resolvable on-disk folder (see SearchScreen's matchesArtist()). Stashed
-    // here so the dedicated ArtistResultsScreen — which shares this ViewModel
-    // instance via the Search back stack entry — can display them as a
-    // standalone "folder" of tracks.
+    // Songs fetched from the server (see fetchArtistSongsRaw()) for a tapped
+    // artist with no resolvable on-disk folder. Stashed here so the dedicated
+    // ArtistResultsScreen — which shares this ViewModel instance via the
+    // Search back stack entry — can display them as a standalone "folder" of
+    // tracks.
     private val _artistResults = MutableStateFlow<List<EntryDto>>(emptyList())
     val artistResults: StateFlow<List<EntryDto>> = _artistResults
 
@@ -117,36 +117,69 @@ class SearchViewModel(private val settingsRepo: SettingsRepository) : ViewModel(
     }
 
     /**
-     * Last-resort fallback for artist taps that found neither a same-response
-     * match ([SearchScreen.findArtistFolderPath]) nor an on-disk folder
-     * ([resolveArtistFolder]).
+     * Authoritative artist → folder resolution: fetches every song whose
+     * artist/album_artist tag exactly matches [artistName] or one of [variants]
+     * (raw tag values, see [com.tiritibambix.sharesonic.data.api.models.NativeSearchArtist])
+     * via the Velvet server's own `/api/v1/db/artist-folder-songs` endpoint, then
+     * derives a folder from those songs' server-verified filepaths — no client-side
+     * path-segment arithmetic, so the result can never "overshoot" to an unrelated
+     * ancestor folder.
      *
-     * mStream's `title`/`albums` arrays in a search response are matched
-     * independently against song titles / album names — NOT against the
-     * artist tag. So an "artist" whose name matched the original query only
-     * via its artist tag (e.g. "Sip-A-Cup-All_Roots_&_Marley", where no track
-     * title or album name contains "marley") has zero songs/albums in that
-     * response, even though its tracks exist. Re-running the search using the
-     * artist's own name as the query can surface those entries — and for
-     * tag-derived "artists" that are really compilation/album titles, this
-     * often returns an `albums` entry whose own folder matches directly.
+     * A single containing folder is trusted outright (every known track from this
+     * artist lives there). Multiple containing folders (multi-album artist) are
+     * collapsed to their common path prefix, which is only trusted as "the artist
+     * folder" if its own leaf name actually matches the artist — otherwise it's
+     * likely a shared genre/vpath root rather than an artist-specific folder, and
+     * the caller should fall back to another resolution tier.
      */
-    suspend fun searchSongsForArtist(artistName: String): SearchResult3? {
+    suspend fun resolveArtistFolderAuthoritative(artistName: String, variants: List<String>): String? {
+        val songs = fetchArtistSongsRaw(artistName, variants) ?: return null
+        if (songs.isEmpty()) return null
+
+        val dirs = songs.mapNotNull { entry ->
+            entry.path?.substringBeforeLast('/', missingDelimiterValue = "")?.takeIf { it.isNotBlank() }
+        }.distinct()
+        if (dirs.isEmpty()) return null
+
+        val common = commonPathPrefix(dirs)
+        if (common.isBlank()) return null
+
+        val leaf = common.substringAfterLast('/')
+        return if (dirs.size == 1 || matchScore(leaf, artistName) > 0) common else null
+    }
+
+    /**
+     * Raw song list for [artistName] (+ [variants]) via `/api/v1/db/artist-folder-songs` —
+     * shared by [resolveArtistFolderAuthoritative] and by [SearchScreen]'s
+     * `ArtistResultsScreen` fallback, so the last-resort screen shows the same
+     * server-verified songs instead of a separate client-side text match.
+     */
+    suspend fun fetchArtistSongsRaw(artistName: String, variants: List<String>): List<EntryDto>? {
         val settings = settingsRepo.settings.first()
         if (!settings.isConfigured) return null
         val token = settings.jwtToken.takeIf { it.isNotEmpty() } ?: return null
         val repo = MStreamRepository(MStreamClient.build(settings.serverUrl))
-        return when (val r = repo.search(token, artistName)) {
+        val names = (variants + artistName).distinct()
+        return when (val r = repo.artistFolderSongs(token, names)) {
             is Result.Success -> r.data
             is Result.Error -> null
         }
     }
 
-    private companion object {
+    /** Longest common leading-segment path shared by every entry in [paths]. */
+    private fun commonPathPrefix(paths: List<String>): String {
+        if (paths.size == 1) return paths[0]
+        val split = paths.map { it.split('/') }
+        val minLen = split.minOf { it.size }
+        val commonLen = (0 until minLen).takeWhile { i -> split.all { it[i] == split[0][i] } }.size
+        return split[0].take(commonLen).joinToString("/")
+    }
+
+    companion object {
         const val TAG = "SharesonicSearch"
 
         /** Lowercase + split on runs of non-alphanumeric characters, dropping blanks. */
-        fun words(s: String): List<String> =
+        internal fun words(s: String): List<String> =
             s.lowercase().split(Regex("[^a-z0-9]+")).filter { it.isNotBlank() }
 
         /**
@@ -159,7 +192,7 @@ class SearchViewModel(private val settingsRepo: SettingsRepository) : ViewModel(
          * "Pink Floyd" vs "Bob Marley & The Wailers" → 0). A higher score means a
          * more specific match — callers should prefer the highest-scoring folder.
          */
-        fun matchScore(folderName: String, artistName: String): Int {
+        internal fun matchScore(folderName: String, artistName: String): Int {
             val f = words(folderName)
             val a = words(artistName)
             if (f.isEmpty() || a.isEmpty()) return 0

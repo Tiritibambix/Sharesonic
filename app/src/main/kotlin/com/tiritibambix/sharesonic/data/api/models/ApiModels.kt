@@ -69,7 +69,13 @@ data class SearchResult3(
     val artist: List<TopLevelDir> = emptyList()
 )
 
-data class TopLevelDir(val id: String = "", val name: String = "")
+/**
+ * [variants] carries every raw artist/album_artist tag value that normalizes
+ * to [name] (see [com.tiritibambix.sharesonic.data.api.models.NativeSearchArtist]) —
+ * needed to resolve this artist's real folder via
+ * [com.tiritibambix.sharesonic.data.MStreamRepository.artistFolderSongs].
+ */
+data class TopLevelDir(val id: String = "", val name: String = "", val variants: List<String> = emptyList())
 
 // ── Playlists (Subsonic getPlaylists / getPlaylist / createPlaylist / updatePlaylist) ──
 
