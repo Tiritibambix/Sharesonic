@@ -14,6 +14,7 @@ import com.tiritibambix.sharesonic.data.api.models.NativePlaylistSaveRequest
 import com.tiritibambix.sharesonic.data.api.models.FileExplorerResponse
 import com.tiritibambix.sharesonic.data.api.models.VelvetArtResponse
 import com.tiritibambix.sharesonic.data.api.models.VelvetFileMetaWrapper
+import com.tiritibambix.sharesonic.data.api.models.MetadataRequest
 import com.tiritibambix.sharesonic.data.api.models.RecursiveScanRequest
 import com.tiritibambix.sharesonic.data.api.models.NativeSearchRequest
 import com.tiritibambix.sharesonic.data.api.models.NativeSearchResponse
@@ -127,6 +128,16 @@ interface VelvetApiService {
         @Header("x-access-token") token: String,
         @Body filepaths: List<String>
     ): Map<String, VelvetFileMetaWrapper>
+
+    /**
+     * Full, fresh metadata for one track (bpm / musical-key / genres included,
+     * unlike search-origin entries). Response = { filepath, metadata: {...}, rg }.
+     */
+    @POST("api/v1/db/metadata")
+    suspend fun trackMetadata(
+        @Header("x-access-token") token: String,
+        @Body request: MetadataRequest
+    ): VelvetFileMetaWrapper
 
     // ── On-demand art ─────────────────────────────────────────────────────────
 

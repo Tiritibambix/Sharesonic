@@ -211,8 +211,25 @@ fun NowPlayingScreen(
     // Full metadata table; the file path (selectable, copyable) sits last. ──
     if (showFileInfoDialog) {
         state.currentSong?.let { song ->
+            // Fetch fresh, full metadata on open so bpm/key/genres/year/track always
+            // show — search-origin songs carry none of those on their EntryDto.
+            val fresh by produceState<com.tiritibambix.sharesonic.data.api.models.VelvetInnerMetadata?>(
+                initialValue = null, key1 = song.id
+            ) {
+                value = song.path?.let { viewModel.fetchTrackMetadata(it) }
+            }
+            val enriched = song.copy(
+                bpm = fresh?.bpm ?: song.bpm,
+                musicalKey = fresh?.musicalKey ?: song.musicalKey,
+                genres = fresh?.genres ?: song.genres,
+                year = fresh?.year ?: song.year,
+                track = fresh?.track ?: song.track,
+                rating = fresh?.rating ?: song.rating,
+                artist = song.artist ?: fresh?.artist,
+                album = song.album ?: fresh?.album
+            )
             TrackInfoDialog(
-                song = song,
+                song = enriched,
                 bitrateKbps = state.audioBitrateKbps,
                 sampleRateHz = state.audioSampleRateHz,
                 channels = state.audioChannels,

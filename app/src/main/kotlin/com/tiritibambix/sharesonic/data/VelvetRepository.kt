@@ -12,6 +12,8 @@ import com.tiritibambix.sharesonic.data.api.models.FileExplorerRequest
 import com.tiritibambix.sharesonic.data.api.models.FileExplorerResponse
 import com.tiritibambix.sharesonic.data.api.models.VelvetFile
 import com.tiritibambix.sharesonic.data.api.models.VelvetFileMetaWrapper
+import com.tiritibambix.sharesonic.data.api.models.VelvetInnerMetadata
+import com.tiritibambix.sharesonic.data.api.models.MetadataRequest
 import com.tiritibambix.sharesonic.data.api.models.VelvetLoginRequest
 import com.tiritibambix.sharesonic.data.api.models.NativePlaylist
 import com.tiritibambix.sharesonic.data.api.models.NativePlaylistAddSongRequest
@@ -381,6 +383,22 @@ class VelvetRepository(private val api: VelvetApiService) {
         return try {
             val rows = api.artistFolderSongs(token, ArtistFolderSongsRequest(artists = artistNames))
             Result.Success(rows.mapNotNull { fileMetaWrapperToEntryDto(it) })
+        } catch (e: kotlinx.coroutines.CancellationException) {
+            throw e
+        } catch (e: Exception) {
+            Result.Error(e.message ?: "Network error")
+        }
+    }
+
+    /**
+     * Fresh, full metadata for a single track (bpm / musical-key / genres included)
+     * via POST /api/v1/db/metadata. Used to populate the Now Playing info dialog
+     * regardless of how the current song was queued — search-origin entries, for
+     * instance, carry no bpm/key. Returns the inner metadata, or null on failure.
+     */
+    suspend fun getTrackMetadata(token: String, filepath: String): Result<VelvetInnerMetadata?> {
+        return try {
+            Result.Success(api.trackMetadata(token, MetadataRequest(filepath)).metadata)
         } catch (e: kotlinx.coroutines.CancellationException) {
             throw e
         } catch (e: Exception) {

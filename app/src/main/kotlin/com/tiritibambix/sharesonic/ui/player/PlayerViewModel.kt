@@ -23,6 +23,7 @@ import com.tiritibambix.sharesonic.data.api.VelvetClient
 import com.tiritibambix.sharesonic.data.api.SubsonicClient
 import com.tiritibambix.sharesonic.data.api.models.BpmRange
 import com.tiritibambix.sharesonic.data.api.models.EntryDto
+import com.tiritibambix.sharesonic.data.api.models.VelvetInnerMetadata
 import com.tiritibambix.sharesonic.data.api.models.VelvetRandomSongsRequest
 import com.tiritibambix.sharesonic.data.api.models.NativePlaylist
 import com.tiritibambix.sharesonic.data.settings.AutoDjSettings
@@ -733,6 +734,21 @@ class PlayerViewModel(
             return result.data
         }
         return null
+    }
+
+    // ── Track metadata (for the Now Playing info dialog) ────────────────────────
+
+    /**
+     * Fetch fresh, full metadata (bpm / musical-key / genres) for [filepath] via
+     * the server, independent of how the current song was queued. Search-origin
+     * songs, for example, carry no bpm/key on their EntryDto — this fills the gap
+     * so the info dialog always shows what the server has. Returns null on failure.
+     */
+    suspend fun fetchTrackMetadata(filepath: String): VelvetInnerMetadata? {
+        val settings = settings()
+        val token = settings.jwtToken.takeIf { it.isNotEmpty() } ?: return null
+        val repo = VelvetRepository(VelvetClient.build(settings.serverUrl))
+        return (repo.getTrackMetadata(token, filepath) as? Result.Success)?.data
     }
 
     // ── Helpers ───────────────────────────────────────────────────────────────

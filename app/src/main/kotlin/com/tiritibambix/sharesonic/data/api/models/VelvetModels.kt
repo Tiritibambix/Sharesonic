@@ -94,6 +94,10 @@ data class VelvetInnerMetadata(
     @SerializedName("musical-key") val musicalKey: String? = null,
     /** Genre tags. */
     val genres: List<String>? = null,
+    /** Release year (present in the fresh /db/metadata response). */
+    val year: Int? = null,
+    /** Track number (present in the fresh /db/metadata response). */
+    val track: Int? = null,
     /** User rating, 0–10 (Velvet's native scale — half-star precision; UI shows 0–5 stars = rating / 2). */
     val rating: Int? = null
 )
@@ -197,6 +201,15 @@ data class VelvetRefreshResponse(val token: String? = null)
 
 /** Response from GET /api/v1/files/art?fp=<filepath>. */
 data class VelvetArtResponse(@SerializedName("aaFile") val aaFile: String? = null)
+
+/**
+ * Request body for POST /api/v1/db/metadata — full, fresh metadata for a single
+ * track. The response reuses [VelvetFileMetaWrapper] (filepath + inner metadata),
+ * and always carries bpm/musical-key/genres (via the server's renderMetadataObj),
+ * regardless of how the track was originally queued (search results, for example,
+ * don't carry those). Used to populate the Now Playing track-info dialog.
+ */
+data class MetadataRequest(val filepath: String)
 
 // ── Native search (POST /api/v1/db/search) ────────────────────────────────────
 
