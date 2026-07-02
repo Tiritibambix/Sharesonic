@@ -6,7 +6,7 @@
 
 > *Rediscover your music library. One shuffle at a time. Share what you find.*
 
-Sharesonic is an Android client for **[Velvet](https://github.com/aroundmyroom/Velvet)** — the self-hosted music server. It is built around a single philosophy: **your music collection is too large to listen to linearly — let chance guide you, then share what surprises you.**
+Sharesonic is an Android client for **[Velvet](https://github.com/aroundmyroom/Velvet)**,the self-hosted music server. It is built around a single philosophy: **your music collection is too large to listen to linearly: let chance guide you, then share what surprises you.**
 
 ---
 
@@ -20,7 +20,7 @@ Download the latest APK directly from the [Releases](https://github.com/Tiritiba
 
 [Obtainium](https://github.com/ImranR98/Obtainium) installs Sharesonic from GitHub Releases and keeps it up to date automatically.
 
-<a href="https://apps.obtainium.imranr.dev/redirect.html?r=obtainium://add/https://github.com/Tiritibambix/Sharesonic"><img src="https://raw.githubusercontent.com/ImranR98/Obtainium/main/assets/graphics/badge_obtainium.png" height="40"></a>
+<a href="https://apps.obtainium.imranr.dev/redirect.html?r=obtainium://add/https://github.com/Tiritibambix/Sharesonic"><img src="https://raw.githubusercontent.com/ImranR98/Obtainium/main/assets/graphics/badge_obtainium.png" height="50"></a>
 
 ---
 
@@ -28,7 +28,7 @@ Download the latest APK directly from the [Releases](https://github.com/Tiritiba
 
 Most music apps are built around curation: playlists you already know, albums you already love, artists you already follow. That works fine for a library of a few hundred tracks. It breaks down when you self-host thousands of albums accumulated over years.
 
-Sharesonic is built for the other scenario — the large, chaotic, lovingly disorganised self-hosted library where the best discoveries happen by accident.
+Sharesonic is built for the other scenario: the large, chaotic, lovingly disorganised self-hosted library where the best discoveries happen by accident.
 
 - **Shuffle a whole library** — hit shuffle at the root level and let random tracks from your entire collection play back-to-back. You will hear things you forgot you had.
 - **Shuffle a folder** — narrow the randomness to a genre, a decade, an artist. Still surprising, still exploratory, with a little more context.
@@ -107,7 +107,7 @@ Generic Subsonic servers (Navidrome, Airsonic, etc.) are not supported yet — p
 1. Install [Obtainium](https://github.com/ImranR98/Obtainium)
 2. Tap the badge below or add `https://github.com/Tiritibambix/Sharesonic` manually
 
-<a href="https://apps.obtainium.imranr.dev/redirect.html?r=obtainium://add/https://github.com/Tiritibambix/Sharesonic"><img src="https://raw.githubusercontent.com/ImranR98/Obtainium/main/assets/graphics/badge_obtainium.png" height="40"></a>
+<a href="https://apps.obtainium.imranr.dev/redirect.html?r=obtainium://add/https://github.com/Tiritibambix/Sharesonic"><img src="https://raw.githubusercontent.com/ImranR98/Obtainium/main/assets/graphics/badge_obtainium.png" height="50"></a>
 
 ---
 
