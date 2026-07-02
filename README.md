@@ -50,12 +50,17 @@ Sharesonic is built for the other scenario — the large, chaotic, lovingly diso
 | **Share queue** | Generate one public link for the *entire current queue* in a single tap, straight from the queue view |
 | **Manage shared links** | "Public Links" screen (drawer) lists every link you've created with its song count and expiry — copy, open, or revoke each one |
 | **Star ratings** | Rate the current track 0–5 stars from Now Playing — synced live to Velvet's native rating, with an explicit one-tap way back to "unrated" |
-| **Now Playing** | Airy, uncluttered full-screen player: cover art, seek bar with elapsed/total time, artist · album info, format/bitrate, ratings and a tap-to-reveal file-details dialog (filename + full path, selectable for copying) — nothing requires scrolling |
+| **Now Playing** | Non-scrolling full-screen player: cover art with an ambient gradient tinted by the artwork's dominant colour, waveform seek bar (tap or drag to seek), title/artist/album, format/bitrate, star rating, generously spaced controls, and Share / Playlist actions |
+| **Track info dialog** | Full metadata for the current track — title, artist, album, year, track, genres, BPM, key, duration, format, bitrate, sample rate, channels, rating, and the selectable file path. Missing fields are fetched fresh from the server on open |
+| **Sleep timer** | Set a countdown (15 / 30 / 45 / 60 / 90 min presets or a custom value) from the Now Playing "More" sheet. Playback pauses when it fires; the remaining time shows live |
+| **Lyrics** | Fetch and display lyrics for the current track from the Now Playing "More" sheet (synced or plain, whichever the server has). Loading / found / "none" / error states handled |
+| **Equalizer** | Native Android per-band equalizer reachable from the drawer or Settings: on/off switch, per-band gain sliders, "reset to flat" |
 | **Add to queue** | Swipe left on any track in the browser |
 | **Add to playlist** | Swipe right on a track in the browser, or tap "Playlist" in Now Playing |
 | **Playlist management** | Create, rename, delete playlists; add/remove tracks; play all or shuffle |
 | **Search** | Pill-shaped, Material You search bar with full-text search grouped into Folders, Artists, Albums and Songs. Tapping a folder navigates straight to it; tapping an artist opens a list of that artist's tracks (featuring/variant spellings included) |
 | **Scrobbling** | Playback reported to Velvet → forwarded to Last.fm + ListenBrainz (no API keys needed). Requires **"Scrobble from External Apps"** to be enabled in Velvet's server settings — otherwise Velvet silently ignores the scrobble calls |
+| **Crash reporter** | If the app ever crashes, the full stack trace is shown in a copyable dialog on the next launch — no adb needed to diagnose |
 
 ---
 
@@ -140,8 +145,8 @@ GitHub Actions runs on every push and tag:
 
 | Trigger | Action |
 |---|---|
-| Push to `main` | Build debug APK, upload as workflow artifact |
-| Tag `v*` | Build release APK, create GitHub Release, attach APK |
+| Push to any branch | Build debug APK named `sharesonic-artifact+<run>.apk`, upload as workflow artifact |
+| Tag `v*` | Build signed release APK named `sharesonic-v<version>.apk`, create GitHub Release, attach APK |
 
 ---
 
@@ -160,6 +165,8 @@ Sharesonic runs entirely on Velvet's native API; a Subsonic compatibility layer 
 | `POST /api/v1/db/metadata/batch` | Batch metadata for a list of filepaths (folder shuffle) |
 | `POST /api/v1/db/search` | Full-text search (folders, artists, albums, songs) |
 | `POST /api/v1/db/artist-folder-songs` | All tracks for an artist tag (tapping an artist in search) |
+| `POST /api/v1/db/metadata` | Fresh, full metadata for one track (bpm / musical-key / genres — for the Track Info dialog) |
+| `GET /api/v1/lyrics` | Lyrics for a track (server-parsed synced or plain — for the Lyrics sheet) |
 | `GET /media/<filepath>?token=<jwt>` | Audio streaming (each path segment percent-encoded) |
 | `GET /album-art/<file>?token=<jwt>` | Cover art |
 | `POST /api/v1/share` | Generate public share link for a track or the whole queue (`time` = days) |
@@ -200,7 +207,8 @@ no longer produces.
 - No offline caching or download for offline playback
 - No multiple server profiles
 - No Android Auto support
-- No lyrics
+- No Chromecast / DLNA casting
+- Generic Subsonic server support (Navidrome, Airsonic…) — planned post-v1
 
 Contributions welcome. Open an issue before submitting a large PR.
 

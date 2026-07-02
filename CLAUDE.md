@@ -13,7 +13,10 @@ The goal is an app that does a handful of things well:
 * Rate tracks 0–5 stars from Now Playing, with an explicit way to clear back to "unrated"
 * Manage playlists (create, rename, delete; add/remove tracks; play all / shuffle)
 * Persistent mini player during navigation
-* Hamburger navigation drawer (Server, Auto-DJ, Themes, Public Links) reachable from anywhere, with Search and Playlists always pinned in the top bar
+* Sleep timer (pause after a chosen duration)
+* Lyrics viewer for the current track
+* Native Android per-band equalizer
+* Hamburger navigation drawer (Server, Auto-DJ, Equalizer, Themes, Public Links) reachable from anywhere, with Search and Playlists always pinned in the top bar
 
 ## Core Requirements
 
@@ -25,7 +28,10 @@ The goal is an app that does a handful of things well:
 * Share link generation: tap a track → generate a `server/shared/XXXXXXXXXX` public URL via the Velvet native share API → Android share sheet opens with that URL ready to send
 * Share queue: from the queue view, generate a single public link covering every track currently queued (same native share endpoint, fed the queue's filepaths); Subsonic-search-origin tracks are skipped since they aren't shareable through it
 * Star ratings: rate the current track 0–5 stars from Now Playing (synced to Velvet's native 0–10 half-star scale); tapping the active star — or an explicit always-visible clear button — resets it back to "unrated", mirroring the Auto-DJ "minimum rating" picker's affordance
-* Settings reachable via a hamburger navigation drawer containing **Server**, **Auto-DJ**, **Themes** and **Public Links**; the hamburger glyph stays in the top-left of every drawer destination so users can tap back out; Search and Playlists icons remain pinned top-right in the Folder Browser at all times
+* Settings reachable via a hamburger navigation drawer containing **Server**, **Auto-DJ**, **Equalizer**, **Themes** and **Public Links**; the hamburger glyph stays in the top-left of every drawer destination so users can tap back out; Search and Playlists icons remain pinned top-right in the Folder Browser at all times
+* Sleep timer, lyrics and full track-info dialog reachable from the Now Playing "⋮ More" bottom sheet
+* Equalizer: native Android per-band effect attached to the ExoPlayer audio session, with persistent on/off + per-band gains
+* In-app crash reporter: any uncaught exception is logged and shown in a copyable dialog on the next launch — no adb needed to diagnose crashes
 * Playlist management: create, rename, delete playlists; add/remove tracks; play all / shuffle; add from browser (swipe right) or from Now Playing
 * Persistent mini player bar during navigation: thumbnail, title/artist, skip/play-pause controls, live progress strip; folds away on the Now Playing screen
 * Tapping the playback media-style notification brings the app to the foreground straight into Now Playing
@@ -51,16 +57,19 @@ The goal is an app that does a handful of things well:
 
 ### Key Screens
 
-1. **Navigation drawer** — hamburger menu opening a frosted-glass sheet sized to ~80% of the screen width (`Modifier.width(maxWidth * 0.8f)` + `Modifier.blur()` on the content behind it via `animateDpAsState`), so a blurred sliver of the browser stays visible and tappable on the right — making the swipe-to-dismiss gesture obvious without anyone having to discover it. Lists **Server**, **Auto-DJ**, **Themes**, **Public Links**; each destination keeps the hamburger glyph as its `navigationIcon` so tapping it again exits straight back out
-2. **Server / Auto-DJ / Themes / Public Links settings** — each is its own screen reachable only via the drawer; Server holds the Velvet URL, username, password and connection test
+1. **Navigation drawer** — hamburger menu opening a frosted-glass sheet sized to ~80% of the screen width (`Modifier.width(maxWidth * 0.8f)` + `Modifier.blur()` on the content behind it via `animateDpAsState`), so a blurred sliver of the browser stays visible and tappable on the right — making the swipe-to-dismiss gesture obvious without anyone having to discover it. Lists **Server**, **Auto-DJ**, **Equalizer**, **Themes**, **Public Links**; each destination keeps the hamburger glyph as its `navigationIcon` so tapping it again exits straight back out
+2. **Server / Auto-DJ / Equalizer / Themes / Public Links settings** — each is its own screen reachable only via the drawer; Server holds the Velvet URL, username, password and connection test. The Equalizer screen exposes an on/off toggle, per-band gain sliders and a "reset to flat" action (see [Equalizer](#equalizer) below)
 3. **Folder Browser** — real filesystem tree via native API; swipe right → add to playlist, swipe left → add to queue; long press → context menu; alphabetical letter strip; Search and Playlists icons are pinned in the top-right of the `TopAppBar` at all times (not folded into the drawer)
-4. **Now Playing** — airy, single-screen player redesigned to avoid feeling cramped: cover art, title/artist, a combined format/bitrate + star-rating row, generously spaced playback controls and seek bar, and an Actions area (share, add-to-playlist, queue-share). The exact filename and full path collapse into one compact tappable line that opens an info dialog with selectable text — so nothing requires scrolling. Swipe left for queue view
+4. **Now Playing** — non-scrolling full-screen player: an ambient backdrop tinted by the artwork's dominant colour (Coil + `androidx.palette`), the cover art centred in a flexible (`weight(1f)`) area sized by `BoxWithConstraints` so the layout fits any screen without ever scrolling, title/artist/album, format/bitrate + star-rating row, generously spaced playback controls, a waveform-style seek bar (Canvas of vertical bars seeded deterministically per-track by `EntryDto.id`; tap or drag to seek), a Share / Playlist action row, and a "⋮ More" button opening a Material 3 `ModalBottomSheet` (`MoreActionsSheet`) with entries for **Sleep timer**, **Lyrics** and **Track info**. Swipe left for queue view
 5. **Queue** — scrollable queue, tap to jump, swipe left to remove; a top-bar share icon (visible only here) generates one public link for the whole queue
 6. **Mini player** — persistent bottom bar on all screens except Now Playing; folds up/down without fade
 7. **Playlists** — list of playlists with real track counts; create / rename / delete
 8. **Playlist detail** — track list; play all / shuffle FABs; swipe to remove; add songs via search dialog
 9. **Search** — pill-shaped Material You search field living in the screen body (not the `TopAppBar` title slot, which clipped it); auto-focuses on entry. Results (from the native `/api/v1/db/search`) are grouped into four sections, mirroring the Velvet webapp: **Folders** (real on-disk folders whose name matched — tapping navigates straight to the server-provided `browse_path`, no path guessing), **Artists**, **Albums** and **Songs**. Tapping an **Artist** opens a track list of that artist's own songs (via `artist-folder-songs`, matched on the exact tag incl. featuring/variant spellings) — like the webapp's artist profile — rather than trying to resolve the artist to a single folder. Tapping an **Album** navigates to its folder; tapping a **Song** plays it
 10. **Share confirmation** — shows the generated link with a copy + send button
+11. **Track info dialog** — opened from the ⋮ More sheet. Key/value list of the current song's metadata (title, artist, album, year, track, genres, BPM, key, duration, format, live bitrate, sample rate, channels, rating) with the full file path — selectable — at the bottom. Missing fields (typical of songs queued from search) are fetched fresh from `/api/v1/db/metadata` when the dialog opens
+12. **Sleep timer sheet** — opened from the ⋮ More sheet. Presets 15/30/45/60/90 min + custom, "cancel timer" when active. Hooked into the existing 500 ms position-polling loop in `PlayerViewModel`; the remaining time is exposed in `PlayerState.sleepRemainingMs` and the ⋮ icon is tinted with the accent colour while a timer is armed
+13. **Lyrics sheet** — opened from the ⋮ More sheet. Fetches lyrics for the current track via `/api/v1/lyrics` (server already parses synced/plain lines — no client-side LRC stripping). Loading / lines / "No lyrics found" / error states
 
 ## Technical Stack
 
@@ -278,6 +287,48 @@ Extracts embedded album art from any audio file. Returns the cache filename for 
 `GET /album-art/<aaFile>?token=<jwt>`. Implemented in `VelvetRepository.getArtFilename()`
 (data layer only — not yet wired to the UI).
 
+### Fresh single-track metadata
+
+```
+POST /api/v1/db/metadata
+x-access-token: <token>
+Content-Type: application/json
+
+{ "filepath": "library/Artist/Album/track.mp3" }
+
+→ { "filepath": "...", "metadata": { bpm, "musical-key", genres, year, track, artist, album, ... }, "rg": {...} }
+```
+
+Full server-side metadata for one track. Sharesonic calls this when the Now Playing
+info dialog opens (`PlayerViewModel.fetchTrackMetadata()` → `VelvetRepository.getTrackMetadata()`)
+so BPM / musical-key / genres / year / track are shown **regardless of how the song was
+queued** — search-origin `EntryDto`s don't carry those, so without this fetch the info
+dialog would be blank for search results while showing the values for browse/shuffle songs.
+
+**Important — JSON key names on the wire:** the server emits `"musical-key"` (hyphen),
+not `"musical_key"` (underscore). The Kotlin `VelvetInnerMetadata` model uses
+`@SerializedName("musical-key")` accordingly — a previous underscore version silently
+deserialised to null, hiding the key everywhere and starving Auto-DJ harmonic mixing
+of its anchor key. This was a real bug.
+
+### Lyrics
+
+```
+GET /api/v1/lyrics?artist=<name>&title=<name>&filepath=<vpath>&duration=<seconds>
+x-access-token: <token>
+
+→ { "synced": true,  "lines": [{ "time": 12.3, "text": "…" }] }   // timed
+| { "synced": false, "lines": [{ "time": null, "text": "…" }] }   // plain
+| { "notFound": true }
+```
+
+The server matches on artist+title (falling back to parsing "Artist - Title" from a
+filename-title) and prefers the DB duration for the given filepath. It fetches from
+lrclib.net and **already parses LRC timing into `lines`** — no client-side stripping
+needed. Sharesonic calls this from the "Lyrics" entry of the Now Playing ⋮ sheet
+(`PlayerViewModel.fetchLyrics()` → `VelvetRepository.getLyrics()`), and `LyricsSheet`
+renders the line texts (loading / found / "No lyrics found" / error states).
+
 ### Native full-text search
 
 ```
@@ -382,6 +433,22 @@ x-access-token: <token>
 Legacy: for any Subsonic integer-ID song, scrobbling would use `scrobble.view` (see below) — but
 native search no longer produces such songs, so this path is dormant.
 
+## Equalizer
+
+Native Android per-band equalizer wired to the ExoPlayer audio session.
+
+* [PlaybackService.kt](app/src/main/kotlin/com/tiritibambix/sharesonic/playback/PlaybackService.kt) generates a stable audio session id via `AudioManager.generateAudioSessionId()`, binds it to the ExoPlayer with `setAudioSessionId(...)`, then attaches an `android.media.audiofx.Equalizer` via [EqualizerController](app/src/main/kotlin/com/tiritibambix/sharesonic/playback/EqualizerController.kt) (a process-wide singleton — the effect is not addressable through `MediaController`, so a shared holder is the simplest bridge from the service to the settings screen).
+* Persistence: [SettingsRepository.eqSettings](app/src/main/kotlin/com/tiritibambix/sharesonic/data/settings/SettingsRepository.kt) stores `enabled: Boolean` + `bandsMb: List<Short>` in DataStore; band gains are re-applied by `PlaybackService.applySavedEqualizer()` on service start.
+* UI: [EqSettingsScreen.kt](app/src/main/kotlin/com/tiritibambix/sharesonic/ui/settings/EqSettingsScreen.kt) — enable/disable switch, per-band sliders (frequency label + signed dB gain), "Reset to flat". Shows a graceful "Equalizer not available" state on devices/emulators without an EQ effect (`EqualizerController.available == false`).
+* Reachable from **both** the drawer (in `FolderBrowserScreen.DrawerMenuItems`) and the top-level Settings menu (in `SettingsScreen`).
+
+## Crash reporter
+
+An in-app uncaught-exception handler so crashes can be diagnosed without adb.
+
+* [SharesonicApp.kt](app/src/main/kotlin/com/tiritibambix/sharesonic/SharesonicApp.kt) is the `Application` class (registered as `android:name=".SharesonicApp"` in `AndroidManifest.xml`). Its `onCreate()` installs a `Thread.setDefaultUncaughtExceptionHandler` that logs the stack trace (tag `SharesonicCrash`) **and** persists it synchronously in `SharedPreferences` (`sharesonic_crash` / `last_crash`) before delegating to the previous handler so the OS still shows its normal crash behaviour.
+* On the next launch, [MainActivity](app/src/main/kotlin/com/tiritibambix/sharesonic/MainActivity.kt) reads the saved trace once and shows it in a copyable `AlertDialog` ("Previous crash"), then clears the entry when dismissed.
+
 ## Subsonic API Endpoints (legacy / dormant)
 
 Search now uses the **native** `/api/v1/db/search` (see "Native full-text search" above), so the
@@ -421,10 +488,12 @@ in-app path currently produces integer IDs.
 
 * Build system: Gradle
 * CI: GitHub Actions
-* On every push to `main`: build a debug APK
-* On every git tag (`v*`): build a signed release APK and publish it as a GitHub Release asset
+* On every push (any branch): build a debug APK named `sharesonic-artifact+<run>.apk` (where `<run>` is the GitHub Actions run number, passed via `-PartifactRun`) and upload it as a workflow artifact. `versionCode` is also set to `<run>` so successive debug installs upgrade cleanly.
+* On every git tag (`v*`): build a signed release APK named `sharesonic-v<versionName>.apk` (`versionName` derived from the tag) and publish it as a GitHub Release asset
 * **Releases page**: https://github.com/Tiritibambix/Sharesonic/releases
 * **Obtainium** (auto-update): `obtainium://add/https://github.com/Tiritibambix/Sharesonic`
+
+The APK-naming split lives in [app/build.gradle.kts](app/build.gradle.kts) (`applicationVariants.all { ... outputFileName = ... }`). Non-release builds default to `sharesonic-artifact+local.apk` when built without `-PartifactRun`.
 
 ## GitHub Actions Workflow Requirements
 
@@ -433,14 +502,14 @@ The workflow must:
 * Run on `ubuntu-latest`
 * Use `actions/setup-java` with JDK 17
 * Cache Gradle dependencies
-* Build with `./gradlew assembleDebug` on push
-* Build with `./gradlew assembleRelease` and upload APK artifact on tag
+* Build with `./gradlew assembleDebug -PartifactRun=<run_number> -PversionCode=<run_number>` on push
+* Build with `./gradlew assembleRelease -PversionName=<tag> -PversionCode=<run_number>` on tag
 * Attach the APK to the GitHub Release automatically
 
 ## Out of Scope for v1
 
 * Offline caching / download for offline playback
 * Multiple server profiles
-* Lyrics display
 * Android Auto support
+* Chromecast / DLNA casting
 * Generic Subsonic server support (Navidrome, Airsonic…) — planned post-v1
