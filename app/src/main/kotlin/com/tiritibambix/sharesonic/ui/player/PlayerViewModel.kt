@@ -748,15 +748,7 @@ class PlayerViewModel(
         val settings = settings()
         val token = settings.jwtToken.takeIf { it.isNotEmpty() } ?: return null
         val repo = VelvetRepository(VelvetClient.build(settings.serverUrl))
-        val r = repo.getTrackMetadata(token, filepath)
-        val meta = (r as? Result.Success)?.data
-        // Diagnostic: grep logcat for "SharesonicMeta" to confirm what the server
-        // actually returns for this track (bpm / key). Remove once verified.
-        android.util.Log.d(
-            "SharesonicMeta",
-            "fetchTrackMetadata('$filepath') result=$r -> bpm=${meta?.bpm} key=${meta?.musicalKey} year=${meta?.year} genres=${meta?.genres}"
-        )
-        return meta
+        return (repo.getTrackMetadata(token, filepath) as? Result.Success)?.data
     }
 
     // ── Helpers ───────────────────────────────────────────────────────────────
