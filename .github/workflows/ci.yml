@@ -37,13 +37,13 @@ jobs:
 
       - name: Build debug APK
         if: github.ref_type != 'tag'
-        run: ./gradlew assembleDebug --no-daemon
+        run: ./gradlew assembleDebug --no-daemon -PartifactRun=${{ github.run_number }} -PversionCode=${{ github.run_number }}
 
       - name: Upload debug APK
         if: github.ref_type != 'tag'
         uses: actions/upload-artifact@v4
         with:
-          name: sharesonic-debug
+          name: sharesonic-artifact+${{ github.run_number }}
           path: app/build/outputs/apk/debug/*.apk
 
       - name: Decode keystore

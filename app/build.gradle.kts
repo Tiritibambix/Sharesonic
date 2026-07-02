@@ -48,12 +48,20 @@ android {
         compose = true
     }
 
-    // Name output APKs from the resolved versionName (e.g. "sharesonic-v0.3.0.apk")
-    // instead of AGP's generic "<module>-<buildType>.apk" default.
+    // APK file naming:
+    //  • release builds (tags) → "sharesonic-v<versionName>.apk", versionName from the tag.
+    //  • every other build      → "sharesonic-artifact+<run>.apk", where <run> is the CI run
+    //    number (passed as -PartifactRun) or "local" for local builds. This keeps each debug
+    //    artifact distinct — otherwise, since debug builds never receive a -PversionName, they
+    //    all fell back to the 0.1.0 literal and were forever named "sharesonic-v0.1.0.apk".
+    val artifactRun = (project.findProperty("artifactRun") as String?) ?: "local"
     applicationVariants.all {
+        val isRelease = buildType.name == "release"
         outputs.all {
             (this as com.android.build.gradle.internal.api.BaseVariantOutputImpl)
-                .outputFileName = "sharesonic-v${versionName}.apk"
+                .outputFileName =
+                    if (isRelease) "sharesonic-v${versionName}.apk"
+                    else "sharesonic-artifact+${artifactRun}.apk"
         }
     }
 }
