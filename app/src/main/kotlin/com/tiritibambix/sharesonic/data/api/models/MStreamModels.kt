@@ -259,6 +259,14 @@ data class NativeSearchResponse(
  */
 data class ArtistFolderSongsRequest(val artists: List<String>)
 
+/**
+ * Request body for POST /api/v1/file-explorer/recursive — the server walks its
+ * own filesystem under [directory] and returns every audio filepath in the
+ * whole subtree as one flat array (no per-subfolder round-trips). The server
+ * schema accepts ONLY `directory`, so this must not carry extra fields.
+ */
+data class RecursiveScanRequest(val directory: String)
+
 // ── Native playlists (POST /api/v1/playlist/*) ────────────────────────────────
 
 /**

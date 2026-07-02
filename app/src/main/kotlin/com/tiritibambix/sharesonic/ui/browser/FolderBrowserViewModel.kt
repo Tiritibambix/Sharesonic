@@ -175,10 +175,12 @@ class FolderBrowserViewModel(
                     is Result.Error -> onError(r.message)
                 }
             } else {
-                // Collect all audio files recursively under this folder
+                // Collect all audio files under this folder via two server requests
+                // (recursive scan + batch metadata) instead of a recursive client-side
+                // walk — scales to very large folders that used to hang forever.
                 val token = ensureToken(settings) ?: run { onError("Authentication failed"); return@launch }
                 val mStream = MStreamRepository(MStreamClient.build(settings.serverUrl))
-                val songs = mStream.collectSongs(token, folderId)
+                val songs = mStream.collectSongsFast(token, folderId)
                 if (songs.isEmpty()) onError("No songs found")
                 else onReady(songs.shuffled())
             }

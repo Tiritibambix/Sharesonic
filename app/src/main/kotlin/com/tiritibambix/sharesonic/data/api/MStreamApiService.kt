@@ -14,6 +14,7 @@ import com.tiritibambix.sharesonic.data.api.models.NativePlaylistSaveRequest
 import com.tiritibambix.sharesonic.data.api.models.FileExplorerResponse
 import com.tiritibambix.sharesonic.data.api.models.MStreamArtResponse
 import com.tiritibambix.sharesonic.data.api.models.MStreamFileMetaWrapper
+import com.tiritibambix.sharesonic.data.api.models.RecursiveScanRequest
 import com.tiritibambix.sharesonic.data.api.models.NativeSearchRequest
 import com.tiritibambix.sharesonic.data.api.models.NativeSearchResponse
 import com.tiritibambix.sharesonic.data.api.models.ScrobbleFilepathRequest
@@ -103,6 +104,29 @@ interface MStreamApiService {
         @Header("x-access-token") token: String,
         @Body body: RequestBody
     ): ResponseBody
+
+    /**
+     * Server-side recursive scan: returns every audio filepath under [request].directory
+     * as one flat array (e.g. "Music/Artist/Album/track.mp3"). One request instead of the
+     * thousands of per-subfolder /file-explorer calls a client-side walk would make —
+     * used to gather a whole folder for shuffle at any scale.
+     */
+    @POST("api/v1/file-explorer/recursive")
+    suspend fun recursiveScan(
+        @Header("x-access-token") token: String,
+        @Body request: RecursiveScanRequest
+    ): List<String>
+
+    /**
+     * Batch metadata lookup: given a list of filepaths, returns a map keyed by filepath,
+     * each value the same [MStreamFileMetaWrapper] shape as pullMetadata=true file-explorer
+     * entries. Lets a recursive scan's bare filepaths be resolved to full metadata in one call.
+     */
+    @POST("api/v1/db/metadata/batch")
+    suspend fun metadataBatch(
+        @Header("x-access-token") token: String,
+        @Body filepaths: List<String>
+    ): Map<String, MStreamFileMetaWrapper>
 
     // ── On-demand art ─────────────────────────────────────────────────────────
 

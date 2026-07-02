@@ -27,6 +27,7 @@ import com.tiritibambix.sharesonic.data.api.models.MStreamRateSongRequest
 import com.tiritibambix.sharesonic.data.api.models.MStreamShareListItem
 import com.tiritibambix.sharesonic.data.api.models.MStreamShareRequest
 import com.tiritibambix.sharesonic.data.api.models.NativeSearchRequest
+import com.tiritibambix.sharesonic.data.api.models.RecursiveScanRequest
 import com.tiritibambix.sharesonic.data.api.models.ScrobbleFilepathRequest
 import com.tiritibambix.sharesonic.data.api.models.SearchResult3
 import com.tiritibambix.sharesonic.data.api.models.TopLevelDir
@@ -133,6 +134,41 @@ class MStreamRepository(private val api: MStreamApiService) {
         }
 
         return files + nested
+    }
+
+    /**
+     * All playable tracks under [path], gathered in two server requests instead of
+     * [collectSongs]' recursive per-subfolder client walk — so it scales to very large
+     * folders (tens of thousands of files) that would otherwise hang the client:
+     *
+     *  1. `/api/v1/file-explorer/recursive` → every filepath in the subtree (one request),
+     *  2. `/api/v1/db/metadata/batch`       → all their metadata (one request).
+     *
+     * Order is preserved from the scan; unindexed files fall back to a minimal EntryDto
+     * (filepath only) so they stay playable. Used by folder shuffle.
+     */
+    suspend fun collectSongsFast(token: String, path: String): List<EntryDto> {
+        val filepaths = try {
+            api.recursiveScan(token, RecursiveScanRequest(path))
+        } catch (e: kotlinx.coroutines.CancellationException) {
+            throw e
+        } catch (e: Exception) {
+            return emptyList()
+        }
+        if (filepaths.isEmpty()) return emptyList()
+
+        val meta: Map<String, MStreamFileMetaWrapper> = try {
+            api.metadataBatch(token, filepaths)
+        } catch (e: kotlinx.coroutines.CancellationException) {
+            throw e
+        } catch (e: Exception) {
+            emptyMap()
+        }
+
+        return filepaths.map { fp ->
+            meta[fp]?.let { fileMetaWrapperToEntryDto(it) }
+                ?: EntryDto(id = fp, title = fp.substringAfterLast('/'), isDir = false, path = fp)
+        }
     }
 
     /**
