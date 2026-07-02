@@ -70,6 +70,9 @@ sealed class Screen(val route: String) {
 
     /** Public Links management (list / copy / open / revoke), accessible from Settings. */
     data object PublicLinks : Screen("public-links")
+
+    /** Native Android equalizer (per-band gains), accessible from the drawer. */
+    data object EqualizerSettings : Screen("equalizer-settings")
 }
 
 private fun String.urlEncode() = java.net.URLEncoder.encode(this, "UTF-8")

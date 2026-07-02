@@ -56,6 +56,7 @@ fun FolderBrowserScreen(
     onOpenAutoDjSettings: () -> Unit,
     onOpenThemeSettings: () -> Unit,
     onOpenPublicLinks: () -> Unit,
+    onOpenEqualizer: () -> Unit,
     onOpenNowPlaying: () -> Unit,
     onOpenSearch: () -> Unit,
     onOpenPlaylists: () -> Unit,
@@ -179,7 +180,8 @@ fun FolderBrowserScreen(
                             onOpenServerSettings = onOpenServerSettings,
                             onOpenAutoDjSettings = onOpenAutoDjSettings,
                             onOpenThemeSettings = onOpenThemeSettings,
-                            onOpenPublicLinks = onOpenPublicLinks
+                            onOpenPublicLinks = onOpenPublicLinks,
+                            onOpenEqualizer = onOpenEqualizer
                         )
                     }
                 }
@@ -471,7 +473,8 @@ fun FolderBrowserScreen(
                         onOpenServerSettings = onOpenServerSettings,
                         onOpenAutoDjSettings = onOpenAutoDjSettings,
                         onOpenThemeSettings = onOpenThemeSettings,
-                        onOpenPublicLinks = onOpenPublicLinks
+                        onOpenPublicLinks = onOpenPublicLinks,
+                        onOpenEqualizer = onOpenEqualizer
                     )
                 }
                 // Scrim — tapping the dim area closes the drawer
@@ -641,7 +644,8 @@ private fun DrawerMenuItems(
     onOpenServerSettings: () -> Unit,
     onOpenAutoDjSettings: () -> Unit,
     onOpenThemeSettings: () -> Unit,
-    onOpenPublicLinks: () -> Unit
+    onOpenPublicLinks: () -> Unit,
+    onOpenEqualizer: () -> Unit
 ) {
     Spacer(Modifier.height(12.dp))
     Text(
@@ -662,6 +666,13 @@ private fun DrawerMenuItems(
         icon = { Icon(Icons.Default.Headphones, contentDescription = null) },
         selected = false,
         onClick = { onClose(); onOpenAutoDjSettings() },
+        modifier = Modifier.padding(horizontal = 12.dp, vertical = 4.dp)
+    )
+    NavigationDrawerItem(
+        label = { Text("Equalizer") },
+        icon = { Icon(Icons.Default.GraphicEq, contentDescription = null) },
+        selected = false,
+        onClick = { onClose(); onOpenEqualizer() },
         modifier = Modifier.padding(horizontal = 12.dp, vertical = 4.dp)
     )
     NavigationDrawerItem(

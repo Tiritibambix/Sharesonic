@@ -49,6 +49,9 @@ import com.tiritibambix.sharesonic.ui.settings.SettingsScreen
 import com.tiritibambix.sharesonic.ui.settings.SettingsViewModel
 import com.tiritibambix.sharesonic.ui.settings.SettingsViewModelFactory
 import com.tiritibambix.sharesonic.ui.settings.ThemeSettingsScreen
+import com.tiritibambix.sharesonic.ui.settings.EqSettingsScreen
+import com.tiritibambix.sharesonic.ui.settings.EqViewModel
+import com.tiritibambix.sharesonic.ui.settings.EqViewModelFactory
 import com.tiritibambix.sharesonic.ui.publiclinks.PublicLinksScreen
 import com.tiritibambix.sharesonic.ui.publiclinks.PublicLinksViewModel
 import com.tiritibambix.sharesonic.ui.publiclinks.PublicLinksViewModelFactory
@@ -124,6 +127,7 @@ fun AppNavGraph() {
             SettingsScreen(
                 onNavigateToServer = { navController.navigate(Screen.ServerSettings.route) },
                 onNavigateToAutoDj = { navController.navigate(Screen.AutoDjSettings.route) },
+                onNavigateToEqualizer = { navController.navigate(Screen.EqualizerSettings.route) },
                 onNavigateToTheme = { navController.navigate(Screen.ThemeSettings.route) },
                 onNavigateToPublicLinks = { navController.navigate(Screen.PublicLinks.route) }
             )
@@ -159,6 +163,14 @@ fun AppNavGraph() {
                 viewModel(factory = PublicLinksViewModelFactory(settingsRepo))
             PublicLinksScreen(
                 viewModel = publicLinksVm,
+                onBack = { navController.popBackStack() }
+            )
+        }
+
+        composable(Screen.EqualizerSettings.route) {
+            val eqVm: EqViewModel = viewModel(factory = EqViewModelFactory(settingsRepo))
+            EqSettingsScreen(
+                viewModel = eqVm,
                 onBack = { navController.popBackStack() }
             )
         }
@@ -201,6 +213,7 @@ fun AppNavGraph() {
                 onOpenAutoDjSettings = { navController.navigate(Screen.AutoDjSettings.route) },
                 onOpenThemeSettings = { navController.navigate(Screen.ThemeSettings.route) },
                 onOpenPublicLinks = { navController.navigate(Screen.PublicLinks.route) },
+                onOpenEqualizer = { navController.navigate(Screen.EqualizerSettings.route) },
                 onOpenNowPlaying = { navController.navigate(Screen.NowPlaying.route) },
                 onOpenSearch = { navController.navigate(Screen.Search.route) },
                 onOpenPlaylists = { navController.navigate(Screen.Playlists.route) },

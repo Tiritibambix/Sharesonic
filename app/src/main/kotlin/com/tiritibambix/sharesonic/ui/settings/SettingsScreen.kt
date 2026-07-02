@@ -7,6 +7,7 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ChevronRight
 import androidx.compose.material.icons.filled.Dns
+import androidx.compose.material.icons.filled.GraphicEq
 import androidx.compose.material.icons.filled.Headphones
 import androidx.compose.material.icons.filled.Link
 import androidx.compose.material.icons.filled.Palette
@@ -30,6 +31,7 @@ import androidx.compose.ui.graphics.vector.ImageVector
 fun SettingsScreen(
     onNavigateToServer: () -> Unit,
     onNavigateToAutoDj: () -> Unit,
+    onNavigateToEqualizer: () -> Unit,
     onNavigateToTheme: () -> Unit,
     onNavigateToPublicLinks: () -> Unit
 ) {
@@ -52,6 +54,15 @@ fun SettingsScreen(
                     title = "Auto-DJ",
                     subtitle = "BPM continuity, harmonic mixing, similar artists…",
                     onClick = onNavigateToAutoDj
+                )
+            }
+            item { HorizontalDivider() }
+            item {
+                SettingsMenuRow(
+                    icon = Icons.Default.GraphicEq,
+                    title = "Equalizer",
+                    subtitle = "Per-band gains for playback",
+                    onClick = onNavigateToEqualizer
                 )
             }
             item { HorizontalDivider() }

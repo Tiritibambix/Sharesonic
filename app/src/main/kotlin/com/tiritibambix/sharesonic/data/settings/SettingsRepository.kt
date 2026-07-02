@@ -21,6 +21,16 @@ data class ServerSettings(
         get() = serverUrl.isNotBlank() && username.isNotBlank() && password.isNotBlank()
 }
 
+/**
+ * Persisted equalizer state. [bandsMb] holds one gain per band in millibels,
+ * in band order; empty until the user first adjusts the EQ. The device band
+ * count can differ, so callers apply `min(bandsMb.size, deviceBandCount)`.
+ */
+data class EqSettings(
+    val enabled: Boolean = false,
+    val bandsMb: List<Short> = emptyList()
+)
+
 class SettingsRepository(private val context: Context) {
 
     private object Keys {
@@ -32,6 +42,10 @@ class SettingsRepository(private val context: Context) {
         val VPATHS     = stringPreferencesKey("vpaths")
         /** Selected visual theme — see [AppTheme]. Stored as the enum's [Enum.name]. */
         val APP_THEME  = stringPreferencesKey("app_theme")
+        /** Equalizer on/off. */
+        val EQ_ENABLED = booleanPreferencesKey("eq_enabled")
+        /** Equalizer band gains in millibels, comma-joined in band order. */
+        val EQ_BANDS   = stringPreferencesKey("eq_bands")
     }
 
     val settings: Flow<ServerSettings> = context.dataStore.data.map { prefs ->
@@ -77,6 +91,24 @@ class SettingsRepository(private val context: Context) {
     suspend fun saveAppTheme(theme: AppTheme) {
         context.dataStore.edit { prefs ->
             prefs[Keys.APP_THEME] = theme.name
+        }
+    }
+
+    /** Persisted equalizer state; applied by [com.tiritibambix.sharesonic.playback.PlaybackService] on start. */
+    val eqSettings: Flow<EqSettings> = context.dataStore.data.map { prefs ->
+        EqSettings(
+            enabled = prefs[Keys.EQ_ENABLED] ?: false,
+            bandsMb = prefs[Keys.EQ_BANDS]
+                ?.split(",")
+                ?.mapNotNull { it.trim().toShortOrNull() }
+                ?: emptyList()
+        )
+    }
+
+    suspend fun saveEqSettings(enabled: Boolean, bandsMb: List<Short>) {
+        context.dataStore.edit { prefs ->
+            prefs[Keys.EQ_ENABLED] = enabled
+            prefs[Keys.EQ_BANDS] = bandsMb.joinToString(",")
         }
     }
 
