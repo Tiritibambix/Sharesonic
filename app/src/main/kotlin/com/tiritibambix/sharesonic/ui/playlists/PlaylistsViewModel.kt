@@ -3,9 +3,9 @@ package com.tiritibambix.sharesonic.ui.playlists
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
-import com.tiritibambix.sharesonic.data.MStreamRepository
+import com.tiritibambix.sharesonic.data.VelvetRepository
 import com.tiritibambix.sharesonic.data.Result
-import com.tiritibambix.sharesonic.data.api.MStreamClient
+import com.tiritibambix.sharesonic.data.api.VelvetClient
 import com.tiritibambix.sharesonic.data.api.models.NativePlaylist
 import com.tiritibambix.sharesonic.data.settings.SettingsRepository
 import kotlinx.coroutines.async
@@ -41,13 +41,13 @@ class PlaylistsViewModel(private val settingsRepo: SettingsRepository) : ViewMod
                 _state.update { PlaylistsState.Error("Not authenticated — open Settings") }
                 return@launch
             }
-            val repo = MStreamRepository(MStreamClient.build(settings.serverUrl))
+            val repo = VelvetRepository(VelvetClient.build(settings.serverUrl))
             when (val r = repo.getPlaylists(token)) {
                 is Result.Error -> _state.update { PlaylistsState.Error(r.message) }
                 is Result.Success -> {
                     // Show list immediately with whatever getall returns
                     _state.update { PlaylistsState.Ready(r.data) }
-                    // mStream Velvet's getall stores a denormalized songCount that is NOT updated
+                    // Velvet's getall stores a denormalized songCount that is NOT updated
                     // by add-song / remove-song — load each playlist in parallel to get the real count.
                     val refreshed = r.data.map { playlist ->
                         async {
@@ -69,7 +69,7 @@ class PlaylistsViewModel(private val settingsRepo: SettingsRepository) : ViewMod
             val settings = settingsRepo.settings.first()
             if (!settings.isConfigured) return@launch
             val token = settings.jwtToken.ifEmpty { return@launch }
-            val repo = MStreamRepository(MStreamClient.build(settings.serverUrl))
+            val repo = VelvetRepository(VelvetClient.build(settings.serverUrl))
             repo.createPlaylist(token, title)
             load()
         }
@@ -80,7 +80,7 @@ class PlaylistsViewModel(private val settingsRepo: SettingsRepository) : ViewMod
             val settings = settingsRepo.settings.first()
             if (!settings.isConfigured) return@launch
             val token = settings.jwtToken.ifEmpty { return@launch }
-            val repo = MStreamRepository(MStreamClient.build(settings.serverUrl))
+            val repo = VelvetRepository(VelvetClient.build(settings.serverUrl))
             repo.renamePlaylist(token, oldName, newName)
             load()
         }
@@ -91,7 +91,7 @@ class PlaylistsViewModel(private val settingsRepo: SettingsRepository) : ViewMod
             val settings = settingsRepo.settings.first()
             if (!settings.isConfigured) return@launch
             val token = settings.jwtToken.ifEmpty { return@launch }
-            val repo = MStreamRepository(MStreamClient.build(settings.serverUrl))
+            val repo = VelvetRepository(VelvetClient.build(settings.serverUrl))
             repo.deletePlaylist(token, name)
             load()
         }

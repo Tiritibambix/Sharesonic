@@ -125,7 +125,7 @@ fun AutoDjSettingsContent(
         item {
             SettingRow(
                 label = "Similar artists",
-                description = "Fetch similar artists via mStream's Last.fm integration and prefer their tracks"
+                description = "Fetch similar artists via Velvet's Last.fm integration and prefer their tracks"
             ) {
                 Switch(
                     checked = s.useSimilarArtists,

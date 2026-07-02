@@ -2,7 +2,7 @@ package com.tiritibambix.sharesonic.data
 
 import android.util.Log
 import com.google.gson.GsonBuilder
-import com.tiritibambix.sharesonic.data.api.MStreamApiService
+import com.tiritibambix.sharesonic.data.api.VelvetApiService
 import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.RequestBody.Companion.toRequestBody
 import retrofit2.HttpException
@@ -10,9 +10,9 @@ import com.tiritibambix.sharesonic.data.api.models.ArtistFolderSongsRequest
 import com.tiritibambix.sharesonic.data.api.models.EntryDto
 import com.tiritibambix.sharesonic.data.api.models.FileExplorerRequest
 import com.tiritibambix.sharesonic.data.api.models.FileExplorerResponse
-import com.tiritibambix.sharesonic.data.api.models.MStreamFile
-import com.tiritibambix.sharesonic.data.api.models.MStreamFileMetaWrapper
-import com.tiritibambix.sharesonic.data.api.models.MStreamLoginRequest
+import com.tiritibambix.sharesonic.data.api.models.VelvetFile
+import com.tiritibambix.sharesonic.data.api.models.VelvetFileMetaWrapper
+import com.tiritibambix.sharesonic.data.api.models.VelvetLoginRequest
 import com.tiritibambix.sharesonic.data.api.models.NativePlaylist
 import com.tiritibambix.sharesonic.data.api.models.NativePlaylistAddSongRequest
 import com.tiritibambix.sharesonic.data.api.models.NativePlaylistDeleteRequest
@@ -22,20 +22,20 @@ import com.tiritibambix.sharesonic.data.api.models.NativePlaylistNewRequest
 import com.tiritibambix.sharesonic.data.api.models.NativePlaylistRemoveSongRequest
 import com.tiritibambix.sharesonic.data.api.models.NativePlaylistRenameRequest
 import com.tiritibambix.sharesonic.data.api.models.NativePlaylistSaveRequest
-import com.tiritibambix.sharesonic.data.api.models.MStreamRandomSongsRequest
-import com.tiritibambix.sharesonic.data.api.models.MStreamRateSongRequest
-import com.tiritibambix.sharesonic.data.api.models.MStreamShareListItem
-import com.tiritibambix.sharesonic.data.api.models.MStreamShareRequest
+import com.tiritibambix.sharesonic.data.api.models.VelvetRandomSongsRequest
+import com.tiritibambix.sharesonic.data.api.models.VelvetRateSongRequest
+import com.tiritibambix.sharesonic.data.api.models.VelvetShareListItem
+import com.tiritibambix.sharesonic.data.api.models.VelvetShareRequest
 import com.tiritibambix.sharesonic.data.api.models.NativeSearchRequest
 import com.tiritibambix.sharesonic.data.api.models.RecursiveScanRequest
 import com.tiritibambix.sharesonic.data.api.models.ScrobbleFilepathRequest
 import com.tiritibambix.sharesonic.data.api.models.SearchResult3
 import com.tiritibambix.sharesonic.data.api.models.TopLevelDir
 
-class MStreamRepository(private val api: MStreamApiService) {
+class VelvetRepository(private val api: VelvetApiService) {
 
     companion object {
-        private const val TAG = "MStreamRepository"
+        private const val TAG = "VelvetRepository"
 
         /** Max tracks materialized for a folder shuffle (see [collectSongsFast]). Bigger
          *  folders are randomly sampled down to this — a 100k-track queue is infeasible. */
@@ -51,7 +51,7 @@ class MStreamRepository(private val api: MStreamApiService) {
     /** Authenticate and return the JWT token. */
     suspend fun login(username: String, password: String): Result<String> {
         return try {
-            val resp = api.login(MStreamLoginRequest(username, password))
+            val resp = api.login(VelvetLoginRequest(username, password))
             val token = resp.token
             if (!token.isNullOrEmpty()) Result.Success(token)
             else Result.Error(resp.err ?: "Login failed")
@@ -67,7 +67,7 @@ class MStreamRepository(private val api: MStreamApiService) {
      */
     suspend fun loginFull(username: String, password: String): Result<Pair<String, List<String>>> {
         return try {
-            val resp = api.login(MStreamLoginRequest(username, password))
+            val resp = api.login(VelvetLoginRequest(username, password))
             val token = resp.token
             if (!token.isNullOrEmpty()) Result.Success(Pair(token, resp.vpaths))
             else Result.Error(resp.err ?: "Login failed")
@@ -80,7 +80,7 @@ class MStreamRepository(private val api: MStreamApiService) {
      * Browse a directory.
      *
      * @param token          JWT bearer token
-     * @param path           mStream directory path; empty string for root
+     * @param path           Velvet directory path; empty string for root
      * @param pullMetadata   when true, file entries include filepath + audio tags
      */
     suspend fun fileExplorer(
@@ -104,8 +104,8 @@ class MStreamRepository(private val api: MStreamApiService) {
     /**
      * Map a FileExplorerResponse to a list of EntryDto for the browser UI.
      *
-     * Directory entry.id = mStream path      (for navigation)
-     * File entry.id      = mStream filepath  (for native /media/<filepath>?token= streaming)
+     * Directory entry.id = Velvet path      (for navigation)
+     * File entry.id      = Velvet filepath  (for native /media/<filepath>?token= streaming)
      *
      * Only audio files with a known filepath (pullMetadata=true) are included.
      */
@@ -118,7 +118,7 @@ class MStreamRepository(private val api: MStreamApiService) {
 
         val files: List<EntryDto> = response.files
             .filter { it.isAudio }
-            .mapNotNull { file: MStreamFile -> fileToEntryDto(file) }
+            .mapNotNull { file: VelvetFile -> fileToEntryDto(file) }
 
         return dirs + files
     }
@@ -134,7 +134,7 @@ class MStreamRepository(private val api: MStreamApiService) {
         val resp: FileExplorerResponse = result.data
         val files: List<EntryDto> = resp.files
             .filter { it.isAudio }
-            .mapNotNull { file: MStreamFile -> fileToEntryDto(file) }
+            .mapNotNull { file: VelvetFile -> fileToEntryDto(file) }
 
         val nested: List<EntryDto> = resp.directories.flatMap { dir ->
             val dirPath: String = dir.path
@@ -159,7 +159,7 @@ class MStreamRepository(private val api: MStreamApiService) {
      * take the cap). Folders under the cap are returned in full. Unindexed files fall back
      * to a minimal EntryDto (filepath only) so they stay playable.
      *
-     * Build the repo with [com.tiritibambix.sharesonic.data.api.MStreamClient.buildLongTimeout]
+     * Build the repo with [com.tiritibambix.sharesonic.data.api.VelvetClient.buildLongTimeout]
      * when calling this — the server-side recursive walk can exceed the normal read timeout.
      */
     suspend fun collectSongsFast(token: String, path: String): List<EntryDto> {
@@ -174,9 +174,9 @@ class MStreamRepository(private val api: MStreamApiService) {
 
         val selected = if (filepaths.size > SHUFFLE_MAX) filepaths.shuffled().take(SHUFFLE_MAX) else filepaths
 
-        val meta = HashMap<String, MStreamFileMetaWrapper>(selected.size)
+        val meta = HashMap<String, VelvetFileMetaWrapper>(selected.size)
         for (chunk in selected.chunked(METADATA_CHUNK)) {
-            val part: Map<String, MStreamFileMetaWrapper> = try {
+            val part: Map<String, VelvetFileMetaWrapper> = try {
                 api.metadataBatch(token, chunk)
             } catch (e: kotlinx.coroutines.CancellationException) {
                 throw e
@@ -215,9 +215,9 @@ class MStreamRepository(private val api: MStreamApiService) {
      * Create a public share link for a single track.
      *
      * @param token      JWT bearer token
-     * @param filepath   Full mStream filepath (e.g. "library/Artist/Album/track.mp3")
+     * @param filepath   Full Velvet filepath (e.g. "library/Artist/Album/track.mp3")
      * @param expiryDays Number of days until the link expires; null/omit → permanent link
-     *                   (mirrors the "days until expiration" field in mStream Velvet's share UI)
+     *                   (mirrors the "days until expiration" field in Velvet's share UI)
      * @return the playlistId — caller builds URL as <serverUrl>/shared/<playlistId>
      */
     suspend fun share(token: String, filepath: String, expiryDays: Int? = null): Result<String> =
@@ -228,7 +228,7 @@ class MStreamRepository(private val api: MStreamApiService) {
      * Recursively collects every track and creates a single shared playlist.
      *
      * @param token      JWT bearer token
-     * @param path       mStream directory path (e.g. "/library/Artist")
+     * @param path       Velvet directory path (e.g. "/library/Artist")
      * @param expiryDays Number of days until the link expires; null/omit → permanent link
      * @return the playlistId — caller builds URL as <serverUrl>/shared/<playlistId>
      */
@@ -240,7 +240,7 @@ class MStreamRepository(private val api: MStreamApiService) {
 
     /**
      * Create a public share link for an explicit list of filepaths — used to share
-     * the current playback queue as a single shared playlist (mirrors mStream
+     * the current playback queue as a single shared playlist (mirrors Velvet
      * Velvet's "share queue" behaviour). Pass only native filepath IDs; Subsonic
      * numeric-ID songs aren't shareable through this endpoint (filter them out first).
      *
@@ -258,12 +258,12 @@ class MStreamRepository(private val api: MStreamApiService) {
     ): Result<String> {
         return try {
             // Velvet interprets `time` as a number of days (expiresIn: '${time}d')
-            val resp = api.share(token, MStreamShareRequest(playlist = filepaths, time = expiryDays))
+            val resp = api.share(token, VelvetShareRequest(playlist = filepaths, time = expiryDays))
             val shareId = resp.playlistId
             if (!shareId.isNullOrBlank()) Result.Success(shareId)
             else Result.Error("Share failed: no shareId returned")
         } catch (e: HttpException) {
-            // Extract the server error body so the user sees the actual mStream error message
+            // Extract the server error body so the user sees the actual Velvet error message
             // (e.g. {"error":"Server Error"}) rather than the generic HTTP status line.
             val body = try { e.response()?.errorBody()?.string()?.take(300) } catch (_: Exception) { null }
             val detail = if (!body.isNullOrBlank()) " — $body" else ""
@@ -280,11 +280,11 @@ class MStreamRepository(private val api: MStreamApiService) {
      * Full-text search using the native Velvet API (JWT auth — no Subsonic password needed).
      * Maps results to [SearchResult3] so the SearchScreen can consume them unchanged.
      *
-     * `noFolders = false`: with the default `true`, mStream omits real folder
+     * `noFolders = false`: with the default `true`, Velvet omits real folder
      * paths from `albums` results (filepath comes back as the JSON boolean
      * `false`, coerced by Gson to the string `"false"`), which made the Albums
      * section of search results always empty AND made it impossible to derive
-     * a folder path for an artist-only query. Passing `false` makes mStream
+     * a folder path for an artist-only query. Passing `false` makes Velvet
      * include real album filepaths.
      *
      * Songs come back with filepath IDs → stream and share via native endpoints.
@@ -300,7 +300,7 @@ class MStreamRepository(private val api: MStreamApiService) {
             val resp = api.nativeSearch(token, NativeSearchRequest(search = query, noFolders = false))
 
             // Temporary diagnostics for the artist-tap folder resolution issue —
-            // grep logcat for "SharesonicSearch" to see what mStream actually
+            // grep logcat for "SharesonicSearch" to see what Velvet actually
             // returns for an artist-name query.
             android.util.Log.d(
                 "SharesonicSearch",
@@ -325,10 +325,10 @@ class MStreamRepository(private val api: MStreamApiService) {
             }
 
             val albums = resp.albums.mapNotNull { item ->
-                // With noFolders=false mStream should send a real folder filepath for
+                // With noFolders=false Velvet should send a real folder filepath for
                 // albums, but keep the defensive guard: if it ever sends the JSON
                 // boolean `false` (Gson-coerced to the string "false"), that's
-                // non-blank but not a valid path. A real mStream filepath always
+                // non-blank but not a valid path. A real Velvet filepath always
                 // contains at least one '/' (e.g. "library/Artist/Album").
                 val fp = item.filepath?.takeIf { it.isNotBlank() && it.contains('/') }
                     ?: return@mapNotNull null
@@ -446,7 +446,7 @@ class MStreamRepository(private val api: MStreamApiService) {
 
     /**
      * Re-save the playlist so the server updates its stored [songCount] and [totalDuration].
-     * mStream Velvet's `add-song` / `remove-song` endpoints mutate `playlist_songs` but do NOT
+     * Velvet's `add-song` / `remove-song` endpoints mutate `playlist_songs` but do NOT
      * update the denormalized metadata in the `playlists` table — only `save` does.
      */
     private suspend fun syncPlaylistMeta(token: String, playlistName: String) {
@@ -485,7 +485,7 @@ class MStreamRepository(private val api: MStreamApiService) {
         var ignoreList = emptyList<Int>()
         repeat(count) {
             try {
-                val resp = api.randomSong(token, MStreamRandomSongsRequest(ignoreList = ignoreList))
+                val resp = api.randomSong(token, VelvetRandomSongsRequest(ignoreList = ignoreList))
                 ignoreList = resp.ignoreList
                 val wrapper = resp.songs.firstOrNull() ?: return@repeat
                 fileMetaWrapperToEntryDto(wrapper)?.let { results.add(it) }
@@ -498,7 +498,7 @@ class MStreamRepository(private val api: MStreamApiService) {
     // ── Share list / revoke ───────────────────────────────────────────────────
 
     /** Fetch the authenticated user's share links. */
-    suspend fun getShareList(token: String): Result<List<MStreamShareListItem>> = try {
+    suspend fun getShareList(token: String): Result<List<VelvetShareListItem>> = try {
         Result.Success(api.getShareList(token))
     } catch (e: Exception) { Result.Error(e.message ?: "Network error") }
 
@@ -506,7 +506,7 @@ class MStreamRepository(private val api: MStreamApiService) {
 
     /**
      * Rate a track via POST /api/v1/db/rate-song.
-     * @param stars 0–5 (Sharesonic UI scale); converted to mStream's native 0–10
+     * @param stars 0–5 (Sharesonic UI scale); converted to Velvet's native 0–10
      *              half-star scale (`stars * 2`) before sending. Pass `null` to clear the rating.
      */
     suspend fun rateSong(token: String, filepath: String, stars: Int?): Result<Unit> = try {
@@ -514,7 +514,7 @@ class MStreamRepository(private val api: MStreamApiService) {
         // that to mean "omit this optional field"), so a clear request needs its own
         // Gson with serializeNulls() to actually send "rating": null instead of dropping
         // the key — the server treats a missing key as a no-op, not as "clear".
-        val json = rateSongGson.toJson(MStreamRateSongRequest(filepath = filepath, rating = stars?.times(2)))
+        val json = rateSongGson.toJson(VelvetRateSongRequest(filepath = filepath, rating = stars?.times(2)))
         api.rateSong(token, json.toRequestBody("application/json".toMediaType()))
         Result.Success(Unit)
     } catch (e: Exception) { Result.Error(friendlyNetworkErrorMessage(e)) }
@@ -557,7 +557,7 @@ class MStreamRepository(private val api: MStreamApiService) {
 
     /**
      * Send a "now playing" ping to ListenBrainz.
-     * Fire-and-forget — silently ignored if ListenBrainz is not configured in mStream.
+     * Fire-and-forget — silently ignored if ListenBrainz is not configured in Velvet.
      */
     suspend fun listenBrainzNowPlaying(token: String, filepath: String) {
         try { api.listenBrainzNowPlaying(token, ScrobbleFilepathRequest(filepath)) }
@@ -566,7 +566,7 @@ class MStreamRepository(private val api: MStreamApiService) {
 
     /**
      * Scrobble to Last.fm and ListenBrainz by filepath.
-     * Fire-and-forget — silently ignored if the services are not configured in mStream.
+     * Fire-and-forget — silently ignored if the services are not configured in Velvet.
      * Call after 50% of track duration has elapsed.
      */
     suspend fun scrobble(token: String, filepath: String) {
@@ -579,7 +579,7 @@ class MStreamRepository(private val api: MStreamApiService) {
     // ── Auto-DJ helpers ───────────────────────────────────────────────────────
 
     /**
-     * Fetch similar artists for [artist] from Last.fm via mStream.
+     * Fetch similar artists for [artist] from Last.fm via Velvet.
      * Returns a list of artist names, or an empty list on failure.
      */
     suspend fun getSimilarArtists(token: String, artist: String): Result<List<String>> = try {
@@ -594,7 +594,7 @@ class MStreamRepository(private val api: MStreamApiService) {
      */
     suspend fun fetchAutoDjSong(
         token: String,
-        request: MStreamRandomSongsRequest
+        request: VelvetRandomSongsRequest
     ): Result<Pair<EntryDto, List<Int>>> {
         return try {
             val resp = api.randomSong(token, request)
@@ -610,10 +610,10 @@ class MStreamRepository(private val api: MStreamApiService) {
 
     // ── Private helpers ───────────────────────────────────────────────────────
 
-    private fun fileToEntryDto(file: MStreamFile): EntryDto? {
-        // The full mStream filepath (library + relative path) is our stable identifier.
+    private fun fileToEntryDto(file: VelvetFile): EntryDto? {
+        // The full Velvet filepath (library + relative path) is our stable identifier.
         // It is used to build the native stream URL: /media/<filepath>?token=<jwt>
-        val filepath = file.mStreamFilepath ?: return null
+        val filepath = file.velvetFilepath ?: return null
         val meta = file.metadata?.metadata
         return EntryDto(
             id = filepath,
@@ -634,12 +634,12 @@ class MStreamRepository(private val api: MStreamApiService) {
     }
 
     /**
-     * Map a [MStreamFileMetaWrapper] (from /api/v1/db/random-songs) to an [EntryDto].
-     * Uses [MStreamFileMetaWrapper.filepath] as the entry ID — same native filepath
+     * Map a [VelvetFileMetaWrapper] (from /api/v1/db/random-songs) to an [EntryDto].
+     * Uses [VelvetFileMetaWrapper.filepath] as the entry ID — same native filepath
      * format as file-explorer pullMetadata=true, so streaming and sharing work identically.
      * BPM, musical key and genres are propagated for Auto-DJ use.
      */
-    private fun fileMetaWrapperToEntryDto(wrapper: MStreamFileMetaWrapper): EntryDto? {
+    private fun fileMetaWrapperToEntryDto(wrapper: VelvetFileMetaWrapper): EntryDto? {
         val filepath = wrapper.filepath?.takeIf { it.isNotBlank() } ?: return null
         val meta = wrapper.metadata
         return EntryDto(

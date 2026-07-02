@@ -16,14 +16,14 @@ import androidx.media3.session.MediaController
 import androidx.media3.session.SessionToken
 import com.google.common.util.concurrent.ListenableFuture
 import com.google.common.util.concurrent.MoreExecutors
-import com.tiritibambix.sharesonic.data.MStreamRepository
+import com.tiritibambix.sharesonic.data.VelvetRepository
 import com.tiritibambix.sharesonic.data.Result
 import com.tiritibambix.sharesonic.data.SubsonicRepository
-import com.tiritibambix.sharesonic.data.api.MStreamClient
+import com.tiritibambix.sharesonic.data.api.VelvetClient
 import com.tiritibambix.sharesonic.data.api.SubsonicClient
 import com.tiritibambix.sharesonic.data.api.models.BpmRange
 import com.tiritibambix.sharesonic.data.api.models.EntryDto
-import com.tiritibambix.sharesonic.data.api.models.MStreamRandomSongsRequest
+import com.tiritibambix.sharesonic.data.api.models.VelvetRandomSongsRequest
 import com.tiritibambix.sharesonic.data.api.models.NativePlaylist
 import com.tiritibambix.sharesonic.data.settings.AutoDjSettings
 import com.tiritibambix.sharesonic.data.settings.ServerSettings
@@ -301,15 +301,15 @@ class PlayerViewModel(
             val settings = settings()
             if (!settings.isConfigured) return@launch
             val token = settings.jwtToken.ifEmpty { return@launch }
-            val mStream = MStreamRepository(MStreamClient.build(settings.serverUrl))
-            when (val r = mStream.getPlaylists(token)) {
+            val velvet = VelvetRepository(VelvetClient.build(settings.serverUrl))
+            when (val r = velvet.getPlaylists(token)) {
                 is Result.Error -> {}
                 is Result.Success -> {
                     _playlists.update { r.data }
                     // Refresh real song counts in parallel (getall count is denormalized)
                     val refreshed = r.data.map { playlist ->
                         async {
-                            val loaded = mStream.loadPlaylist(token, playlist.name)
+                            val loaded = velvet.loadPlaylist(token, playlist.name)
                             if (loaded is Result.Success) playlist.copy(songCount = loaded.data.size)
                             else playlist
                         }
@@ -326,7 +326,7 @@ class PlayerViewModel(
         viewModelScope.launch {
             val settings = settings()
             val token = settings.jwtToken.ifEmpty { return@launch }
-            MStreamRepository(MStreamClient.build(settings.serverUrl))
+            VelvetRepository(VelvetClient.build(settings.serverUrl))
                 .addSongToPlaylist(token, song.id, playlistName)
         }
     }
@@ -404,14 +404,14 @@ class PlayerViewModel(
             val serverSettings = settings()
             val token = serverSettings.jwtToken.ifEmpty { return@launch }
             val current = _state.value.currentSong
-            val mStream = MStreamRepository(MStreamClient.build(serverSettings.serverUrl))
+            val velvet = VelvetRepository(VelvetClient.build(serverSettings.serverUrl))
 
             // 1. Similar artists (cached per artist)
             val similarArtists: List<String>? = if (autoDjSettings.useSimilarArtists
                 && !current?.artist.isNullOrBlank()
             ) {
                 similarArtistsCache.getOrPut(current!!.artist!!) {
-                    when (val r = mStream.getSimilarArtists(token, current.artist!!)) {
+                    when (val r = velvet.getSimilarArtists(token, current.artist!!)) {
                         is Result.Success -> r.data
                         else              -> emptyList()
                     }
@@ -454,7 +454,7 @@ class PlayerViewModel(
             } else null
 
             // Build primary request (tight BPM + similar artists + Camelot)
-            val primaryRequest = MStreamRandomSongsRequest(
+            val primaryRequest = VelvetRandomSongsRequest(
                 ignoreList          = autoDjIgnoreList,
                 ignoreVPaths        = ignoreVPaths,
                 bpmRanges           = bpmTight,
@@ -469,7 +469,7 @@ class PlayerViewModel(
                 minRating           = minRating
             )
 
-            when (val r = mStream.fetchAutoDjSong(token, primaryRequest)) {
+            when (val r = velvet.fetchAutoDjSong(token, primaryRequest)) {
                 is Result.Success -> {
                     autoDjIgnoreList = r.data.second
                     addToQueue(r.data.first)
@@ -479,9 +479,9 @@ class PlayerViewModel(
             }
 
             // Fallback: plain random (no constraints except ignoreList + source filter)
-            when (val fallback = mStream.fetchAutoDjSong(
+            when (val fallback = velvet.fetchAutoDjSong(
                 token,
-                MStreamRandomSongsRequest(ignoreList = autoDjIgnoreList, ignoreVPaths = ignoreVPaths)
+                VelvetRandomSongsRequest(ignoreList = autoDjIgnoreList, ignoreVPaths = ignoreVPaths)
             )) {
                 is Result.Success -> {
                     autoDjIgnoreList = fallback.data.second
@@ -496,7 +496,7 @@ class PlayerViewModel(
 
     /**
      * @param expiryDays Number of days until the link expires, as entered in the
-     *                   share dialog's "days until expiration" field (mirrors mStream
+     *                   share dialog's "days until expiration" field (mirrors Velvet
      *                   Velvet); null → permanent link.
      */
     fun shareCurrentSong(expiryDays: Int? = null) {
@@ -512,13 +512,13 @@ class PlayerViewModel(
                     is Result.Error   -> { _state.update { it.copy(shareLoading = false, shareError = r.message) }; return@launch }
                 }
             } else {
-                // mStream native song — use filepath with native share endpoint
+                // Velvet native song — use filepath with native share endpoint
                 val token = ensureToken(settings) ?: run {
                     _state.update { it.copy(shareLoading = false, shareError = "Authentication failed") }
                     return@launch
                 }
-                val mStream = MStreamRepository(MStreamClient.build(settings.serverUrl))
-                when (val r = mStream.share(token, song.id, expiryDays)) {
+                val velvet = VelvetRepository(VelvetClient.build(settings.serverUrl))
+                when (val r = velvet.share(token, song.id, expiryDays)) {
                     is Result.Success -> settings.serverUrl.trimEnd('/') + "/shared/${r.data}"
                     is Result.Error   -> { _state.update { it.copy(shareLoading = false, shareError = r.message) }; return@launch }
                 }
@@ -529,7 +529,7 @@ class PlayerViewModel(
 
     /**
      * Create a public share link for the *entire current queue* as a single shared
-     * playlist (mirrors mStream Velvet's "share queue" behaviour). Only native
+     * playlist (mirrors Velvet's "share queue" behaviour). Only native
      * filepath-identified songs can be shared this way — Subsonic search-result
      * songs (numeric IDs) are silently skipped from the shared playlist.
      *
@@ -548,8 +548,8 @@ class PlayerViewModel(
                 _state.update { it.copy(shareLoading = false, shareError = "Authentication failed") }
                 return@launch
             }
-            val mStream = MStreamRepository(MStreamClient.build(settings.serverUrl))
-            when (val r = mStream.shareQueue(token, filepaths, expiryDays)) {
+            val velvet = VelvetRepository(VelvetClient.build(settings.serverUrl))
+            when (val r = velvet.shareQueue(token, filepaths, expiryDays)) {
                 is Result.Success -> {
                     val url = settings.serverUrl.trimEnd('/') + "/shared/${r.data}"
                     _state.update { it.copy(shareLoading = false, shareUrl = url) }
@@ -561,7 +561,7 @@ class PlayerViewModel(
 
     /**
      * Rate the currently playing track — Now Playing screen only (mini player has no room).
-     * Sharesonic shows 0–5 stars; mStream's native scale is 0–10 (half-star precision),
+     * Sharesonic shows 0–5 stars; Velvet's native scale is 0–10 (half-star precision),
      * so [stars] is doubled before being sent. Tapping the already-set star clears the rating.
      *
      * Native ratings need a filepath identifier — only available for songs browsed via
@@ -595,9 +595,9 @@ class PlayerViewModel(
         viewModelScope.launch {
             val settings = settings()
             val token = ensureToken(settings) ?: return@launch
-            val mStream = MStreamRepository(MStreamClient.build(settings.serverUrl))
+            val velvet = VelvetRepository(VelvetClient.build(settings.serverUrl))
             // rateSong() expects the UI 0–5 scale and doubles it internally — pass `newStars`, not the native value.
-            val result = mStream.rateSong(token, song.id, newStars.takeIf { it > 0 })
+            val result = velvet.rateSong(token, song.id, newStars.takeIf { it > 0 })
             if (result is Result.Error) {
                 // Revert on failure — keep state truthful to what the server holds.
                 fun revert(s: EntryDto) = if (s.id == song.id) s.copy(rating = song.rating) else s
@@ -629,7 +629,7 @@ class PlayerViewModel(
 
     /**
      * Send a "now playing" notification when a track starts.
-     * - Filepath song → ListenBrainz playing-now via native mStream API
+     * - Filepath song → ListenBrainz playing-now via native Velvet API
      * - Integer-ID song (search3) → Subsonic scrobble.view submission=false
      * Fire-and-forget — silently ignored if services are not configured.
      */
@@ -643,7 +643,7 @@ class PlayerViewModel(
                 ).scrobble(song.id, submission = false)
             } else {
                 val token = ensureToken(settings) ?: return@launch
-                MStreamRepository(MStreamClient.build(settings.serverUrl))
+                VelvetRepository(VelvetClient.build(settings.serverUrl))
                     .listenBrainzNowPlaying(token, song.id)
             }
         }
@@ -651,7 +651,7 @@ class PlayerViewModel(
 
     /**
      * Submit a scrobble when 50% of a track has been played.
-     * - Filepath song → Last.fm + ListenBrainz via native mStream API
+     * - Filepath song → Last.fm + ListenBrainz via native Velvet API
      * - Integer-ID song (search3) → Subsonic scrobble.view submission=true
      * Fire-and-forget — silently ignored if services are not configured.
      */
@@ -665,7 +665,7 @@ class PlayerViewModel(
                 ).scrobble(song.id, submission = true)
             } else {
                 val token = ensureToken(settings) ?: return@launch
-                MStreamRepository(MStreamClient.build(settings.serverUrl))
+                VelvetRepository(VelvetClient.build(settings.serverUrl))
                     .scrobble(token, song.id)
             }
         }
@@ -677,8 +677,8 @@ class PlayerViewModel(
      */
     private suspend fun ensureToken(settings: ServerSettings): String? {
         if (settings.jwtToken.isNotEmpty()) return settings.jwtToken
-        val mStream = MStreamRepository(MStreamClient.build(settings.serverUrl))
-        val result = mStream.login(settings.username, settings.password)
+        val velvet = VelvetRepository(VelvetClient.build(settings.serverUrl))
+        val result = velvet.login(settings.username, settings.password)
         if (result is Result.Success) {
             settingsRepo.saveToken(result.data)
             return result.data
@@ -694,8 +694,8 @@ class PlayerViewModel(
     /**
      * Build the audio stream URL for a song.
      *
-     * mStream Subsonic IDs are bare integers (e.g. "42") — songs from getRandomSongs.
-     * mStream native songs have a filepath as ID (e.g. "library/Artist/Album/track.mp3").
+     * Velvet Subsonic IDs are bare integers (e.g. "42") — songs from getRandomSongs.
+     * Velvet native songs have a filepath as ID (e.g. "library/Artist/Album/track.mp3").
      *
      * - Numeric ID → Subsonic /rest/stream.view (the integer IS the correct DB row ID)
      * - Filepath ID → native /media/<filepath>?token=<jwt>
@@ -707,7 +707,7 @@ class PlayerViewModel(
         } else {
             val filepath = song.path ?: song.id
             // Percent-encode each path segment (keeping '/' separators) exactly like
-            // the mStream Velvet webapp's encodeFp(). The previous version only escaped
+            // the Velvet webapp's encodeFp(). The previous version only escaped
             // %, # and ? — it left spaces, '&', '+' and accented characters (é, è, à,
             // ç…) literal, which 404'd the /media/ request for any such path. On a
             // French library those are everywhere, so playback failed constantly.
@@ -722,7 +722,7 @@ class PlayerViewModel(
      * Build the cover art URL for a song.
      *
      * - Subsonic cover art IDs start with "al-" / "ar-" or are numeric → Subsonic getCoverArt
-     * - mStream native album art IDs are filenames (e.g. "abc123.jpg") → /album-art/<file>?token=<jwt>
+     * - Velvet native album art IDs are filenames (e.g. "abc123.jpg") → /album-art/<file>?token=<jwt>
      */
     private fun coverArtUrl(settings: ServerSettings, song: EntryDto): String? {
         val id = song.coverArt ?: return null
@@ -735,7 +735,7 @@ class PlayerViewModel(
     }
 }
 
-/** Returns true if this string is a mStream Subsonic numeric track ID (bare integer). */
+/** Returns true if this string is a Velvet Subsonic numeric track ID (bare integer). */
 private fun String.isSubsonicNumericId(): Boolean = isNotBlank() && all { it.isDigit() }
 
 class PlayerViewModelFactory(private val context: Context) : ViewModelProvider.Factory {

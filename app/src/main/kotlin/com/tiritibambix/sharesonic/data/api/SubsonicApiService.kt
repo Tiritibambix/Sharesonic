@@ -9,7 +9,7 @@ import retrofit2.http.Streaming
 /**
  * Subsonic API — used for search, sharing, scrobbling (integer-ID songs from search3),
  * and dormant shuffle/cleanup methods reserved for Plan B (generic Subsonic server support).
- * Folder browsing is handled by the mStream native API (MStreamApiService).
+ * Folder browsing is handled by the Velvet native API (VelvetApiService).
  */
 interface SubsonicApiService {
 

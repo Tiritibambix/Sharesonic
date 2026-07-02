@@ -2,11 +2,11 @@
 
 ## Project Overview
 
-Sharesonic is an Android music client for **mStream Velvet** (https://mstream.io).
+Sharesonic is an Android music client for **Velvet** (https://github.com/aroundmyroom/Velvet).
 
 The goal is an app that does a handful of things well:
 
-* Browse music by real filesystem folder structure via mStream's native API
+* Browse music by real filesystem folder structure via Velvet's native API
 * Shuffle play on a folder or the entire library
 * Auto-DJ: continuous smart queue with BPM continuity, harmonic mixing (Camelot wheel), similar artists (Last.fm), artist cooldown, genre filter, crossfade
 * Generate a public share link for any track — or for the entire current queue in one tap
@@ -19,12 +19,12 @@ The goal is an app that does a handful of things well:
 
 ### Must Have
 
-* Folder-based browsing as the primary navigation mode using mStream's native `/api/v1/file-explorer` endpoint (not the Subsonic API — Subsonic on mStream returns tag-based artist/album views, not real folders)
+* Folder-based browsing as the primary navigation mode using Velvet's native `/api/v1/file-explorer` endpoint (not the Subsonic API — Subsonic on Velvet returns tag-based artist/album views, not real folders)
 * Shuffle play on any folder or on the full library
 * Auto-DJ: when enabled, the queue never stops — the app continuously fetches the next track using BPM continuity, harmonic key (Camelot wheel), similar artists via Last.fm, artist cooldown, genre filter, and optional crossfade
-* Share link generation: tap a track → generate a `server/shared/XXXXXXXXXX` public URL via the mStream native share API → Android share sheet opens with that URL ready to send
+* Share link generation: tap a track → generate a `server/shared/XXXXXXXXXX` public URL via the Velvet native share API → Android share sheet opens with that URL ready to send
 * Share queue: from the queue view, generate a single public link covering every track currently queued (same native share endpoint, fed the queue's filepaths); Subsonic-search-origin tracks are skipped since they aren't shareable through it
-* Star ratings: rate the current track 0–5 stars from Now Playing (synced to mStream's native 0–10 half-star scale); tapping the active star — or an explicit always-visible clear button — resets it back to "unrated", mirroring the Auto-DJ "minimum rating" picker's affordance
+* Star ratings: rate the current track 0–5 stars from Now Playing (synced to Velvet's native 0–10 half-star scale); tapping the active star — or an explicit always-visible clear button — resets it back to "unrated", mirroring the Auto-DJ "minimum rating" picker's affordance
 * Settings reachable via a hamburger navigation drawer containing **Server**, **Auto-DJ**, **Themes** and **Public Links**; the hamburger glyph stays in the top-left of every drawer destination so users can tap back out; Search and Playlists icons remain pinned top-right in the Folder Browser at all times
 * Playlist management: create, rename, delete playlists; add/remove tracks; play all / shuffle; add from browser (swipe right) or from Now Playing
 * Persistent mini player bar during navigation: thumbnail, title/artist, skip/play-pause controls, live progress strip; folds away on the Now Playing screen
@@ -52,14 +52,14 @@ The goal is an app that does a handful of things well:
 ### Key Screens
 
 1. **Navigation drawer** — hamburger menu opening a frosted-glass sheet sized to ~80% of the screen width (`Modifier.width(maxWidth * 0.8f)` + `Modifier.blur()` on the content behind it via `animateDpAsState`), so a blurred sliver of the browser stays visible and tappable on the right — making the swipe-to-dismiss gesture obvious without anyone having to discover it. Lists **Server**, **Auto-DJ**, **Themes**, **Public Links**; each destination keeps the hamburger glyph as its `navigationIcon` so tapping it again exits straight back out
-2. **Server / Auto-DJ / Themes / Public Links settings** — each is its own screen reachable only via the drawer; Server holds the mStream URL, username, password and connection test
+2. **Server / Auto-DJ / Themes / Public Links settings** — each is its own screen reachable only via the drawer; Server holds the Velvet URL, username, password and connection test
 3. **Folder Browser** — real filesystem tree via native API; swipe right → add to playlist, swipe left → add to queue; long press → context menu; alphabetical letter strip; Search and Playlists icons are pinned in the top-right of the `TopAppBar` at all times (not folded into the drawer)
 4. **Now Playing** — airy, single-screen player redesigned to avoid feeling cramped: cover art, title/artist, a combined format/bitrate + star-rating row, generously spaced playback controls and seek bar, and an Actions area (share, add-to-playlist, queue-share). The exact filename and full path collapse into one compact tappable line that opens an info dialog with selectable text — so nothing requires scrolling. Swipe left for queue view
 5. **Queue** — scrollable queue, tap to jump, swipe left to remove; a top-bar share icon (visible only here) generates one public link for the whole queue
 6. **Mini player** — persistent bottom bar on all screens except Now Playing; folds up/down without fade
 7. **Playlists** — list of playlists with real track counts; create / rename / delete
 8. **Playlist detail** — track list; play all / shuffle FABs; swipe to remove; add songs via search dialog
-9. **Search** — pill-shaped Material You search field living in the screen body (not the `TopAppBar` title slot, which clipped it); auto-focuses on entry. Results (from the native `/api/v1/db/search`) are grouped into four sections, mirroring the mStream Velvet webapp: **Folders** (real on-disk folders whose name matched — tapping navigates straight to the server-provided `browse_path`, no path guessing), **Artists**, **Albums** and **Songs**. Tapping an **Artist** opens a track list of that artist's own songs (via `artist-folder-songs`, matched on the exact tag incl. featuring/variant spellings) — like the webapp's artist profile — rather than trying to resolve the artist to a single folder. Tapping an **Album** navigates to its folder; tapping a **Song** plays it
+9. **Search** — pill-shaped Material You search field living in the screen body (not the `TopAppBar` title slot, which clipped it); auto-focuses on entry. Results (from the native `/api/v1/db/search`) are grouped into four sections, mirroring the Velvet webapp: **Folders** (real on-disk folders whose name matched — tapping navigates straight to the server-provided `browse_path`, no path guessing), **Artists**, **Albums** and **Songs**. Tapping an **Artist** opens a track list of that artist's own songs (via `artist-folder-songs`, matched on the exact tag incl. featuring/variant spellings) — like the webapp's artist profile — rather than trying to resolve the artist to a single folder. Tapping an **Album** navigates to its folder; tapping a **Song** plays it
 10. **Share confirmation** — shows the generated link with a copy + send button
 
 ## Technical Stack
@@ -67,12 +67,12 @@ The goal is an app that does a handful of things well:
 * Language: Kotlin
 * UI: Jetpack Compose + Material 3
 * Architecture: MVVM with ViewModel + StateFlow
-* Network: Retrofit + OkHttp (mStream native API for everything, **including search** via `/api/v1/db/search`). The Subsonic compatibility layer is now only a legacy fallback for scrobbling/sharing numeric-ID songs — which native search no longer produces, so it is effectively dormant
+* Network: Retrofit + OkHttp (Velvet native API for everything, **including search** via `/api/v1/db/search`). The Subsonic compatibility layer is now only a legacy fallback for scrobbling/sharing numeric-ID songs — which native search no longer produces, so it is effectively dormant
 * Local storage: DataStore for settings (stores URL, username, password, JWT token)
 * Min SDK: 26 (Android 8.0)
 * Target SDK: latest stable
 
-## mStream Native API
+## Velvet Native API
 
 Used for **folder browsing, audio streaming, and sharing**. Requires JWT bearer token authentication.
 
@@ -150,7 +150,7 @@ GET /media/<filepath>?token=<jwt>
 ```
 
 Where `filepath` = `metadata.filepath` from the file-explorer response (e.g. `library/Artist/Album/track.mp3`).
-This is how the official mStream webapp streams audio.
+This is how the official Velvet webapp streams audio.
 
 **Each path segment must be percent-encoded** (like the webapp's `encodeFp` / `encodeURIComponent`),
 keeping `/` separators intact — `PlayerViewModel.streamUrl()` does this with `Uri.encode` per
@@ -183,7 +183,7 @@ Content-Type: application/json
 
 The public share URL is `<serverUrl>/shared/<playlistId>`.
 
-**Sharing the queue** reuses this exact endpoint — `MStreamRepository.shareQueue()` /
+**Sharing the queue** reuses this exact endpoint — `VelvetRepository.shareQueue()` /
 `PlayerViewModel.shareQueue()` collect every queued song's filepath (`EntryDto.id`, skipping
 any Subsonic numeric-ID entries from search results, which this endpoint can't share) and pass
 them as the `playlist` array in a single request, producing one link for the whole queue.
@@ -198,7 +198,7 @@ Content-Type: application/json
 { "filepath": "library/Artist/Album/track.mp3", "rating": 8 }
 ```
 
-* `rating` is on mStream's **native 0–10 scale with half-star precision**. Sharesonic's UI
+* `rating` is on Velvet's **native 0–10 scale with half-star precision**. Sharesonic's UI
   shows **0–5 stars**; `PlayerViewModel.rateCurrentSong(stars)` converts both ways
   (`stars * 2` when sending, `rating / 2` when reading `EntryDto.rating` back) — comparing or
   storing the two scales directly was a real bug (stars lit up wrong / didn't toggle).
@@ -213,7 +213,7 @@ GET  /api/v1/share/list          → [{ playlistId, songCount, expires }]
 DELETE /api/v1/share/:playlistId → { "success": true }
 ```
 
-`cleanupExpiredShares()` in `MStreamRepository` fetches the list and calls DELETE for each share
+`cleanupExpiredShares()` in `VelvetRepository` fetches the list and calls DELETE for each share
 whose `expires` is in the past. Called fire-and-forget in `FolderBrowserViewModel.init`.
 
 ### Native random songs
@@ -264,7 +264,7 @@ x-access-token: <token>
 → { "artists": ["Artist A", "Artist B", ...] }
 ```
 
-Returns a list of similar artist names via Last.fm, proxied through mStream.
+Returns a list of similar artist names via Last.fm, proxied through Velvet.
 Results are cached in memory per session. Used by `PlayerViewModel.fetchAndEnqueueAutoDjSong()`.
 
 ### On-demand art
@@ -275,7 +275,7 @@ GET /api/v1/files/art?fp=<filepath>
 ```
 
 Extracts embedded album art from any audio file. Returns the cache filename for use with
-`GET /album-art/<aaFile>?token=<jwt>`. Implemented in `MStreamRepository.getArtFilename()`
+`GET /album-art/<aaFile>?token=<jwt>`. Implemented in `VelvetRepository.getArtFilename()`
 (data layer only — not yet wired to the UI).
 
 ### Native full-text search
@@ -296,7 +296,7 @@ Content-Type: application/json
   }
 ```
 
-Replaces Subsonic `search3` for all in-app search (`MStreamRepository.search()`). Notes:
+Replaces Subsonic `search3` for all in-app search (`VelvetRepository.search()`). Notes:
 
 * `noFolders: false` is required to get the `folders` array **and** real album filepaths (with
   the default `true`, albums come back with `filepath: false`).
@@ -323,7 +323,7 @@ Content-Type: application/json
 
 Every song whose `artist`/`album_artist` tag **exactly** matches one of `artists`. Pass a search
 result's normalized name **plus all its `variants`** (the match is exact-string against the raw tag,
-not the normalized name). Response shape = `MStreamFileMetaWrapper` (same as `db/random-songs`).
+not the normalized name). Response shape = `VelvetFileMetaWrapper` (same as `db/random-songs`).
 Used when an artist is tapped in search: `SearchViewModel.fetchArtistSongsRaw()` →
 `ArtistResultsScreen` lists the tracks; each plays by its own server-verified filepath.
 
@@ -331,7 +331,7 @@ Used when an artist is tapped in search: `SearchViewModel.fetchArtistSongsRaw()`
 
 Per-folder shuffle must gather every track under a folder — but a genre-sized folder can hold 100k+
 files across thousands of sub-directories. A client-side recursive `file-explorer` walk (one request
-per sub-folder) hangs forever at that scale, so `MStreamRepository.collectSongsFast()` uses two
+per sub-folder) hangs forever at that scale, so `VelvetRepository.collectSongsFast()` uses two
 server-side requests instead:
 
 ```
@@ -343,7 +343,7 @@ POST /api/v1/db/metadata/batch          ["Music/Reggae/.../track.mp3", ...]
 ```
 
 * The recursive scan can take a while server-side on huge folders, so these calls use a **longer read
-  timeout** — `MStreamClient.buildLongTimeout()` (300 s) instead of the default 60 s.
+  timeout** — `VelvetClient.buildLongTimeout()` (300 s) instead of the default 60 s.
 * The result is **capped at `SHUFFLE_MAX` (5000) tracks, sampled randomly across the whole folder**
   (shuffle the filepaths, then take the cap) — materializing a 100k-track queue + its metadata is
   infeasible on-device. Folders under the cap are taken in full. Metadata is fetched in chunks of
@@ -354,8 +354,8 @@ POST /api/v1/db/metadata/batch          ["Music/Reggae/.../track.mp3", ...]
 
 ### Scrobbling
 
-Sharesonic reports playback to mStream, which forwards to the user's configured **Last.fm**
-and **ListenBrainz** accounts. No API keys are needed in the app — mStream uses its own.
+Sharesonic reports playback to Velvet, which forwards to the user's configured **Last.fm**
+and **ListenBrainz** accounts. No API keys are needed in the app — Velvet uses its own.
 Calls are fire-and-forget; silently ignored if the services are not configured.
 
 **ListenBrainz — "now playing" ping** (sent on track start):
@@ -390,7 +390,7 @@ browsing, or shuffle. The `SubsonicRepository` code paths below survive only as 
 fallback for songs carrying a Subsonic **integer** ID (`id.all { it.isDigit() }`), which the native
 search no longer produces — so in practice they are dormant.
 
-**Important:** mStream Subsonic IDs are plain integer database row IDs (e.g. `42`), valid only with
+**Important:** Velvet Subsonic IDs are plain integer database row IDs (e.g. `42`), valid only with
 other Subsonic endpoints. Do NOT use file content hashes as Subsonic IDs.
 
 * `search3` — legacy full-text search (returns integer IDs); superseded by native `db/search`

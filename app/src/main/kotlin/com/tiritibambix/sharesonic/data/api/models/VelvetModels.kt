@@ -4,12 +4,12 @@ import com.google.gson.annotations.SerializedName
 
 // ── Login ──────────────────────────────────────────────────────────────────────
 
-data class MStreamLoginRequest(
+data class VelvetLoginRequest(
     val username: String,
     val password: String
 )
 
-data class MStreamLoginResponse(
+data class VelvetLoginResponse(
     val token: String? = null,
     val vpaths: List<String> = emptyList(),
     val err: String? = null
@@ -25,11 +25,11 @@ data class FileExplorerRequest(
 
 data class FileExplorerResponse(
     val path: String? = null,
-    val directories: List<MStreamDir> = emptyList(),
-    val files: List<MStreamFile> = emptyList()
+    val directories: List<VelvetDir> = emptyList(),
+    val files: List<VelvetFile> = emptyList()
 )
 
-data class MStreamDir(
+data class VelvetDir(
     val name: String = "",
     /** Full path provided by the server on non-root responses. */
     val path: String? = null
@@ -41,25 +41,25 @@ data class MStreamDir(
  * When pullMetadata=true, the server adds a nested [metadata] object shaped as:
  *   { "filepath": "library/Artist/Album/track.mp3", "metadata": { ... } }
  *
- * The [metadata.filepath] is the **full mStream path** (library name + relative path)
+ * The [metadata.filepath] is the **full Velvet path** (library name + relative path)
  * and is the correct identifier for the native /media/<filepath>?token=<jwt> stream URL.
  *
- * NOTE: mStream Subsonic IDs are plain integer DB row IDs — they are NOT related
+ * NOTE: Velvet Subsonic IDs are plain integer DB row IDs — they are NOT related
  * to the [metadata.metadata.hash] field, which is the audio-file content hash.
  * Do not pass the hash to any Subsonic endpoint.
  */
-data class MStreamFile(
+data class VelvetFile(
     val name: String = "",
     val path: String? = null,
     val type: String? = null,
     /** Present when pullMetadata=true. Contains the full filepath + inner metadata. */
-    val metadata: MStreamFileMetaWrapper? = null
+    val metadata: VelvetFileMetaWrapper? = null
 ) {
     /**
-     * The full mStream filepath (e.g. "library/Artist/Album/track.mp3").
+     * The full Velvet filepath (e.g. "library/Artist/Album/track.mp3").
      * Use this to build the native stream URL: /media/<filepath>?token=<jwt>
      */
-    val mStreamFilepath: String? get() = metadata?.filepath
+    val velvetFilepath: String? get() = metadata?.filepath
 
     val isAudio: Boolean
         get() = type?.lowercase() in AUDIO_EXTENSIONS
@@ -73,25 +73,25 @@ data class MStreamFile(
 }
 
 /** Outer wrapper returned by pullMetadata=true on each file entry. */
-data class MStreamFileMetaWrapper(
+data class VelvetFileMetaWrapper(
     val filepath: String? = null,
-    val metadata: MStreamInnerMetadata? = null
+    val metadata: VelvetInnerMetadata? = null
 )
 
 /** Inner metadata object (audio tags + file hash). */
-data class MStreamInnerMetadata(
+data class VelvetInnerMetadata(
     val hash: String? = null,
     val title: String? = null,
     val artist: String? = null,
     val album: String? = null,
     @SerializedName("album-art") val albumArt: String? = null,
-    /** Track BPM as detected by mStream Velvet's audio analysis. */
+    /** Track BPM as detected by Velvet's audio analysis. */
     val bpm: Float? = null,
     /** Musical key in Camelot notation (e.g. "8A", "11B"). */
     @SerializedName("musical_key") val musicalKey: String? = null,
     /** Genre tags. */
     val genres: List<String>? = null,
-    /** User rating, 0–10 (mStream's native scale — half-star precision; UI shows 0–5 stars = rating / 2). */
+    /** User rating, 0–10 (Velvet's native scale — half-star precision; UI shows 0–5 stars = rating / 2). */
     val rating: Int? = null
 )
 
@@ -102,19 +102,19 @@ data class MStreamInnerMetadata(
  * [time] = number of days until expiry; omit for a permanent link.
  * The resulting URL is <serverUrl>/shared/<playlistId>.
  */
-data class MStreamShareRequest(
+data class VelvetShareRequest(
     val playlist: List<String>,
     val time: Int? = null
 )
 
-data class MStreamShareResponse(
+data class VelvetShareResponse(
     val playlistId: String? = null,
     /** Unix timestamp (seconds) of expiry, or null for permanent links. */
     val expires: Long? = null
 )
 
 /** One item from GET /api/v1/share/list. */
-data class MStreamShareListItem(
+data class VelvetShareListItem(
     val playlistId: String = "",
     val songCount: Int = 0,
     /** Unix timestamp (seconds) of expiry, or null for permanent links. */
@@ -134,7 +134,7 @@ data class BpmRange(val min: Float, val max: Float)
  * For Auto-DJ, additional fields narrow the selection to harmonically / rhythmically
  * compatible tracks.
  */
-data class MStreamRandomSongsRequest(
+data class VelvetRandomSongsRequest(
     val ignoreList: List<Int> = emptyList(),
     val ignorePercentage: Float? = null,
     val ignoreVPaths: List<String>? = null,
@@ -166,10 +166,10 @@ data class MStreamRandomSongsRequest(
  * [songs] contains exactly one entry per call.
  * [ignoreList] is the input list with the new song's positional index appended;
  * pass it back on the next call.
- * Reuses [MStreamFileMetaWrapper] — same shape as pullMetadata=true file-explorer entries.
+ * Reuses [VelvetFileMetaWrapper] — same shape as pullMetadata=true file-explorer entries.
  */
-data class MStreamRandomSongsResponse(
-    val songs: List<MStreamFileMetaWrapper> = emptyList(),
+data class VelvetRandomSongsResponse(
+    val songs: List<VelvetFileMetaWrapper> = emptyList(),
     val ignoreList: List<Int> = emptyList()
 )
 
@@ -177,10 +177,10 @@ data class MStreamRandomSongsResponse(
 
 /**
  * Request body for POST /api/v1/db/rate-song.
- * mStream's native rating scale is 0–10 (half-star precision); Sharesonic's UI
+ * Velvet's native rating scale is 0–10 (half-star precision); Sharesonic's UI
  * shows 0–5 stars, so the ViewModel sends `rating = stars * 2`. `null` clears it.
  */
-data class MStreamRateSongRequest(
+data class VelvetRateSongRequest(
     val filepath: String,
     val rating: Int?
 )
@@ -188,12 +188,12 @@ data class MStreamRateSongRequest(
 // ── Auth refresh ───────────────────────────────────────────────────────────────
 
 /** Response from GET /api/v1/auth/refresh. */
-data class MStreamRefreshResponse(val token: String? = null)
+data class VelvetRefreshResponse(val token: String? = null)
 
 // ── On-demand art ─────────────────────────────────────────────────────────────
 
 /** Response from GET /api/v1/files/art?fp=<filepath>. */
-data class MStreamArtResponse(@SerializedName("aaFile") val aaFile: String? = null)
+data class VelvetArtResponse(@SerializedName("aaFile") val aaFile: String? = null)
 
 // ── Native search (POST /api/v1/db/search) ────────────────────────────────────
 
@@ -212,7 +212,7 @@ data class NativeSearchItem(
     val name: String? = null,
     /** Album-art cache filename — use with GET /album-art/<file>?token=<jwt>. */
     @SerializedName("album_art_file") val albumArtFile: String? = null,
-    /** Full mStream filepath — use as EntryDto.id for native streaming. */
+    /** Full Velvet filepath — use as EntryDto.id for native streaming. */
     val filepath: String? = null
 )
 
@@ -236,7 +236,7 @@ data class NativeSearchFolder(
  * tag value that normalizes to this name — the server computes this specifically
  * so callers can query by tag across all mistagged variants at once (see
  * artists_normalized in the Velvet server). Required by
- * [com.tiritibambix.sharesonic.data.MStreamRepository.artistFolderSongs], whose
+ * [com.tiritibambix.sharesonic.data.VelvetRepository.artistFolderSongs], whose
  * server-side match is an exact match against the raw tag, not the normalized name.
  */
 data class NativeSearchArtist(val name: String? = null, val variants: List<String>? = null)
@@ -329,6 +329,6 @@ data class ScrobbleFilepathRequest(val filePath: String)
 /**
  * Response from GET /api/v1/lastfm/similar-artists?artist=<name>.
  * The exact field name in the JSON response should be verified against the
- * mStream Velvet server — this uses "artists" as a best-guess.
+ * Velvet server — this uses "artists" as a best-guess.
  */
 data class SimilarArtistsResponse(val artists: List<String> = emptyList())

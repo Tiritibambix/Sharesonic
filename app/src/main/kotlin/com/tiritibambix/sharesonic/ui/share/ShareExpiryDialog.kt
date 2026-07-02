@@ -21,7 +21,7 @@ import androidx.compose.ui.unit.dp
 
 /**
  * Asks the user how long the public share link should remain valid before
- * actually creating it — mirrors mStream Velvet's "days until expiration"
+ * actually creating it — mirrors Velvet's "days until expiration"
  * field in its share dialog.
  *
  * Leaving the field empty (or 0) creates a permanent link, matching the

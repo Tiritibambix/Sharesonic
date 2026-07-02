@@ -1,8 +1,8 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!--
-  Sharesonic connects to user-specified, self-hosted mStream servers — these are
+  Sharesonic connects to user-specified, self-hosted Velvet servers — these are
   very often run on a local network (or even the same device, e.g. inside an
-  Android emulator like BlueStacks) without TLS, since mStream itself supports
+  Android emulator like BlueStacks) without TLS, since Velvet itself supports
   plain HTTP out of the box (default port 3000/3001).
 
   Since Android 9 (API 28), apps default to blocking all cleartext (HTTP)

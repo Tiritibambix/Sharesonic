@@ -41,7 +41,7 @@ fun SettingsScreen(
                 SettingsMenuRow(
                     icon = Icons.Default.Dns,
                     title = "Server",
-                    subtitle = "mStream URL, account, connection test",
+                    subtitle = "Velvet URL, account, connection test",
                     onClick = onNavigateToServer
                 )
             }

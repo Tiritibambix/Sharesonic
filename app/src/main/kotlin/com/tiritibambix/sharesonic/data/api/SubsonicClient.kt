@@ -15,7 +15,7 @@ object SubsonicClient {
 
     /**
      * Build a Subsonic API client using plain-text password auth (p= param).
-     * mStream's Subsonic endpoint requires p= rather than token/salt auth.
+     * Velvet's Subsonic endpoint requires p= rather than token/salt auth.
      */
     fun build(serverUrl: String, username: String, password: String): SubsonicApiService {
         val okHttp = OkHttpClient.Builder()

@@ -221,7 +221,7 @@ fun NowPlayingScreen(
         }
     }
 
-    // ── Share queue — ask for expiry before creating the link (mStream Velvet style) ──
+    // ── Share queue — ask for expiry before creating the link (Velvet style) ──
     if (showShareQueueExpiryDialog) {
         ShareExpiryDialog(
             onConfirm = { expiryDays ->
@@ -526,7 +526,7 @@ private fun NowPlayingPage(state: PlayerState, viewModel: PlayerViewModel) {
         Spacer(Modifier.height(12.dp))
     }
 
-    // ── Share — ask for expiry before creating the link (mStream Velvet style) ──
+    // ── Share — ask for expiry before creating the link (Velvet style) ──
     if (showShareExpiryDialog) {
         ShareExpiryDialog(
             onConfirm = { expiryDays ->

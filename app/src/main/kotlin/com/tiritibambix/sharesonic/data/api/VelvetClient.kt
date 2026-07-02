@@ -7,7 +7,7 @@ import retrofit2.Retrofit
 import retrofit2.converter.gson.GsonConverterFactory
 import java.util.concurrent.TimeUnit
 
-object MStreamClient {
+object VelvetClient {
 
     /**
      * Longer read timeout for heavy whole-folder operations (recursive scan +
@@ -15,10 +15,10 @@ object MStreamClient {
      * for these, which can take well over the default 60 s on big libraries.
      * Use via [buildLongTimeout]; keep normal calls on the shorter default.
      */
-    fun buildLongTimeout(serverUrl: String): MStreamApiService =
+    fun buildLongTimeout(serverUrl: String): VelvetApiService =
         build(serverUrl, readTimeoutSeconds = 300)
 
-    fun build(serverUrl: String, readTimeoutSeconds: Long = 60): MStreamApiService {
+    fun build(serverUrl: String, readTimeoutSeconds: Long = 60): VelvetApiService {
         val okHttp = OkHttpClient.Builder()
             .connectTimeout(30, TimeUnit.SECONDS)
             .readTimeout(readTimeoutSeconds, TimeUnit.SECONDS)
@@ -47,6 +47,6 @@ object MStreamClient {
             .client(okHttp)
             .addConverterFactory(GsonConverterFactory.create(gson))
             .build()
-            .create(MStreamApiService::class.java)
+            .create(VelvetApiService::class.java)
     }
 }

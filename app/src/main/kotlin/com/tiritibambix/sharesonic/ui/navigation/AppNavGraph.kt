@@ -175,7 +175,7 @@ fun AppNavGraph() {
         ) { backStackEntry ->
             val rawId = backStackEntry.arguments?.getString(Screen.Browser.ARG_ID)
                 ?: Screen.Browser.ROOT
-            // Decode Base64-encoded mStream path; "root" passes through unchanged.
+            // Decode Base64-encoded Velvet path; "root" passes through unchanged.
             val folderPath = Screen.Browser.decodePath(rawId)
             // createRoute() URL-encodes the display name (URLEncoder — form-urlencoded
             // semantics, spaces become '+'); it must be decoded back symmetrically or

@@ -595,7 +595,7 @@ fun FolderBrowserScreen(
         )
     }
 
-    // ── Share — ask for expiry before creating the link (mStream Velvet style) ──
+    // ── Share — ask for expiry before creating the link (Velvet style) ──
     shareExpiryTarget?.let { target ->
         ShareExpiryDialog(
             onConfirm = { expiryDays ->

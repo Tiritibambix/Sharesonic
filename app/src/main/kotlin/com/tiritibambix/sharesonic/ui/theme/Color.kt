@@ -2,8 +2,8 @@ package com.tiritibambix.sharesonic.ui.theme
 
 import androidx.compose.ui.graphics.Color
 
-// ── mStream Velvet palette ────────────────────────────────────────────────────
-// Mapped from mStream's :root CSS variables (navy/purple dark theme).
+// ── Velvet palette ────────────────────────────────────────────────────
+// Mapped from Velvet's :root CSS variables (navy/purple dark theme).
 
 // Backgrounds  --bg / --surface / --raised / --card
 val VelvetBg          = Color(0xFF1A1A2E)   // --bg       deepest layer

@@ -3,10 +3,10 @@ package com.tiritibambix.sharesonic.ui.publiclinks
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
-import com.tiritibambix.sharesonic.data.MStreamRepository
+import com.tiritibambix.sharesonic.data.VelvetRepository
 import com.tiritibambix.sharesonic.data.Result
-import com.tiritibambix.sharesonic.data.api.MStreamClient
-import com.tiritibambix.sharesonic.data.api.models.MStreamShareListItem
+import com.tiritibambix.sharesonic.data.api.VelvetClient
+import com.tiritibambix.sharesonic.data.api.models.VelvetShareListItem
 import com.tiritibambix.sharesonic.data.settings.ServerSettings
 import com.tiritibambix.sharesonic.data.settings.SettingsRepository
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -17,12 +17,12 @@ import kotlinx.coroutines.launch
 
 sealed interface PublicLinksState {
     data object Loading : PublicLinksState
-    data class Ready(val links: List<MStreamShareListItem>) : PublicLinksState
+    data class Ready(val links: List<VelvetShareListItem>) : PublicLinksState
     data class Error(val message: String) : PublicLinksState
 }
 
 /**
- * Manages mStream Velvet's "Public Links" — the list of shares created via
+ * Manages Velvet's "Public Links" — the list of shares created via
  * POST /api/v1/share, mirrored by GET /api/v1/share/list and DELETE /api/v1/share/:id.
  */
 class PublicLinksViewModel(private val settingsRepo: SettingsRepository) : ViewModel() {
@@ -46,8 +46,8 @@ class PublicLinksViewModel(private val settingsRepo: SettingsRepository) : ViewM
                 _state.update { PublicLinksState.Error("Authentication failed") }
                 return@launch
             }
-            val mStream = MStreamRepository(MStreamClient.build(settings.serverUrl))
-            when (val r = mStream.getShareList(token)) {
+            val velvet = VelvetRepository(VelvetClient.build(settings.serverUrl))
+            when (val r = velvet.getShareList(token)) {
                 is Result.Success -> _state.update {
                     // Soonest-expiring (and permanent-last) links surface first.
                     PublicLinksState.Ready(r.data.sortedBy { it.expires ?: Long.MAX_VALUE })
@@ -66,8 +66,8 @@ class PublicLinksViewModel(private val settingsRepo: SettingsRepository) : ViewM
         viewModelScope.launch {
             val settings = settingsRepo.settings.first()
             val token = ensureToken(settings) ?: return@launch
-            val mStream = MStreamRepository(MStreamClient.build(settings.serverUrl))
-            if (mStream.deleteShare(token, playlistId) is Result.Success) {
+            val velvet = VelvetRepository(VelvetClient.build(settings.serverUrl))
+            if (velvet.deleteShare(token, playlistId) is Result.Success) {
                 val current = _state.value
                 if (current is PublicLinksState.Ready) {
                     _state.update {
@@ -84,8 +84,8 @@ class PublicLinksViewModel(private val settingsRepo: SettingsRepository) : ViewM
      */
     private suspend fun ensureToken(settings: ServerSettings): String? {
         if (settings.jwtToken.isNotEmpty()) return settings.jwtToken
-        val mStream = MStreamRepository(MStreamClient.build(settings.serverUrl))
-        val result = mStream.login(settings.username, settings.password)
+        val velvet = VelvetRepository(VelvetClient.build(settings.serverUrl))
+        val result = velvet.login(settings.username, settings.password)
         if (result is Result.Success) {
             settingsRepo.saveToken(result.data)
             return result.data

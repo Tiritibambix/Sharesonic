@@ -9,7 +9,7 @@ import com.tiritibambix.sharesonic.data.api.models.ShareDto
 
 /**
  * Subsonic API repository — playback, sharing, random shuffle, search.
- * Folder browsing is handled by MStreamRepository.
+ * Folder browsing is handled by VelvetRepository.
  */
 class SubsonicRepository(private val api: SubsonicApiService) {
 
@@ -48,7 +48,7 @@ class SubsonicRepository(private val api: SubsonicApiService) {
     /**
      * Report playback for scrobbling (integer-ID songs from search3).
      * [submission] = false → "now playing"; true → full scrobble at 50%.
-     * Forwards to Last.fm / ListenBrainz based on the user's mStream settings.
+     * Forwards to Last.fm / ListenBrainz based on the user's Velvet settings.
      * Fire-and-forget — silently ignored on error.
      */
     suspend fun scrobble(id: String, submission: Boolean) {
@@ -116,7 +116,7 @@ class SubsonicRepository(private val api: SubsonicApiService) {
     // ── Shares ────────────────────────────────────────────────────────────────
 
     /**
-     * @param expiryDays Number of days until the link expires (mirrors mStream Velvet's
+     * @param expiryDays Number of days until the link expires (mirrors Velvet's
      *                   "days until expiration" share field); null/omit → permanent link.
      *                   Converted to the Unix-millis timestamp expected by `expires`.
      */

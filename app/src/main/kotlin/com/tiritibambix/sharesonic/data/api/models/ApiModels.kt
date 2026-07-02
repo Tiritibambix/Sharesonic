@@ -21,11 +21,11 @@ data class SubsonicBody(
 
 data class SubsonicError(val code: Int = 0, val message: String = "")
 
-// ── EntryDto — shared by mStream file entries and Subsonic random-songs ────────
+// ── EntryDto — shared by Velvet file entries and Subsonic random-songs ────────
 
 /**
- * For mStream file-explorer entries:
- *   isDir=true  → id = mStream directory path (for navigation)
+ * For Velvet file-explorer entries:
+ *   isDir=true  → id = Velvet directory path (for navigation)
  *   isDir=false → id = Subsonic track ID      (for playback / createShare)
  *
  * For Subsonic getRandomSongs entries:
@@ -45,13 +45,13 @@ data class EntryDto(
     val track: Int? = null,
     val year: Int? = null,
     val path: String? = null,
-    /** BPM as analysed by mStream Velvet. Used by Auto-DJ for BPM continuity. */
+    /** BPM as analysed by Velvet. Used by Auto-DJ for BPM continuity. */
     val bpm: Float? = null,
     /** Musical key in Camelot notation (e.g. "8A"). Used by Auto-DJ harmonic mixing. */
     val musicalKey: String? = null,
     /** Genre tags. Used by Auto-DJ genre filtering. */
     val genres: List<String>? = null,
-    /** User rating, 0–10 on mStream's native scale (half-star precision). UI shows 0–5 stars = rating / 2. */
+    /** User rating, 0–10 on Velvet's native scale (half-star precision). UI shows 0–5 stars = rating / 2. */
     val rating: Int? = null
 ) {
     val displayName: String get() = title ?: name ?: id
@@ -75,7 +75,7 @@ data class SearchResult3(
  * [variants] carries every raw artist/album_artist tag value that normalizes
  * to [name] (see [com.tiritibambix.sharesonic.data.api.models.NativeSearchArtist]) —
  * needed to resolve this artist's real folder via
- * [com.tiritibambix.sharesonic.data.MStreamRepository.artistFolderSongs].
+ * [com.tiritibambix.sharesonic.data.VelvetRepository.artistFolderSongs].
  */
 data class TopLevelDir(val id: String = "", val name: String = "", val variants: List<String> = emptyList())
 

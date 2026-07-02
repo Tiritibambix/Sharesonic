@@ -3,9 +3,9 @@ package com.tiritibambix.sharesonic.ui.search
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
-import com.tiritibambix.sharesonic.data.MStreamRepository
+import com.tiritibambix.sharesonic.data.VelvetRepository
 import com.tiritibambix.sharesonic.data.Result
-import com.tiritibambix.sharesonic.data.api.MStreamClient
+import com.tiritibambix.sharesonic.data.api.VelvetClient
 import com.tiritibambix.sharesonic.data.api.models.EntryDto
 import com.tiritibambix.sharesonic.data.api.models.SearchResult3
 import com.tiritibambix.sharesonic.data.settings.SettingsRepository
@@ -58,7 +58,7 @@ class SearchViewModel(private val settingsRepo: SettingsRepository) : ViewModel(
         val settings = settingsRepo.settings.first()
         if (!settings.isConfigured) return null
         val token = settings.jwtToken.takeIf { it.isNotEmpty() } ?: return null
-        val repo = MStreamRepository(MStreamClient.build(settings.serverUrl))
+        val repo = VelvetRepository(VelvetClient.build(settings.serverUrl))
         val names = (variants + artistName).distinct()
         return when (val r = repo.artistFolderSongs(token, names)) {
             is Result.Success -> r.data
@@ -86,7 +86,7 @@ class SearchViewModel(private val settingsRepo: SettingsRepository) : ViewModel(
                     _searchState.update { SearchState.Error("Not authenticated — open Settings") }
                     return@launch
                 }
-                val repo = MStreamRepository(MStreamClient.build(settings.serverUrl))
+                val repo = VelvetRepository(VelvetClient.build(settings.serverUrl))
                 when (val r = repo.search(token, q.trim())) {
                     is Result.Success -> _searchState.update { SearchState.Results(r.data) }
                     is Result.Error   -> _searchState.update { SearchState.Error(r.message) }

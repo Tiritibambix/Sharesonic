@@ -42,7 +42,7 @@ fun ThemeSettingsScreen(
             verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
             Text(
-                "Velvet est le thème par défaut, assorti à mStream.",
+                "Velvet est le thème par défaut de l'application.",
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 style = MaterialTheme.typography.bodyMedium
             )

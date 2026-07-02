@@ -4,9 +4,9 @@ import android.content.Context
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
-import com.tiritibambix.sharesonic.data.MStreamRepository
+import com.tiritibambix.sharesonic.data.VelvetRepository
 import com.tiritibambix.sharesonic.data.Result
-import com.tiritibambix.sharesonic.data.api.MStreamClient
+import com.tiritibambix.sharesonic.data.api.VelvetClient
 import com.tiritibambix.sharesonic.data.settings.AutoDjSettings
 import com.tiritibambix.sharesonic.data.settings.SettingsRepository
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -42,8 +42,8 @@ class AutoDjSettingsViewModel(
                     // Vpaths not yet stored — fetch from the server and persist them
                     val s = settingsRepo.settings.first()
                     if (s.isConfigured && s.jwtToken.isNotEmpty()) {
-                        val mStream = MStreamRepository(MStreamClient.build(s.serverUrl))
-                        val resp = mStream.fileExplorer(s.jwtToken, "")
+                        val velvet = VelvetRepository(VelvetClient.build(s.serverUrl))
+                        val resp = velvet.fileExplorer(s.jwtToken, "")
                         if (resp is Result.Success && resp.data.directories.isNotEmpty()) {
                             val vpaths = resp.data.directories.map { it.name }
                             _availableVpaths.update { vpaths }

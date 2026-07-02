@@ -21,13 +21,13 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
-import com.tiritibambix.sharesonic.data.api.models.MStreamShareListItem
+import com.tiritibambix.sharesonic.data.api.models.VelvetShareListItem
 import java.time.Instant
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
 
 /**
- * Public Links management — mirrors mStream Velvet's share-management panel:
+ * Public Links management — mirrors Velvet's share-management panel:
  * lists every link created via the native share API, with copy / open / revoke actions.
  */
 @OptIn(ExperimentalMaterial3Api::class)
@@ -38,7 +38,7 @@ fun PublicLinksScreen(
 ) {
     val state by viewModel.state.collectAsState()
     val context = LocalContext.current
-    var pendingDelete by remember { mutableStateOf<MStreamShareListItem?>(null) }
+    var pendingDelete by remember { mutableStateOf<VelvetShareListItem?>(null) }
 
     Scaffold(
         topBar = {
@@ -152,7 +152,7 @@ fun PublicLinksScreen(
 
 @Composable
 private fun PublicLinkRow(
-    link: MStreamShareListItem,
+    link: VelvetShareListItem,
     url: String,
     onCopy: () -> Unit,
     onOpen: () -> Unit,
@@ -194,7 +194,7 @@ private fun PublicLinkRow(
     }
 }
 
-/** Formats a Unix-seconds expiry timestamp as mStream Velvet does — date or "Permanent"/"Expired". */
+/** Formats a Unix-seconds expiry timestamp as Velvet does — date or "Permanent"/"Expired". */
 private fun formatExpiry(expiresEpochSeconds: Long?): String {
     if (expiresEpochSeconds == null) return "Permanent"
     val instant = Instant.ofEpochSecond(expiresEpochSeconds)

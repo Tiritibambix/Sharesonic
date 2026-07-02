@@ -10,7 +10,7 @@ import javax.net.ssl.SSLPeerUnverifiedException
 /**
  * Translates raw network/SSL exceptions into short, actionable, user-facing messages.
  *
- * mStream servers are entirely self-hosted (see CLAUDE.md — "mStream server URL" is
+ * Velvet servers are entirely self-hosted (see CLAUDE.md — "Velvet server URL" is
  * user-supplied in Settings, with no fixed domain or scheme). The most common support
  * issue we see is a **scheme/port mismatch**: the user enters "https://" for a port
  * that only speaks plain HTTP (or vice versa). That surfaces as a cryptic OkHttp /

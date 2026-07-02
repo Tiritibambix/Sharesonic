@@ -3,9 +3,9 @@ package com.tiritibambix.sharesonic.ui.playlists
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
-import com.tiritibambix.sharesonic.data.MStreamRepository
+import com.tiritibambix.sharesonic.data.VelvetRepository
 import com.tiritibambix.sharesonic.data.Result
-import com.tiritibambix.sharesonic.data.api.MStreamClient
+import com.tiritibambix.sharesonic.data.api.VelvetClient
 import com.tiritibambix.sharesonic.data.api.models.EntryDto
 import com.tiritibambix.sharesonic.data.api.models.NativePlaylistEntry
 import com.tiritibambix.sharesonic.data.settings.SettingsRepository
@@ -44,7 +44,7 @@ sealed interface AddSongsState {
 
 class PlaylistDetailViewModel(
     private val settingsRepo: SettingsRepository,
-    /** The playlist NAME — used as the identifier for all mStream Velvet playlist endpoints. */
+    /** The playlist NAME — used as the identifier for all Velvet playlist endpoints. */
     val playlistName: String
 ) : ViewModel() {
 
@@ -70,7 +70,7 @@ class PlaylistDetailViewModel(
                 _state.update { PlaylistDetailState.Error("Not authenticated — open Settings") }
                 return@launch
             }
-            val repo = MStreamRepository(MStreamClient.build(settings.serverUrl))
+            val repo = VelvetRepository(VelvetClient.build(settings.serverUrl))
             when (val r = repo.loadPlaylist(token, playlistName)) {
                 is Result.Success -> _state.update {
                     PlaylistDetailState.Ready(
@@ -88,7 +88,7 @@ class PlaylistDetailViewModel(
             val settings = settingsRepo.settings.first()
             if (!settings.isConfigured) return@launch
             val token = settings.jwtToken.ifEmpty { return@launch }
-            val repo = MStreamRepository(MStreamClient.build(settings.serverUrl))
+            val repo = VelvetRepository(VelvetClient.build(settings.serverUrl))
             repo.removeSongFromPlaylist(token, entryId, playlistName)
             load()
         }
@@ -99,7 +99,7 @@ class PlaylistDetailViewModel(
             val settings = settingsRepo.settings.first()
             if (!settings.isConfigured) return@launch
             val token = settings.jwtToken.ifEmpty { return@launch }
-            val repo = MStreamRepository(MStreamClient.build(settings.serverUrl))
+            val repo = VelvetRepository(VelvetClient.build(settings.serverUrl))
             repo.addSongToPlaylist(token, filepath, playlistName)
             load()
         }
@@ -110,7 +110,7 @@ class PlaylistDetailViewModel(
             val settings = settingsRepo.settings.first()
             if (!settings.isConfigured) return@launch
             val token = settings.jwtToken.ifEmpty { return@launch }
-            val repo = MStreamRepository(MStreamClient.build(settings.serverUrl))
+            val repo = VelvetRepository(VelvetClient.build(settings.serverUrl))
             repo.renamePlaylist(token, playlistName, newName)
             // After rename the playlist no longer exists under the old name —
             // pop back to the list so the user sees the updated name there.
@@ -118,7 +118,7 @@ class PlaylistDetailViewModel(
         }
     }
 
-    // ── Search for songs to add (native mStream search — returns filepaths) ───
+    // ── Search for songs to add (native Velvet search — returns filepaths) ───
 
     fun searchSongsToAdd(query: String) {
         searchJob?.cancel()
@@ -135,7 +135,7 @@ class PlaylistDetailViewModel(
                 _addSongsState.update { AddSongsState.Error("Not authenticated") }
                 return@launch
             }
-            val repo = MStreamRepository(MStreamClient.build(settings.serverUrl))
+            val repo = VelvetRepository(VelvetClient.build(settings.serverUrl))
             when (val r = repo.search(token, query.trim())) {
                 is Result.Success -> _addSongsState.update { AddSongsState.Results(r.data.song) }
                 is Result.Error   -> _addSongsState.update { AddSongsState.Error(r.message) }

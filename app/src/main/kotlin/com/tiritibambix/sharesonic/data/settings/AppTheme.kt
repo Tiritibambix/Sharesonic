@@ -3,7 +3,7 @@ package com.tiritibambix.sharesonic.data.settings
 /**
  * App-wide visual theme.
  *
- * - [VELVET] — the mStream-matching navy/purple palette (app default).
+ * - [VELVET] — the Velvet-matching navy/purple palette (app default).
  * - [DARK]   — true near-black scheme (Material/Apple dark guidelines).
  * - [LIGHT]  — soft lavender-gray light scheme.
  *

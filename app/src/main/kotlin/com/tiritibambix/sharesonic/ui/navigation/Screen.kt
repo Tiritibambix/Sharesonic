@@ -8,7 +8,7 @@ sealed class Screen(val route: String) {
 
     data object Browser : Screen("browser/{folderId}?folderName={folderName}") {
         /**
-         * mStream paths like "/Reggae/Bob Marley" contain slashes that would
+         * Velvet paths like "/Reggae/Bob Marley" contain slashes that would
          * break Navigation Compose path-segment matching.
          * Encode with URL-safe Base64 (no padding) so the route stays clean.
          * The special sentinel "root" is passed as-is.
@@ -51,7 +51,7 @@ sealed class Screen(val route: String) {
 
     /**
      * Playlist detail — the playlist NAME is both the identifier and the display label
-     * (mStream Velvet uses name as the primary key for all playlist mutations).
+     * (Velvet uses name as the primary key for all playlist mutations).
      * Encoded with URLEncoder to handle spaces and special chars safely.
      */
     data object PlaylistDetail : Screen("playlist/{playlistName}") {
@@ -62,7 +62,7 @@ sealed class Screen(val route: String) {
     /** Auto-DJ configuration panel, accessible from Settings. */
     data object AutoDjSettings : Screen("autodj-settings")
 
-    /** mStream server URL / account / connection test, accessible from Settings. */
+    /** Velvet server URL / account / connection test, accessible from Settings. */
     data object ServerSettings : Screen("server-settings")
 
     /** Velvet / Dark / Light visual theme picker, accessible from Settings. */

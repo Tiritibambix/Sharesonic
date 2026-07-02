@@ -11,7 +11,7 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
 
-/** mStream server URL / account / connection-test sub-screen, opened from the Settings menu. */
+/** Velvet server URL / account / connection-test sub-screen, opened from the Settings menu. */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ServerSettingsScreen(
@@ -63,8 +63,8 @@ private fun ServerSettingsContent(
         OutlinedTextField(
             value = serverUrl,
             onValueChange = { serverUrl = it },
-            label = { Text("mStream server URL") },
-            placeholder = { Text("https://mstream.example.com") },
+            label = { Text("Velvet server URL") },
+            placeholder = { Text("https://velvet.example.com") },
             singleLine = true,
             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Uri),
             modifier = Modifier.fillMaxWidth()

@@ -3,10 +3,10 @@ package com.tiritibambix.sharesonic.ui.browser
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
-import com.tiritibambix.sharesonic.data.MStreamRepository
+import com.tiritibambix.sharesonic.data.VelvetRepository
 import com.tiritibambix.sharesonic.data.Result
 import com.tiritibambix.sharesonic.data.SubsonicRepository
-import com.tiritibambix.sharesonic.data.api.MStreamClient
+import com.tiritibambix.sharesonic.data.api.VelvetClient
 import com.tiritibambix.sharesonic.data.api.SubsonicClient
 import com.tiritibambix.sharesonic.data.api.models.EntryDto
 import com.tiritibambix.sharesonic.data.api.models.NativePlaylist
@@ -44,8 +44,8 @@ sealed interface ShareState {
  *   folderId == path    → POST /api/v1/file-explorer  { directory: path, pullMetadata: true }
  *                         shows subdirectories + audio files with native filepaths
  *
- * Directory entry.id  = mStream path     (for navigation → next file-explorer call)
- * File entry.id       = mStream filepath (for /media/<filepath>?token= streaming)
+ * Directory entry.id  = Velvet path     (for navigation → next file-explorer call)
+ * File entry.id       = Velvet filepath (for /media/<filepath>?token= streaming)
  *                     OR numeric string  (Subsonic integer ID from search3 results only)
  */
 class FolderBrowserViewModel(
@@ -64,7 +64,7 @@ class FolderBrowserViewModel(
     /**
      * Build a cover art URL.
      * - Subsonic IDs ("al-N", "ar-N", numeric) → Subsonic getCoverArt endpoint
-     * - mStream album-art filenames → native /album-art/<file>?token=<jwt>
+     * - Velvet album-art filenames → native /album-art/<file>?token=<jwt>
      */
     fun coverArtUrl(coverArtId: String, size: Int = 64): String? {
         val s = _settings ?: return null
@@ -83,7 +83,7 @@ class FolderBrowserViewModel(
             val settings = settingsRepo.settings.first()
             if (!settings.isConfigured) return@launch
             val token = ensureToken(settings) ?: return@launch
-            MStreamRepository(MStreamClient.build(settings.serverUrl)).cleanupExpiredShares(token)
+            VelvetRepository(VelvetClient.build(settings.serverUrl)).cleanupExpiredShares(token)
         }
     }
 
@@ -102,14 +102,14 @@ class FolderBrowserViewModel(
                 return@launch
             }
 
-            val mStream = MStreamRepository(MStreamClient.build(settings.serverUrl))
+            val velvet = VelvetRepository(VelvetClient.build(settings.serverUrl))
             val path = if (folderId == Screen.Browser.ROOT) "" else folderId
             // pullMetadata=true only for non-root so files get filepaths for native streaming
             val pullMeta = path.isNotEmpty()
 
-            when (val r = mStream.fileExplorer(token, path, pullMeta)) {
+            when (val r = velvet.fileExplorer(token, path, pullMeta)) {
                 is Result.Success -> {
-                    val entries = mStream.toEntries(r.data, path)
+                    val entries = velvet.toEntries(r.data, path)
                     _state.update { BrowserState.Ready(entries) }
                 }
                 is Result.Error -> _state.update { BrowserState.Error(r.message) }
@@ -145,8 +145,8 @@ class FolderBrowserViewModel(
             val settings = settingsRepo.settings.first()
             val token = ensureToken(settings)
             val art = if (token != null) {
-                val mStream = MStreamRepository(MStreamClient.build(settings.serverUrl))
-                folderArtSemaphore.withPermit { mStream.leafFolderArt(token, path) }
+                val velvet = VelvetRepository(VelvetClient.build(settings.serverUrl))
+                folderArtSemaphore.withPermit { velvet.leafFolderArt(token, path) }
             } else {
                 null
             }
@@ -166,8 +166,8 @@ class FolderBrowserViewModel(
             if (folderId == Screen.Browser.ROOT) {
                 // Shuffle whole library via native Velvet random-songs endpoint
                 val token = ensureToken(settings) ?: run { onError("Authentication failed"); return@launch }
-                val mStream = MStreamRepository(MStreamClient.build(settings.serverUrl))
-                when (val r = mStream.getRandomSongs(token, count = 30)) {
+                val velvet = VelvetRepository(VelvetClient.build(settings.serverUrl))
+                when (val r = velvet.getRandomSongs(token, count = 30)) {
                     is Result.Success -> {
                         if (r.data.isEmpty()) onError("No songs found")
                         else onReady(r.data.shuffled())
@@ -181,8 +181,8 @@ class FolderBrowserViewModel(
                 // Long-timeout client: the server-side recursive walk of a huge folder
                 // can take well over the normal 60 s read timeout.
                 val token = ensureToken(settings) ?: run { onError("Authentication failed"); return@launch }
-                val mStream = MStreamRepository(MStreamClient.buildLongTimeout(settings.serverUrl))
-                val songs = mStream.collectSongsFast(token, folderId)
+                val velvet = VelvetRepository(VelvetClient.buildLongTimeout(settings.serverUrl))
+                val songs = velvet.collectSongsFast(token, folderId)
                 if (songs.isEmpty()) onError("No songs found")
                 else onReady(songs.shuffled())
             }
@@ -206,8 +206,8 @@ class FolderBrowserViewModel(
                         _shareState.update { ShareState.Error("Authentication failed") }
                         return@launch
                     }
-                    val mStream = MStreamRepository(MStreamClient.build(settings.serverUrl))
-                    when (val r = mStream.shareFolder(jwt, entry.id, expiryDays)) {
+                    val velvet = VelvetRepository(VelvetClient.build(settings.serverUrl))
+                    when (val r = velvet.shareFolder(jwt, entry.id, expiryDays)) {
                         is Result.Success -> {
                             val url = settings.serverUrl.trimEnd('/') + "/shared/${r.data}"
                             _shareState.update { ShareState.Done(url) }
@@ -226,13 +226,13 @@ class FolderBrowserViewModel(
                     }
                 }
                 else -> {
-                    // mStream native song — use filepath with native share endpoint
+                    // Velvet native song — use filepath with native share endpoint
                     val jwt = ensureToken(settings) ?: run {
                         _shareState.update { ShareState.Error("Authentication failed") }
                         return@launch
                     }
-                    val mStream = MStreamRepository(MStreamClient.build(settings.serverUrl))
-                    when (val r = mStream.share(jwt, entry.id, expiryDays)) {
+                    val velvet = VelvetRepository(VelvetClient.build(settings.serverUrl))
+                    when (val r = velvet.share(jwt, entry.id, expiryDays)) {
                         is Result.Success -> {
                             val url = settings.serverUrl.trimEnd('/') + "/shared/${r.data}"
                             _shareState.update { ShareState.Done(url) }
@@ -262,16 +262,16 @@ class FolderBrowserViewModel(
             val settings = settingsRepo.settings.first()
             if (!settings.isConfigured) return@launch
             val token = ensureToken(settings) ?: return@launch
-            val mStream = MStreamRepository(MStreamClient.build(settings.serverUrl))
-            when (val r = mStream.getPlaylists(token)) {
+            val velvet = VelvetRepository(VelvetClient.build(settings.serverUrl))
+            when (val r = velvet.getPlaylists(token)) {
                 is Result.Error -> {}  // silently ignored — picker shows empty list
                 is Result.Success -> {
                     _playlists.update { r.data }
-                    // mStream's getall songCount is denormalized and not updated by add-song.
+                    // Velvet's getall songCount is denormalized and not updated by add-song.
                     // Refresh each playlist's real count in parallel.
                     val refreshed = r.data.map { playlist ->
                         async {
-                            val loaded = mStream.loadPlaylist(token, playlist.name)
+                            val loaded = velvet.loadPlaylist(token, playlist.name)
                             if (loaded is Result.Success)
                                 playlist.copy(songCount = loaded.data.size)
                             else
@@ -290,7 +290,7 @@ class FolderBrowserViewModel(
             val settings = settingsRepo.settings.first()
             if (!settings.isConfigured) return@launch
             val token = ensureToken(settings) ?: return@launch
-            MStreamRepository(MStreamClient.build(settings.serverUrl))
+            VelvetRepository(VelvetClient.build(settings.serverUrl))
                 .addSongToPlaylist(token, filepath, playlistName)
         }
     }
@@ -303,8 +303,8 @@ class FolderBrowserViewModel(
      */
     private suspend fun ensureToken(settings: ServerSettings): String? {
         if (settings.jwtToken.isNotEmpty()) return settings.jwtToken
-        val mStream = MStreamRepository(MStreamClient.build(settings.serverUrl))
-        val result = mStream.login(settings.username, settings.password)
+        val velvet = VelvetRepository(VelvetClient.build(settings.serverUrl))
+        val result = velvet.login(settings.username, settings.password)
         if (result is Result.Success) {
             settingsRepo.saveToken(result.data)
             return result.data

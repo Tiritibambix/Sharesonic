@@ -3,9 +3,9 @@ package com.tiritibambix.sharesonic.ui.settings
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
-import com.tiritibambix.sharesonic.data.MStreamRepository
+import com.tiritibambix.sharesonic.data.VelvetRepository
 import com.tiritibambix.sharesonic.data.Result
-import com.tiritibambix.sharesonic.data.api.MStreamClient
+import com.tiritibambix.sharesonic.data.api.VelvetClient
 import com.tiritibambix.sharesonic.data.settings.AppTheme
 import com.tiritibambix.sharesonic.data.settings.ServerSettings
 import com.tiritibambix.sharesonic.data.settings.SettingsRepository
@@ -39,7 +39,7 @@ class SettingsViewModel(private val repo: SettingsRepository) : ViewModel() {
         viewModelScope.launch {
             val s = repo.settings.first()
             if (s.isConfigured && s.jwtToken.isNotEmpty()) {
-                val mstr = MStreamRepository(MStreamClient.build(s.serverUrl))
+                val mstr = VelvetRepository(VelvetClient.build(s.serverUrl))
                 val result = mstr.refreshToken(s.jwtToken)
                 if (result is Result.Success) repo.saveToken(result.data)
             }
@@ -89,8 +89,8 @@ class SettingsViewModel(private val repo: SettingsRepository) : ViewModel() {
     fun testConnection(serverUrl: String, username: String, password: String) {
         _connectionState.update { ConnectionState.Testing }
         viewModelScope.launch {
-            val api  = MStreamClient.build(serverUrl.trim())
-            val mstr = MStreamRepository(api)
+            val api  = VelvetClient.build(serverUrl.trim())
+            val mstr = VelvetRepository(api)
             when (val result = mstr.loginFull(username.trim(), password)) {
                 is Result.Success -> {
                     val (token, vpaths) = result.data

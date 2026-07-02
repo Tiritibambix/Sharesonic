@@ -6,7 +6,7 @@
 
 > *Rediscover your music library. One shuffle at a time. Share what you find.*
 
-Sharesonic is an Android client for **[mStream Velvet](https://github.com/aroundmyroom/mStream)** — the self-hosted music server. It is built around a single philosophy: **your music collection is too large to listen to linearly — let chance guide you, then share what surprises you.**
+Sharesonic is an Android client for **[Velvet](https://github.com/aroundmyroom/Velvet)** — the self-hosted music server. It is built around a single philosophy: **your music collection is too large to listen to linearly — let chance guide you, then share what surprises you.**
 
 ---
 
@@ -45,17 +45,17 @@ Sharesonic is built for the other scenario — the large, chaotic, lovingly diso
 | **Shuffle library** | Server-side random pick via native Velvet API — 30 tracks, no repeats |
 | **Shuffle folder** | Shuffle every track under any sub-directory. Gathered server-side (recursive scan + batch metadata) so it scales to huge folders; very large folders (100k+ tracks) are randomly sampled down to 5000 |
 | **Auto-DJ** | Continuous smart queue: BPM continuity, harmonic mixing (Camelot wheel), similar artists, artist cooldown, genre filter, crossfade — toggle the headphones icon in the mini player or Now Playing |
-| **Share link on track** | Native mStream share API → public `server/shared/XXXXXXXXXX` URL → Android share sheet |
+| **Share link on track** | Native Velvet share API → public `server/shared/XXXXXXXXXX` URL → Android share sheet |
 | **Share link on folder** | Long-press any folder → recursively collects every track inside it (including subfolders) and generates a single public link for the whole folder |
 | **Share queue** | Generate one public link for the *entire current queue* in a single tap, straight from the queue view |
 | **Manage shared links** | "Public Links" screen (drawer) lists every link you've created with its song count and expiry — copy, open, or revoke each one |
-| **Star ratings** | Rate the current track 0–5 stars from Now Playing — synced live to mStream's native rating, with an explicit one-tap way back to "unrated" |
+| **Star ratings** | Rate the current track 0–5 stars from Now Playing — synced live to Velvet's native rating, with an explicit one-tap way back to "unrated" |
 | **Now Playing** | Airy, uncluttered full-screen player: cover art, seek bar with elapsed/total time, artist · album info, format/bitrate, ratings and a tap-to-reveal file-details dialog (filename + full path, selectable for copying) — nothing requires scrolling |
 | **Add to queue** | Swipe left on any track in the browser |
 | **Add to playlist** | Swipe right on a track in the browser, or tap "Playlist" in Now Playing |
 | **Playlist management** | Create, rename, delete playlists; add/remove tracks; play all or shuffle |
 | **Search** | Pill-shaped, Material You search bar with full-text search grouped into Folders, Artists, Albums and Songs. Tapping a folder navigates straight to it; tapping an artist opens a list of that artist's tracks (featuring/variant spellings included) |
-| **Scrobbling** | Playback reported to mStream → forwarded to Last.fm + ListenBrainz (no API keys needed). Requires **"Scrobble from External Apps"** to be enabled in mStream Velvet's server settings — otherwise mStream silently ignores the scrobble calls |
+| **Scrobbling** | Playback reported to Velvet → forwarded to Last.fm + ListenBrainz (no API keys needed). Requires **"Scrobble from External Apps"** to be enabled in Velvet's server settings — otherwise Velvet silently ignores the scrobble calls |
 
 ---
 
@@ -82,7 +82,7 @@ Sharesonic is built for the other scenario — the large, chaotic, lovingly diso
 
 ## Server compatibility
 
-Sharesonic is built for **[mStream Velvet](https://github.com/aroundmyroom/mStream)** (7.5.x). It uses mStream Velvet's native API for everything: browsing, streaming, sharing, shuffle, Auto-DJ, playlist management, and search. The Subsonic compatibility layer is now only a dormant legacy fallback.
+Sharesonic is built for **[Velvet](https://github.com/aroundmyroom/Velvet)** (7.5.x). It uses Velvet's native API for everything: browsing, streaming, sharing, shuffle, Auto-DJ, playlist management, and search. The Subsonic compatibility layer is now only a dormant legacy fallback.
 
 Generic Subsonic servers (Navidrome, Airsonic, etc.) are not supported yet — planned for a future release.
 
@@ -95,7 +95,7 @@ Generic Subsonic servers (Navidrome, Airsonic, etc.) are not supported yet — p
 1. Download the latest APK from [Releases](https://github.com/Tiritibambix/Sharesonic/releases/latest)
 2. On your Android device: **Settings → Security → Install unknown apps** → allow your browser or file manager
 3. Open the downloaded APK and install
-4. Launch Sharesonic, enter your mStream server URL, username and password, tap **Test** then **Save**
+4. Launch Sharesonic, enter your Velvet server URL, username and password, tap **Test** then **Save**
 
 ### Obtainium (recommended — auto-updates)
 
@@ -147,9 +147,9 @@ GitHub Actions runs on every push and tag:
 
 ## How it works
 
-Sharesonic runs entirely on mStream's native API; a Subsonic compatibility layer remains only as a dormant legacy fallback.
+Sharesonic runs entirely on Velvet's native API; a Subsonic compatibility layer remains only as a dormant legacy fallback.
 
-### mStream native API (primary)
+### Velvet native API (primary)
 
 | Endpoint | Purpose |
 |---|---|
@@ -178,9 +178,9 @@ Sharesonic runs entirely on mStream's native API; a Subsonic compatibility layer
 | `POST /api/v1/listenbrainz/playing-now` | "Now playing" ping to ListenBrainz on track start |
 | `POST /api/v1/listenbrainz/scrobble-by-filepath` | Scrobble to ListenBrainz at 50% |
 
-> **Note:** scrobbling only works if **"Scrobble from External Apps"** is turned on in mStream Velvet's
+> **Note:** scrobbling only works if **"Scrobble from External Apps"** is turned on in Velvet's
 > server settings — Last.fm and ListenBrainz must also be configured there. Sharesonic just fires the
-> calls; mStream silently drops them if this setting is disabled.
+> calls; Velvet silently drops them if this setting is disabled.
 
 ### Subsonic API (legacy / dormant)
 

@@ -7,7 +7,7 @@ import androidx.compose.runtime.Composable
 import com.tiritibambix.sharesonic.data.settings.AppTheme
 
 /**
- * mStream Velvet dark scheme — the app's default theme.
+ * Velvet dark scheme — the app's default theme.
  *
  * Color mapping (CSS var → M3 role):
  *   --bg            → background              #1a1a2e  deepest layer

@@ -12,20 +12,20 @@ import com.tiritibambix.sharesonic.data.api.models.NativePlaylistEntry
 import com.tiritibambix.sharesonic.data.api.models.NativePlaylistLoadRequest
 import com.tiritibambix.sharesonic.data.api.models.NativePlaylistSaveRequest
 import com.tiritibambix.sharesonic.data.api.models.FileExplorerResponse
-import com.tiritibambix.sharesonic.data.api.models.MStreamArtResponse
-import com.tiritibambix.sharesonic.data.api.models.MStreamFileMetaWrapper
+import com.tiritibambix.sharesonic.data.api.models.VelvetArtResponse
+import com.tiritibambix.sharesonic.data.api.models.VelvetFileMetaWrapper
 import com.tiritibambix.sharesonic.data.api.models.RecursiveScanRequest
 import com.tiritibambix.sharesonic.data.api.models.NativeSearchRequest
 import com.tiritibambix.sharesonic.data.api.models.NativeSearchResponse
 import com.tiritibambix.sharesonic.data.api.models.ScrobbleFilepathRequest
-import com.tiritibambix.sharesonic.data.api.models.MStreamLoginRequest
-import com.tiritibambix.sharesonic.data.api.models.MStreamLoginResponse
-import com.tiritibambix.sharesonic.data.api.models.MStreamRandomSongsRequest
-import com.tiritibambix.sharesonic.data.api.models.MStreamRandomSongsResponse
-import com.tiritibambix.sharesonic.data.api.models.MStreamRefreshResponse
-import com.tiritibambix.sharesonic.data.api.models.MStreamShareListItem
-import com.tiritibambix.sharesonic.data.api.models.MStreamShareRequest
-import com.tiritibambix.sharesonic.data.api.models.MStreamShareResponse
+import com.tiritibambix.sharesonic.data.api.models.VelvetLoginRequest
+import com.tiritibambix.sharesonic.data.api.models.VelvetLoginResponse
+import com.tiritibambix.sharesonic.data.api.models.VelvetRandomSongsRequest
+import com.tiritibambix.sharesonic.data.api.models.VelvetRandomSongsResponse
+import com.tiritibambix.sharesonic.data.api.models.VelvetRefreshResponse
+import com.tiritibambix.sharesonic.data.api.models.VelvetShareListItem
+import com.tiritibambix.sharesonic.data.api.models.VelvetShareRequest
+import com.tiritibambix.sharesonic.data.api.models.VelvetShareResponse
 import com.tiritibambix.sharesonic.data.api.models.SimilarArtistsResponse
 import okhttp3.RequestBody
 import okhttp3.ResponseBody
@@ -37,16 +37,16 @@ import retrofit2.http.Path
 import retrofit2.http.POST
 import retrofit2.http.Query
 
-interface MStreamApiService {
+interface VelvetApiService {
 
     // ── Auth ──────────────────────────────────────────────────────────────────
 
     @POST("api/v1/auth/login")
-    suspend fun login(@Body request: MStreamLoginRequest): MStreamLoginResponse
+    suspend fun login(@Body request: VelvetLoginRequest): VelvetLoginResponse
 
     /** Refresh the JWT — call on boot to get a token signed by the current server secret. */
     @GET("api/v1/auth/refresh")
-    suspend fun refreshToken(@Header("x-access-token") token: String): MStreamRefreshResponse
+    suspend fun refreshToken(@Header("x-access-token") token: String): VelvetRefreshResponse
 
     // ── File explorer ─────────────────────────────────────────────────────────
 
@@ -62,12 +62,12 @@ interface MStreamApiService {
     @POST("api/v1/share")
     suspend fun share(
         @Header("x-access-token") token: String,
-        @Body request: MStreamShareRequest
-    ): MStreamShareResponse
+        @Body request: VelvetShareRequest
+    ): VelvetShareResponse
 
     /** List all share links created by the authenticated user. */
     @GET("api/v1/share/list")
-    suspend fun getShareList(@Header("x-access-token") token: String): List<MStreamShareListItem>
+    suspend fun getShareList(@Header("x-access-token") token: String): List<VelvetShareListItem>
 
     /** Revoke (delete) a share link by its playlistId. */
     @DELETE("api/v1/share/{playlistId}")
@@ -79,23 +79,23 @@ interface MStreamApiService {
     // ── Random songs ──────────────────────────────────────────────────────────
 
     /**
-     * Returns one random song per call. Pass the [MStreamRandomSongsRequest.ignoreList]
+     * Returns one random song per call. Pass the [VelvetRandomSongsRequest.ignoreList]
      * from the response back on subsequent calls to avoid repeats.
      */
     @POST("api/v1/db/random-songs")
     suspend fun randomSong(
         @Header("x-access-token") token: String,
-        @Body request: MStreamRandomSongsRequest
-    ): MStreamRandomSongsResponse
+        @Body request: VelvetRandomSongsRequest
+    ): VelvetRandomSongsResponse
 
     // ── Ratings ───────────────────────────────────────────────────────────────
 
     /**
-     * Rate a track — mStream's native scale is 0–10 (half-star precision); the
+     * Rate a track — Velvet's native scale is 0–10 (half-star precision); the
      * Sharesonic UI shows 0–5 stars, so `rating = stars * 2`. Pass `null` to clear.
      *
-     * Takes a raw [RequestBody] (built by [MStreamRepository.rateSong] with a Gson
-     * instance that serializes nulls) rather than [MStreamRateSongRequest] directly —
+     * Takes a raw [RequestBody] (built by [VelvetRepository.rateSong] with a Gson
+     * instance that serializes nulls) rather than [VelvetRateSongRequest] directly —
      * the shared converter's Gson omits null fields by default, which would drop
      * `rating` entirely from a clear request instead of sending `"rating": null`.
      */
@@ -119,14 +119,14 @@ interface MStreamApiService {
 
     /**
      * Batch metadata lookup: given a list of filepaths, returns a map keyed by filepath,
-     * each value the same [MStreamFileMetaWrapper] shape as pullMetadata=true file-explorer
+     * each value the same [VelvetFileMetaWrapper] shape as pullMetadata=true file-explorer
      * entries. Lets a recursive scan's bare filepaths be resolved to full metadata in one call.
      */
     @POST("api/v1/db/metadata/batch")
     suspend fun metadataBatch(
         @Header("x-access-token") token: String,
         @Body filepaths: List<String>
-    ): Map<String, MStreamFileMetaWrapper>
+    ): Map<String, VelvetFileMetaWrapper>
 
     // ── On-demand art ─────────────────────────────────────────────────────────
 
@@ -135,7 +135,7 @@ interface MStreamApiService {
     suspend fun getArt(
         @Header("x-access-token") token: String,
         @Query("fp") filepath: String
-    ): MStreamArtResponse
+    ): VelvetArtResponse
 
     // ── Native search ─────────────────────────────────────────────────────────
 
@@ -153,13 +153,13 @@ interface MStreamApiService {
      * Every song whose artist/album_artist tag exactly matches one of the
      * requested names — see [ArtistFolderSongsRequest]. Response is a bare
      * array (not wrapped in an object), same shape as pullMetadata=true
-     * file-explorer entries and [MStreamRandomSongsResponse.songs].
+     * file-explorer entries and [VelvetRandomSongsResponse.songs].
      */
     @POST("api/v1/db/artist-folder-songs")
     suspend fun artistFolderSongs(
         @Header("x-access-token") token: String,
         @Body request: ArtistFolderSongsRequest
-    ): List<MStreamFileMetaWrapper>
+    ): List<VelvetFileMetaWrapper>
 
     // ── Native playlists ──────────────────────────────────────────────────────
 
@@ -225,9 +225,9 @@ interface MStreamApiService {
     // ── Last.fm similar artists ───────────────────────────────────────────────
 
     /**
-     * Fetch similar artists from Last.fm via the mStream server.
+     * Fetch similar artists from Last.fm via the Velvet server.
      * Used by Auto-DJ to prefer tracks from artists similar to the currently playing one.
-     * NOTE: The exact endpoint path should be verified against mStream Velvet's route list.
+     * NOTE: The exact endpoint path should be verified against Velvet's route list.
      */
     @GET("api/v1/lastfm/similar-artists")
     suspend fun getSimilarArtists(

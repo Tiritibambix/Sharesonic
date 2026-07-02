@@ -19,7 +19,7 @@ data class AutoDjSettings(
     /** If true, tracks without a musical key tag are excluded entirely. */
     val requireKey: Boolean = false,
 
-    /** Fetch similar artists from Last.fm (via mStream) and prefer their tracks. */
+    /** Fetch similar artists from Last.fm (via Velvet) and prefer their tracks. */
     val useSimilarArtists: Boolean = true,
     /** Number of most-recently-played artists to exclude (artist cooldown). Default 5. */
     val artistCooldown: Int = 5,
