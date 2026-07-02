@@ -55,7 +55,13 @@ data class PlayerState(
     /** True while Auto-DJ is running — queue auto-extends as tracks are consumed. */
     val autoDjEnabled: Boolean = false,
     /** Live audio bitrate of the currently playing track, in kbps (null if unknown). Shown on Now Playing only. */
-    val audioBitrateKbps: Int? = null
+    val audioBitrateKbps: Int? = null,
+    /** Live sample rate of the current track, in Hz (null if unknown). From the ExoPlayer Format. */
+    val audioSampleRateHz: Int? = null,
+    /** Live channel count of the current track (null if unknown). From the ExoPlayer Format. */
+    val audioChannels: Int? = null,
+    /** Milliseconds left on the sleep timer, or null when no timer is armed. */
+    val sleepRemainingMs: Long? = null
 )
 
 class PlayerViewModel(
@@ -88,6 +94,11 @@ class PlayerViewModel(
     private var autoDjSettings: AutoDjSettings = AutoDjSettings()
     /** Available library vpaths from the last successful connection test. */
     private var cachedVpaths: List<String> = emptyList()
+
+    // ── Sleep timer ───────────────────────────────────────────────────────────
+    /** Wall-clock time (SystemClock.elapsedRealtime) at which playback should pause,
+     *  or null when no timer is armed. Checked in the position-polling loop. */
+    private var sleepUntilMs: Long? = null
 
     // ── Scrobble tracking ─────────────────────────────────────────────────────
     /** ID of the last song for which a "now playing" ping was sent. */
@@ -155,7 +166,15 @@ class PlayerViewModel(
                         val bitrateKbps = audioFormat?.bitrate
                             ?.takeIf { it != Format.NO_VALUE && it > 0 }
                             ?.let { it / 1000 }
-                        _state.update { it.copy(audioBitrateKbps = bitrateKbps) }
+                        val sampleRate = audioFormat?.sampleRate?.takeIf { it != Format.NO_VALUE && it > 0 }
+                        val channels = audioFormat?.channelCount?.takeIf { it != Format.NO_VALUE && it > 0 }
+                        _state.update {
+                            it.copy(
+                                audioBitrateKbps = bitrateKbps,
+                                audioSampleRateHz = sampleRate,
+                                audioChannels = channels
+                            )
+                        }
                     }
                     override fun onPlayerError(error: PlaybackException) {
                         val msg = error.cause?.message?.takeIf { it.isNotBlank() }
@@ -203,6 +222,19 @@ class PlayerViewModel(
                 if (song != null && dur > 0L && pos >= dur / 2L && scrobbleFiredFor != song.id) {
                     scrobbleFiredFor = song.id
                     fireScrobble(song)
+                }
+                // Sleep timer: pause once the armed deadline passes, and keep the
+                // remaining-time readout in the state fresh for the UI.
+                val until = sleepUntilMs
+                if (until != null) {
+                    val remaining = until - android.os.SystemClock.elapsedRealtime()
+                    if (remaining <= 0L) {
+                        sleepUntilMs = null
+                        ctrl.pause()
+                        _state.update { it.copy(sleepRemainingMs = null) }
+                    } else {
+                        _state.update { it.copy(sleepRemainingMs = remaining) }
+                    }
                 }
                 // Auto-DJ crossfade: fade the current track out in the last N seconds
                 if (_state.value.autoDjEnabled) {
@@ -363,6 +395,23 @@ class PlayerViewModel(
     fun seekTo(positionMs: Long) {
         _state.update { it.copy(currentPositionMs = positionMs) }
         viewModelScope.launch { controllerDeferred.await().seekTo(positionMs) }
+    }
+
+    // ── Sleep timer ───────────────────────────────────────────────────────────
+
+    /** Arm the sleep timer for [minutes] from now; playback pauses when it fires.
+     *  Re-arming replaces any existing timer. The countdown lives only in memory. */
+    fun setSleepTimer(minutes: Int) {
+        if (minutes <= 0) { cancelSleepTimer(); return }
+        val durationMs = minutes * 60_000L
+        sleepUntilMs = android.os.SystemClock.elapsedRealtime() + durationMs
+        _state.update { it.copy(sleepRemainingMs = durationMs) }
+    }
+
+    /** Disarm the sleep timer, if any. */
+    fun cancelSleepTimer() {
+        sleepUntilMs = null
+        _state.update { it.copy(sleepRemainingMs = null) }
     }
 
     // ── Auto-DJ ───────────────────────────────────────────────────────────────

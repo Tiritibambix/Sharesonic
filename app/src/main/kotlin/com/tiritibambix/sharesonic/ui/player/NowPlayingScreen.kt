@@ -1,5 +1,7 @@
 package com.tiritibambix.sharesonic.ui.player
 
+import androidx.compose.animation.animateColorAsState
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.rememberScrollState
@@ -13,7 +15,6 @@ import androidx.compose.foundation.pager.HorizontalPager
 import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.foundation.text.selection.SelectionContainer
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.*
@@ -49,6 +50,8 @@ fun NowPlayingScreen(
     val pagerState = rememberPagerState(initialPage = PAGE_NOW_PLAYING) { 2 }
     var showShareQueueExpiryDialog by remember { mutableStateOf(false) }
     var showFileInfoDialog by remember { mutableStateOf(false) }
+    var showMoreSheet by remember { mutableStateOf(false) }
+    var showSleepSheet by remember { mutableStateOf(false) }
 
     LaunchedEffect(state.shareUrl) {
         state.shareUrl?.let { url ->
@@ -174,6 +177,19 @@ fun NowPlayingScreen(
                                        MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f)
                         )
                     }
+                    // More actions (sleep timer, track info) — Now Playing page only
+                    if (pagerState.currentPage == PAGE_NOW_PLAYING && state.currentSong != null) {
+                        IconButton(onClick = { showMoreSheet = true }) {
+                            Icon(
+                                imageVector = Icons.Default.MoreVert,
+                                contentDescription = "More",
+                                tint = if (state.sleepRemainingMs != null)
+                                           MaterialTheme.colorScheme.primary
+                                       else
+                                           MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f)
+                            )
+                        }
+                    }
                 }
             )
         }
@@ -202,23 +218,38 @@ fun NowPlayingScreen(
         }
     }
 
-    // ── File path dialog — triggered by the ⓘ in the top bar. Selectable text so
-    // the path can be copied. ──
+    // ── Track info dialog — triggered by the ⓘ in the top bar (or the More sheet).
+    // Full metadata table; the file path (selectable, copyable) sits last. ──
     if (showFileInfoDialog) {
-        state.currentSong?.path?.let { path ->
-            AlertDialog(
-                onDismissRequest = { showFileInfoDialog = false },
-                title = { Text("File path") },
-                text = {
-                    SelectionContainer {
-                        Text(text = path, style = MaterialTheme.typography.bodyMedium)
-                    }
-                },
-                confirmButton = {
-                    TextButton(onClick = { showFileInfoDialog = false }) { Text("Close") }
-                }
+        state.currentSong?.let { song ->
+            TrackInfoDialog(
+                song = song,
+                bitrateKbps = state.audioBitrateKbps,
+                sampleRateHz = state.audioSampleRateHz,
+                channels = state.audioChannels,
+                onDismiss = { showFileInfoDialog = false }
             )
         }
+    }
+
+    // ── More actions sheet (sleep timer + track info) ──
+    if (showMoreSheet) {
+        MoreActionsSheet(
+            sleepRemainingMs = state.sleepRemainingMs,
+            onOpenSleepTimer = { showMoreSheet = false; showSleepSheet = true },
+            onOpenInfo = { showMoreSheet = false; showFileInfoDialog = true },
+            onDismiss = { showMoreSheet = false }
+        )
+    }
+
+    // ── Sleep timer picker sheet ──
+    if (showSleepSheet) {
+        SleepTimerSheet(
+            active = state.sleepRemainingMs != null,
+            onPick = { minutes -> viewModel.setSleepTimer(minutes); showSleepSheet = false },
+            onCancel = { viewModel.cancelSleepTimer(); showSleepSheet = false },
+            onDismiss = { showSleepSheet = false }
+        )
     }
 
     // ── Share queue — ask for expiry before creating the link (Velvet style) ──
@@ -247,48 +278,73 @@ private fun NowPlayingPage(state: PlayerState, viewModel: PlayerViewModel) {
             .verticalScroll(rememberScrollState()),
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
+        // Ambient backdrop tinted by the artwork's dominant colour, fading down —
+        // a soft glow around/below the cover. Animates on track change.
+        val ambient = rememberAmbientColor(state.coverArtUrl)
+        val ambientColor by animateColorAsState(
+            targetValue = ambient ?: MaterialTheme.colorScheme.primary.copy(alpha = 0f),
+            animationSpec = tween(700),
+            label = "ambient"
+        )
+
         // Cover art — square, max 300 dp so controls always fit on screen
         Box(
             modifier = Modifier
                 .fillMaxWidth()
-                .heightIn(max = 300.dp)
-                .aspectRatio(1f)
+                .height(340.dp),
+            contentAlignment = Alignment.TopCenter
         ) {
-            if (state.coverArtUrl != null) {
-                AsyncImage(
-                    model = state.coverArtUrl,
-                    contentDescription = "Album art",
-                    contentScale = ContentScale.Crop,
-                    modifier = Modifier.fillMaxSize()
-                )
-            } else {
-                Surface(
-                    modifier = Modifier.fillMaxSize(),
-                    color = MaterialTheme.colorScheme.primaryContainer
-                ) {
-                    Icon(
-                        Icons.Default.MusicNote,
-                        contentDescription = null,
-                        modifier = Modifier.padding(72.dp),
-                        tint = MaterialTheme.colorScheme.onPrimaryContainer
-                    )
-                }
-            }
-            // Bottom gradient so text sits over the art comfortably
             Box(
                 modifier = Modifier
-                    .fillMaxWidth()
-                    .fillMaxHeight(0.4f)
-                    .align(Alignment.BottomCenter)
+                    .matchParentSize()
                     .background(
                         Brush.verticalGradient(
-                            listOf(
-                                MaterialTheme.colorScheme.background.copy(alpha = 0f),
-                                MaterialTheme.colorScheme.background
-                            )
+                            listOf(ambientColor.copy(alpha = 0.40f), androidx.compose.ui.graphics.Color.Transparent)
                         )
                     )
             )
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .heightIn(max = 300.dp)
+                    .aspectRatio(1f)
+            ) {
+                if (state.coverArtUrl != null) {
+                    AsyncImage(
+                        model = state.coverArtUrl,
+                        contentDescription = "Album art",
+                        contentScale = ContentScale.Crop,
+                        modifier = Modifier.fillMaxSize()
+                    )
+                } else {
+                    Surface(
+                        modifier = Modifier.fillMaxSize(),
+                        color = MaterialTheme.colorScheme.primaryContainer
+                    ) {
+                        Icon(
+                            Icons.Default.MusicNote,
+                            contentDescription = null,
+                            modifier = Modifier.padding(72.dp),
+                            tint = MaterialTheme.colorScheme.onPrimaryContainer
+                        )
+                    }
+                }
+                // Bottom gradient so text sits over the art comfortably
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .fillMaxHeight(0.4f)
+                        .align(Alignment.BottomCenter)
+                        .background(
+                            Brush.verticalGradient(
+                                listOf(
+                                    MaterialTheme.colorScheme.background.copy(alpha = 0f),
+                                    MaterialTheme.colorScheme.background
+                                )
+                            )
+                        )
+                )
+            }
         }
 
         Spacer(Modifier.height(16.dp))
@@ -405,37 +461,36 @@ private fun NowPlayingPage(state: PlayerState, viewModel: PlayerViewModel) {
 
         Spacer(Modifier.height(14.dp))
 
-        // ── Seek bar ────────────────────────────────────────────────────────────
+        // ── Seek bar — waveform, tap or drag to seek ─────────────────────────────
         if (state.durationMs > 0L) {
-            var dragging by remember { mutableStateOf(false) }
-            var dragValue by remember { mutableFloatStateOf(0f) }
-
-            val sliderValue = if (dragging) dragValue
-                else (state.currentPositionMs.toFloat() / state.durationMs.toFloat()).coerceIn(0f, 1f)
+            var scrubFraction by remember { mutableStateOf<Float?>(null) }
+            val fraction = (state.currentPositionMs.toFloat() / state.durationMs.toFloat())
+                .coerceIn(0f, 1f)
+            val shownMs = ((scrubFraction ?: fraction) * state.durationMs).toLong()
 
             Column(
                 modifier = Modifier
                     .fillMaxWidth()
                     .padding(horizontal = 28.dp)
             ) {
-                Slider(
-                    value = sliderValue,
-                    onValueChange = { v ->
-                        dragging = true
-                        dragValue = v
-                    },
-                    onValueChangeFinished = {
-                        viewModel.seekTo((dragValue * state.durationMs).toLong())
-                        dragging = false
-                    },
-                    modifier = Modifier.fillMaxWidth()
+                WaveformSeekBar(
+                    fraction = fraction,
+                    seedKey = state.currentSong!!.id,
+                    onSeek = { f -> viewModel.seekTo((f * state.durationMs).toLong()) },
+                    onScrub = { f -> scrubFraction = f },
+                    playedColor = MaterialTheme.colorScheme.primary,
+                    trackColor = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.25f),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(38.dp)
                 )
+                Spacer(Modifier.height(4.dp))
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.SpaceBetween
                 ) {
                     Text(
-                        formatMs(if (dragging) (dragValue * state.durationMs).toLong() else state.currentPositionMs),
+                        formatMs(shownMs),
                         style = MaterialTheme.typography.labelSmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )

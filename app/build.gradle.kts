@@ -80,5 +80,6 @@ dependencies {
     implementation(libs.media3.session)
     implementation(libs.media3.ui)
     implementation(libs.coil.compose)
+    implementation(libs.androidx.palette)
     debugImplementation(libs.androidx.ui.tooling)
 }
