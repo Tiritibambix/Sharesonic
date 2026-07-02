@@ -133,20 +133,9 @@ fun NowPlayingScreen(
                     }
                 },
                 actions = {
-                    // ⓘ — file path, tucked into the top bar so it costs zero
-                    // vertical space in the scrollable player body (every inline
-                    // placement tried so far either pushed the layout and forced a
-                    // scroll, or sat awkwardly over the cover art). Tap reveals the
-                    // full path in a small dialog. Only relevant on the player page.
-                    if (pagerState.currentPage == PAGE_NOW_PLAYING && state.currentSong?.path != null) {
-                        IconButton(onClick = { showFileInfoDialog = true }) {
-                            Icon(
-                                imageVector = Icons.Default.Info,
-                                contentDescription = "File path",
-                                tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f)
-                            )
-                        }
-                    }
+                    // Track info lives in the "⋮ More" sheet (below), so there's no
+                    // separate ⓘ button here — it would duplicate that entry.
+
                     // Share the whole queue as one public playlist link — only
                     // makes sense while looking at the queue, so it only appears there.
                     if (pagerState.currentPage == PAGE_QUEUE && state.queue.isNotEmpty()) {
@@ -275,11 +264,10 @@ private fun NowPlayingPage(state: PlayerState, viewModel: PlayerViewModel) {
     Column(
         modifier = Modifier
             .fillMaxSize()
-            .verticalScroll(rememberScrollState()),
+            .navigationBarsPadding(),
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
-        // Ambient backdrop tinted by the artwork's dominant colour, fading down —
-        // a soft glow around/below the cover. Animates on track change.
+        // Ambient backdrop tinted by the artwork's dominant colour. Animates on track change.
         val ambient = rememberAmbientColor(state.coverArtUrl)
         val ambientColor by animateColorAsState(
             targetValue = ambient ?: MaterialTheme.colorScheme.primary.copy(alpha = 0f),
@@ -287,12 +275,15 @@ private fun NowPlayingPage(state: PlayerState, viewModel: PlayerViewModel) {
             label = "ambient"
         )
 
-        // Cover art — square, max 300 dp so controls always fit on screen
+        // Cover art area — FLEXIBLE (weight 1f): it soaks up whatever vertical space
+        // the fixed controls below don't use, so the whole page always fits on screen
+        // and NEVER scrolls. The artwork is a centred square sized to fit; the ambient
+        // glow fills the area behind it.
         Box(
             modifier = Modifier
                 .fillMaxWidth()
-                .height(340.dp),
-            contentAlignment = Alignment.TopCenter
+                .weight(1f),
+            contentAlignment = Alignment.Center
         ) {
             Box(
                 modifier = Modifier
@@ -303,51 +294,43 @@ private fun NowPlayingPage(state: PlayerState, viewModel: PlayerViewModel) {
                         )
                     )
             )
-            Box(
+            BoxWithConstraints(
                 modifier = Modifier
-                    .fillMaxWidth()
-                    .heightIn(max = 300.dp)
-                    .aspectRatio(1f)
+                    .fillMaxSize()
+                    .padding(24.dp),
+                contentAlignment = Alignment.Center
             ) {
-                if (state.coverArtUrl != null) {
-                    AsyncImage(
-                        model = state.coverArtUrl,
-                        contentDescription = "Album art",
-                        contentScale = ContentScale.Crop,
-                        modifier = Modifier.fillMaxSize()
-                    )
-                } else {
-                    Surface(
-                        modifier = Modifier.fillMaxSize(),
-                        color = MaterialTheme.colorScheme.primaryContainer
-                    ) {
-                        Icon(
-                            Icons.Default.MusicNote,
-                            contentDescription = null,
-                            modifier = Modifier.padding(72.dp),
-                            tint = MaterialTheme.colorScheme.onPrimaryContainer
-                        )
-                    }
-                }
-                // Bottom gradient so text sits over the art comfortably
+                val side = minOf(maxWidth, maxHeight)
                 Box(
                     modifier = Modifier
-                        .fillMaxWidth()
-                        .fillMaxHeight(0.4f)
-                        .align(Alignment.BottomCenter)
-                        .background(
-                            Brush.verticalGradient(
-                                listOf(
-                                    MaterialTheme.colorScheme.background.copy(alpha = 0f),
-                                    MaterialTheme.colorScheme.background
-                                )
-                            )
+                        .size(side)
+                        .clip(RoundedCornerShape(12.dp))
+                ) {
+                    if (state.coverArtUrl != null) {
+                        AsyncImage(
+                            model = state.coverArtUrl,
+                            contentDescription = "Album art",
+                            contentScale = ContentScale.Crop,
+                            modifier = Modifier.fillMaxSize()
                         )
-                )
+                    } else {
+                        Surface(
+                            modifier = Modifier.fillMaxSize(),
+                            color = MaterialTheme.colorScheme.primaryContainer
+                        ) {
+                            Icon(
+                                Icons.Default.MusicNote,
+                                contentDescription = null,
+                                modifier = Modifier.padding(72.dp),
+                                tint = MaterialTheme.colorScheme.onPrimaryContainer
+                            )
+                        }
+                    }
+                }
             }
         }
 
-        Spacer(Modifier.height(16.dp))
+        Spacer(Modifier.height(12.dp))
 
         // ── Title + subtitle — kept tight, they read as one block ──────────────
         Column(
@@ -426,7 +409,7 @@ private fun NowPlayingPage(state: PlayerState, viewModel: PlayerViewModel) {
             }
         }
 
-        Spacer(Modifier.height(22.dp))
+        Spacer(Modifier.height(14.dp))
 
         // ── Playback controls — generously spaced, the visual anchor of the page ──
         Row(
@@ -503,7 +486,7 @@ private fun NowPlayingPage(state: PlayerState, viewModel: PlayerViewModel) {
             }
         }
 
-        Spacer(Modifier.height(18.dp))
+        Spacer(Modifier.height(12.dp))
 
         // ── Actions: Share / Add to playlist — own breathing room from the controls ──
         Column(
@@ -578,7 +561,7 @@ private fun NowPlayingPage(state: PlayerState, viewModel: PlayerViewModel) {
             }
         }
 
-        Spacer(Modifier.height(12.dp))
+        Spacer(Modifier.height(8.dp))
     }
 
     // ── Share — ask for expiry before creating the link (Velvet style) ──

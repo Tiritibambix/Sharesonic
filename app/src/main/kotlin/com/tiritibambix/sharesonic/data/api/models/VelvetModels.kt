@@ -87,8 +87,11 @@ data class VelvetInnerMetadata(
     @SerializedName("album-art") val albumArt: String? = null,
     /** Track BPM as detected by Velvet's audio analysis. */
     val bpm: Float? = null,
-    /** Musical key in Camelot notation (e.g. "8A", "11B"). */
-    @SerializedName("musical_key") val musicalKey: String? = null,
+    /** Musical key in Camelot notation (e.g. "8A", "11B"). The server emits this
+     *  under the JSON key "musical-key" (hyphen); the previous "musical_key"
+     *  (underscore) never matched, so the key silently stayed null — it never showed
+     *  in the UI and Auto-DJ harmonic mixing had no anchor key. */
+    @SerializedName("musical-key") val musicalKey: String? = null,
     /** Genre tags. */
     val genres: List<String>? = null,
     /** User rating, 0–10 (Velvet's native scale — half-star precision; UI shows 0–5 stars = rating / 2). */
