@@ -6,7 +6,7 @@
 
 > *Rediscover your music library. One shuffle at a time. Share what you find.*
 
-Sharesonic is an Android client for **[Velvet](https://github.com/aroundmyroom/Velvet)**,the self-hosted music server. It is built around a single philosophy: **your music collection is too large to listen to linearly: let chance guide you, then share what surprises you.**
+Sharesonic is an Android client for **[Velvet](https://github.com/aroundmyroom/Velvet)**, the self-hosted music server. It is built around a single philosophy: **your music collection is too large to listen to linearly: let chance guide you, then share what surprises you.**
 
 ---
 
