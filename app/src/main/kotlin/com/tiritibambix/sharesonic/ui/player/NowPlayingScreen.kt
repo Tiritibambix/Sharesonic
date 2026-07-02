@@ -52,6 +52,7 @@ fun NowPlayingScreen(
     var showFileInfoDialog by remember { mutableStateOf(false) }
     var showMoreSheet by remember { mutableStateOf(false) }
     var showSleepSheet by remember { mutableStateOf(false) }
+    var showLyricsSheet by remember { mutableStateOf(false) }
 
     LaunchedEffect(state.shareUrl) {
         state.shareUrl?.let { url ->
@@ -238,14 +239,26 @@ fun NowPlayingScreen(
         }
     }
 
-    // ── More actions sheet (sleep timer + track info) ──
+    // ── More actions sheet (sleep timer + lyrics + track info) ──
     if (showMoreSheet) {
         MoreActionsSheet(
             sleepRemainingMs = state.sleepRemainingMs,
             onOpenSleepTimer = { showMoreSheet = false; showSleepSheet = true },
+            onOpenLyrics = { showMoreSheet = false; showLyricsSheet = true },
             onOpenInfo = { showMoreSheet = false; showFileInfoDialog = true },
             onDismiss = { showMoreSheet = false }
         )
+    }
+
+    // ── Lyrics sheet ──
+    if (showLyricsSheet) {
+        state.currentSong?.let { song ->
+            LyricsSheet(
+                title = song.displayName,
+                fetch = { viewModel.fetchLyrics(song) },
+                onDismiss = { showLyricsSheet = false }
+            )
+        }
     }
 
     // ── Sleep timer picker sheet ──

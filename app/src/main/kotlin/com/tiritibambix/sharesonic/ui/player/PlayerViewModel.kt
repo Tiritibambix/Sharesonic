@@ -744,6 +744,28 @@ class PlayerViewModel(
      * songs, for example, carry no bpm/key on their EntryDto — this fills the gap
      * so the info dialog always shows what the server has. Returns null on failure.
      */
+    /**
+     * Lyrics for [song] as plain text lines. Empty list = none found; Result.Error
+     * = network/server failure. The server matches on artist+title and uses the DB
+     * duration for [song]'s filepath, so it works regardless of how the song was queued.
+     */
+    suspend fun fetchLyrics(song: EntryDto): Result<List<String>> {
+        val settings = settings()
+        val token = settings.jwtToken.takeIf { it.isNotEmpty() }
+            ?: return Result.Error("Not authenticated")
+        val repo = VelvetRepository(VelvetClient.build(settings.serverUrl))
+        val title = song.title?.takeIf { it.isNotBlank() }
+            ?: song.name?.takeIf { it.isNotBlank() }
+            ?: song.path?.substringAfterLast('/').orEmpty()
+        return repo.getLyrics(
+            token = token,
+            artist = song.artist.orEmpty(),
+            title = title,
+            filepath = song.path.orEmpty(),
+            durationSeconds = song.duration ?: 0
+        )
+    }
+
     suspend fun fetchTrackMetadata(filepath: String): VelvetInnerMetadata? {
         val settings = settings()
         val token = settings.jwtToken.takeIf { it.isNotEmpty() } ?: return null

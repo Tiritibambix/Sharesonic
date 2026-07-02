@@ -15,6 +15,7 @@ import com.tiritibambix.sharesonic.data.api.models.FileExplorerResponse
 import com.tiritibambix.sharesonic.data.api.models.VelvetArtResponse
 import com.tiritibambix.sharesonic.data.api.models.VelvetFileMetaWrapper
 import com.tiritibambix.sharesonic.data.api.models.MetadataRequest
+import com.tiritibambix.sharesonic.data.api.models.LyricsResponse
 import com.tiritibambix.sharesonic.data.api.models.RecursiveScanRequest
 import com.tiritibambix.sharesonic.data.api.models.NativeSearchRequest
 import com.tiritibambix.sharesonic.data.api.models.NativeSearchResponse
@@ -138,6 +139,20 @@ interface VelvetApiService {
         @Header("x-access-token") token: String,
         @Body request: MetadataRequest
     ): VelvetFileMetaWrapper
+
+    /**
+     * Lyrics for a track. Server matches on artist+title (falling back to parsing
+     * "Artist - Title" from a filename-title) and prefers the DB duration for the
+     * given filepath. Returns parsed lines or { notFound: true }.
+     */
+    @GET("api/v1/lyrics")
+    suspend fun getLyrics(
+        @Header("x-access-token") token: String,
+        @Query("artist") artist: String,
+        @Query("title") title: String,
+        @Query("filepath") filepath: String,
+        @Query("duration") duration: Int
+    ): LyricsResponse
 
     // ── On-demand art ─────────────────────────────────────────────────────────
 

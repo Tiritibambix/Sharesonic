@@ -211,6 +211,26 @@ data class VelvetArtResponse(@SerializedName("aaFile") val aaFile: String? = nul
  */
 data class MetadataRequest(val filepath: String)
 
+/**
+ * Response from GET /api/v1/lyrics?artist=&title=&filepath=&duration=.
+ * The server fetches from lrclib and already parses LRC into [lines] — no
+ * client-side tag stripping needed. Shapes:
+ *   { "synced": true,  "lines": [{ "time": 12.3, "text": "…" }] }   // timed
+ *   { "synced": false, "lines": [{ "time": null, "text": "…" }] }   // plain
+ *   { "notFound": true }                                            // nothing
+ */
+data class LyricsResponse(
+    val synced: Boolean? = null,
+    val lines: List<LyricLine>? = null,
+    val notFound: Boolean? = null
+)
+
+/** One lyric line: [time] in seconds for synced lyrics, null for plain. */
+data class LyricLine(
+    val time: Double? = null,
+    val text: String? = null
+)
+
 // ── Native search (POST /api/v1/db/search) ────────────────────────────────────
 
 data class NativeSearchRequest(

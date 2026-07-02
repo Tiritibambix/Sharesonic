@@ -391,6 +391,32 @@ class VelvetRepository(private val api: VelvetApiService) {
     }
 
     /**
+     * Lyrics for [song] as plain text lines. Returns an empty list when the server
+     * has none (`notFound`), or the parsed line texts otherwise (works for both
+     * synced and plain — the server already stripped LRC timing into `lines`).
+     */
+    suspend fun getLyrics(
+        token: String,
+        artist: String,
+        title: String,
+        filepath: String,
+        durationSeconds: Int
+    ): Result<List<String>> {
+        return try {
+            val resp = api.getLyrics(token, artist, title, filepath, durationSeconds)
+            if (resp.notFound == true) {
+                Result.Success(emptyList())
+            } else {
+                Result.Success(resp.lines.orEmpty().mapNotNull { it.text?.takeIf { t -> t.isNotBlank() } })
+            }
+        } catch (e: kotlinx.coroutines.CancellationException) {
+            throw e
+        } catch (e: Exception) {
+            Result.Error(e.message ?: "Network error")
+        }
+    }
+
+    /**
      * Fresh, full metadata for a single track (bpm / musical-key / genres included)
      * via POST /api/v1/db/metadata. Used to populate the Now Playing info dialog
      * regardless of how the current song was queued — search-origin entries, for

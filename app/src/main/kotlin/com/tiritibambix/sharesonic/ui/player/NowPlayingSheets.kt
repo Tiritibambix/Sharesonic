@@ -2,6 +2,7 @@ package com.tiritibambix.sharesonic.ui.player
 
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
@@ -9,23 +10,30 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.text.selection.SelectionContainer
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Bedtime
 import androidx.compose.material.icons.filled.Info
+import androidx.compose.material.icons.filled.Lyrics
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import com.tiritibambix.sharesonic.data.Result
 import com.tiritibambix.sharesonic.data.api.models.EntryDto
 
 /**
@@ -106,6 +114,7 @@ fun TrackInfoDialog(
 fun MoreActionsSheet(
     sleepRemainingMs: Long?,
     onOpenSleepTimer: () -> Unit,
+    onOpenLyrics: () -> Unit,
     onOpenInfo: () -> Unit,
     onDismiss: () -> Unit
 ) {
@@ -123,10 +132,80 @@ fun MoreActionsSheet(
                 modifier = Modifier.clickable { onOpenSleepTimer() }
             )
             ListItem(
+                headlineContent = { Text("Lyrics") },
+                leadingContent = { Icon(Icons.Default.Lyrics, contentDescription = null) },
+                modifier = Modifier.clickable { onOpenLyrics() }
+            )
+            ListItem(
                 headlineContent = { Text("Track info") },
                 leadingContent = { Icon(Icons.Default.Info, contentDescription = null) },
                 modifier = Modifier.clickable { onOpenInfo() }
             )
+        }
+    }
+}
+
+/**
+ * Full-width lyrics bottom sheet. Fetches on open via [fetch] (server-parsed lines,
+ * synced or plain) and shows loading / lyrics / "none" / error states. Scrollable.
+ */
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun LyricsSheet(
+    title: String,
+    fetch: suspend () -> Result<List<String>>,
+    onDismiss: () -> Unit
+) {
+    ModalBottomSheet(onDismissRequest = onDismiss) {
+        val result by produceState<Result<List<String>>?>(initialValue = null) {
+            value = fetch()
+        }
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .heightIn(min = 220.dp)
+                .padding(horizontal = 20.dp)
+                .padding(bottom = 24.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp)
+        ) {
+            Text(
+                title,
+                style = MaterialTheme.typography.titleMedium,
+                maxLines = 2,
+                overflow = TextOverflow.Ellipsis
+            )
+            when (val r = result) {
+                null -> Box(
+                    modifier = Modifier.fillMaxWidth().padding(top = 24.dp),
+                    contentAlignment = Alignment.Center
+                ) { CircularProgressIndicator() }
+                is Result.Success -> {
+                    if (r.data.isEmpty()) {
+                        Text(
+                            "No lyrics found",
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    } else {
+                        Column(
+                            modifier = Modifier
+                                .heightIn(max = 460.dp)
+                                .verticalScroll(rememberScrollState())
+                        ) {
+                            r.data.forEach { line ->
+                                Text(
+                                    text = line,
+                                    style = MaterialTheme.typography.bodyMedium,
+                                    modifier = Modifier.padding(vertical = 3.dp)
+                                )
+                            }
+                        }
+                    }
+                }
+                is Result.Error -> Text(
+                    r.message,
+                    color = MaterialTheme.colorScheme.error
+                )
+            }
         }
     }
 }
