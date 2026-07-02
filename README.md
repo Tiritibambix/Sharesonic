@@ -43,7 +43,7 @@ Sharesonic is built for the other scenario — the large, chaotic, lovingly diso
 |---|---|
 | **Folder browsing** | Navigate your full directory tree from root to individual tracks |
 | **Shuffle library** | Server-side random pick via native Velvet API — 30 tracks, no repeats |
-| **Shuffle folder** | Recursive collect + shuffle on any sub-directory |
+| **Shuffle folder** | Shuffle every track under any sub-directory. Gathered server-side (recursive scan + batch metadata) so it scales to huge folders; very large folders (100k+ tracks) are randomly sampled down to 5000 |
 | **Auto-DJ** | Continuous smart queue: BPM continuity, harmonic mixing (Camelot wheel), similar artists, artist cooldown, genre filter, crossfade — toggle the headphones icon in the mini player or Now Playing |
 | **Share link on track** | Native mStream share API → public `server/shared/XXXXXXXXXX` URL → Android share sheet |
 | **Share link on folder** | Long-press any folder → recursively collects every track inside it (including subfolders) and generates a single public link for the whole folder |
@@ -54,7 +54,7 @@ Sharesonic is built for the other scenario — the large, chaotic, lovingly diso
 | **Add to queue** | Swipe left on any track in the browser |
 | **Add to playlist** | Swipe right on a track in the browser, or tap "Playlist" in Now Playing |
 | **Playlist management** | Create, rename, delete playlists; add/remove tracks; play all or shuffle |
-| **Search** | Pill-shaped, Material You search bar with full-text search across songs, albums, artists |
+| **Search** | Pill-shaped, Material You search bar with full-text search grouped into Folders, Artists, Albums and Songs. Tapping a folder navigates straight to it; tapping an artist opens a list of that artist's tracks (featuring/variant spellings included) |
 | **Scrobbling** | Playback reported to mStream → forwarded to Last.fm + ListenBrainz (no API keys needed). Requires **"Scrobble from External Apps"** to be enabled in mStream Velvet's server settings — otherwise mStream silently ignores the scrobble calls |
 
 ---
@@ -82,7 +82,7 @@ Sharesonic is built for the other scenario — the large, chaotic, lovingly diso
 
 ## Server compatibility
 
-Sharesonic is built for **[mStream Velvet](https://github.com/aroundmyroom/mStream)** (7.5.x). It uses mStream Velvet's native API for browsing, streaming, sharing, shuffle, Auto-DJ, and playlist management, and the Subsonic compatibility layer for search only.
+Sharesonic is built for **[mStream Velvet](https://github.com/aroundmyroom/mStream)** (7.5.x). It uses mStream Velvet's native API for everything: browsing, streaming, sharing, shuffle, Auto-DJ, playlist management, and search. The Subsonic compatibility layer is now only a dormant legacy fallback.
 
 Generic Subsonic servers (Navidrome, Airsonic, etc.) are not supported yet — planned for a future release.
 
@@ -147,7 +147,7 @@ GitHub Actions runs on every push and tag:
 
 ## How it works
 
-Sharesonic uses two separate APIs from mStream:
+Sharesonic runs entirely on mStream's native API; a Subsonic compatibility layer remains only as a dormant legacy fallback.
 
 ### mStream native API (primary)
 
@@ -156,7 +156,11 @@ Sharesonic uses two separate APIs from mStream:
 | `POST /api/v1/auth/login` | JWT authentication |
 | `GET /api/v1/auth/refresh` | Refresh JWT on boot |
 | `POST /api/v1/file-explorer` | Folder browsing + file metadata |
-| `GET /media/<filepath>?token=<jwt>` | Audio streaming |
+| `POST /api/v1/file-explorer/recursive` | Every filepath under a folder in one request (folder shuffle) |
+| `POST /api/v1/db/metadata/batch` | Batch metadata for a list of filepaths (folder shuffle) |
+| `POST /api/v1/db/search` | Full-text search (folders, artists, albums, songs) |
+| `POST /api/v1/db/artist-folder-songs` | All tracks for an artist tag (tapping an artist in search) |
+| `GET /media/<filepath>?token=<jwt>` | Audio streaming (each path segment percent-encoded) |
 | `GET /album-art/<file>?token=<jwt>` | Cover art |
 | `POST /api/v1/share` | Generate public share link for a track or the whole queue (`time` = days) |
 | `POST /api/v1/db/rate-song` | Rate / clear the rating of a track (native 0–10 half-star scale) |
@@ -178,12 +182,16 @@ Sharesonic uses two separate APIs from mStream:
 > server settings — Last.fm and ListenBrainz must also be configured there. Sharesonic just fires the
 > calls; mStream silently drops them if this setting is disabled.
 
-### Subsonic API (search + scrobble for search results)
+### Subsonic API (legacy / dormant)
+
+Search moved to the native `/api/v1/db/search`, so these are no longer used in practice — they
+remain only as a defensive fallback for songs carrying a Subsonic integer ID, which native search
+no longer produces.
 
 | Endpoint | Purpose |
 |---|---|
-| `search3` | Full-text search across songs, albums, artists |
-| `scrobble` | Scrobble integer-ID songs (from search results) |
+| `search3` | Legacy full-text search (superseded by native `db/search`) |
+| `scrobble` | Scrobble integer-ID songs (dormant) |
 
 ---
 

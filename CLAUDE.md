@@ -59,7 +59,7 @@ The goal is an app that does a handful of things well:
 6. **Mini player** — persistent bottom bar on all screens except Now Playing; folds up/down without fade
 7. **Playlists** — list of playlists with real track counts; create / rename / delete
 8. **Playlist detail** — track list; play all / shuffle FABs; swipe to remove; add songs via search dialog
-9. **Search** — pill-shaped Material You search field living in the screen body (not the `TopAppBar` title slot, which clipped it); auto-focuses on entry
+9. **Search** — pill-shaped Material You search field living in the screen body (not the `TopAppBar` title slot, which clipped it); auto-focuses on entry. Results (from the native `/api/v1/db/search`) are grouped into four sections, mirroring the mStream Velvet webapp: **Folders** (real on-disk folders whose name matched — tapping navigates straight to the server-provided `browse_path`, no path guessing), **Artists**, **Albums** and **Songs**. Tapping an **Artist** opens a track list of that artist's own songs (via `artist-folder-songs`, matched on the exact tag incl. featuring/variant spellings) — like the webapp's artist profile — rather than trying to resolve the artist to a single folder. Tapping an **Album** navigates to its folder; tapping a **Song** plays it
 10. **Share confirmation** — shows the generated link with a copy + send button
 
 ## Technical Stack
@@ -67,7 +67,7 @@ The goal is an app that does a handful of things well:
 * Language: Kotlin
 * UI: Jetpack Compose + Material 3
 * Architecture: MVVM with ViewModel + StateFlow
-* Network: Retrofit + OkHttp (mStream native API for everything; Subsonic API for search only)
+* Network: Retrofit + OkHttp (mStream native API for everything, **including search** via `/api/v1/db/search`). The Subsonic compatibility layer is now only a legacy fallback for scrobbling/sharing numeric-ID songs — which native search no longer produces, so it is effectively dormant
 * Local storage: DataStore for settings (stores URL, username, password, JWT token)
 * Min SDK: 26 (Android 8.0)
 * Target SDK: latest stable
@@ -152,6 +152,12 @@ GET /media/<filepath>?token=<jwt>
 Where `filepath` = `metadata.filepath` from the file-explorer response (e.g. `library/Artist/Album/track.mp3`).
 This is how the official mStream webapp streams audio.
 
+**Each path segment must be percent-encoded** (like the webapp's `encodeFp` / `encodeURIComponent`),
+keeping `/` separators intact — `PlayerViewModel.streamUrl()` does this with `Uri.encode` per
+segment. Escaping only `%`/`#`/`?` (the old behaviour) left spaces, `&`, `+` and accented
+characters (é, è, à, ç…) literal in the URL, which **404'd playback** for those paths — pervasive
+on non-ASCII libraries. This was a real bug.
+
 ### Album Art
 
 ```
@@ -222,9 +228,11 @@ Content-Type: application/json
 → { "songs": [{ "filepath": "Music/Artist/Album/track.flac", "metadata": { ... } }], "ignoreList": [3, 17, 42, 88] }
 ```
 
-Returns **one song per call**. The app calls it 30 times sequentially, passing the updated
-`ignoreList` each time, to build a shuffle queue. Songs have `filepath` as identifier —
-identical to `file-explorer` `pullMetadata=true` entries. Replaces Subsonic `getRandomSongs`.
+Returns **one song per call**. For the **whole-library shuffle** (root level) the app calls it
+30 times sequentially, passing the updated `ignoreList` each time, to build a shuffle queue.
+Songs have `filepath` as identifier — identical to `file-explorer` `pullMetadata=true` entries.
+Replaces Subsonic `getRandomSongs`. (Per-**folder** shuffle uses a different, scalable mechanism —
+see "Folder shuffle" below.)
 
 For Auto-DJ, the same endpoint is called with additional filter fields:
 
@@ -270,6 +278,80 @@ Extracts embedded album art from any audio file. Returns the cache filename for 
 `GET /album-art/<aaFile>?token=<jwt>`. Implemented in `MStreamRepository.getArtFilename()`
 (data layer only — not yet wired to the UI).
 
+### Native full-text search
+
+```
+POST /api/v1/db/search
+x-access-token: <token>
+Content-Type: application/json
+
+{ "search": "<query>", "noFolders": false }
+
+→ {
+    "folders": [{ "folder_name": "Bob Marley", "browse_path": "/Music/Reggae/Bob Marley" }],
+    "artists": [{ "name": "Bob Marley", "variants": ["Bob Marley", "Bob Marley & The Wailers"] }],
+    "albums":  [{ "name": "Legend", "filepath": "Music/Reggae/Bob Marley/Legend", "album_art_file": "..." }],
+    "title":   [{ "name": "Bob Marley - Could You Be Loved", "filepath": "Music/.../track.mp3", "album_art_file": "..." }],
+    "files":   [ ... ]
+  }
+```
+
+Replaces Subsonic `search3` for all in-app search (`MStreamRepository.search()`). Notes:
+
+* `noFolders: false` is required to get the `folders` array **and** real album filepaths (with
+  the default `true`, albums come back with `filepath: false`).
+* **`folders`** = real on-disk directories matched by name. `browse_path` (`/vpath/dirpath`) is a
+  valid `file-explorer` `directory` — Sharesonic renders these as a "Folders" section and navigates
+  to them directly, with no client-side path guessing.
+* **`artists`** carry only a normalized display `name` plus `variants` — every raw
+  artist/`album_artist` tag value that normalizes to that name (e.g. `01 Ben Liebrand` → `Ben
+  Liebrand`). The variants are needed to query the artist's songs, since the tag match is exact.
+* `title` items are songs matched by title; `name` is `"Artist - Title"`. `files` are filename-only
+  matches (currently not surfaced in the UI).
+
+### Artist folder songs
+
+```
+POST /api/v1/db/artist-folder-songs
+x-access-token: <token>
+Content-Type: application/json
+
+{ "artists": ["Bob Marley", "Bob Marley & The Wailers"] }
+
+→ [ { "filepath": "Music/.../track.mp3", "metadata": { ... } }, ... ]   // bare array
+```
+
+Every song whose `artist`/`album_artist` tag **exactly** matches one of `artists`. Pass a search
+result's normalized name **plus all its `variants`** (the match is exact-string against the raw tag,
+not the normalized name). Response shape = `MStreamFileMetaWrapper` (same as `db/random-songs`).
+Used when an artist is tapped in search: `SearchViewModel.fetchArtistSongsRaw()` →
+`ArtistResultsScreen` lists the tracks; each plays by its own server-verified filepath.
+
+### Folder shuffle (recursive scan + batch metadata)
+
+Per-folder shuffle must gather every track under a folder — but a genre-sized folder can hold 100k+
+files across thousands of sub-directories. A client-side recursive `file-explorer` walk (one request
+per sub-folder) hangs forever at that scale, so `MStreamRepository.collectSongsFast()` uses two
+server-side requests instead:
+
+```
+POST /api/v1/file-explorer/recursive   { "directory": "/Music/Reggae" }
+  → ["Music/Reggae/Artist/Album/track.mp3", ...]   // every filepath in the subtree, one request
+
+POST /api/v1/db/metadata/batch          ["Music/Reggae/.../track.mp3", ...]
+  → { "Music/Reggae/.../track.mp3": { "filepath": ..., "metadata": { ... } }, ... }
+```
+
+* The recursive scan can take a while server-side on huge folders, so these calls use a **longer read
+  timeout** — `MStreamClient.buildLongTimeout()` (300 s) instead of the default 60 s.
+* The result is **capped at `SHUFFLE_MAX` (5000) tracks, sampled randomly across the whole folder**
+  (shuffle the filepaths, then take the cap) — materializing a 100k-track queue + its metadata is
+  infeasible on-device. Folders under the cap are taken in full. Metadata is fetched in chunks of
+  `METADATA_CHUNK` (2000) to bound each payload; unindexed files fall back to a minimal `EntryDto`
+  (filepath only) so they stay playable.
+* `collectSongs()` (the old recursive client walk) is **still used by `shareFolder()`** — only
+  shuffle switched to the fast path.
+
 ### Scrobbling
 
 Sharesonic reports playback to mStream, which forwards to the user's configured **Last.fm**
@@ -297,20 +379,23 @@ x-access-token: <token>
 { "filePath": "Music/Artist/Album/track.mp3" }
 ```
 
-For Subsonic integer-ID songs (from `search3`), scrobbling uses `scrobble.view` — see below.
+Legacy: for any Subsonic integer-ID song, scrobbling would use `scrobble.view` (see below) — but
+native search no longer produces such songs, so this path is dormant.
 
-## Subsonic API Endpoints Used
+## Subsonic API Endpoints (legacy / dormant)
 
-The Subsonic API (`/rest/`) is used **only for search**.
-It is NOT used for streaming, sharing, browsing, or shuffle.
+Search now uses the **native** `/api/v1/db/search` (see "Native full-text search" above), so the
+Subsonic API (`/rest/`) is **no longer used for search** — and never for streaming, sharing,
+browsing, or shuffle. The `SubsonicRepository` code paths below survive only as a defensive
+fallback for songs carrying a Subsonic **integer** ID (`id.all { it.isDigit() }`), which the native
+search no longer produces — so in practice they are dormant.
 
-**Important:** mStream Subsonic IDs are plain integer database row IDs (e.g. `42`).
-They are returned by `search3` and are valid only with other Subsonic endpoints.
-Do NOT use file content hashes as Subsonic IDs.
+**Important:** mStream Subsonic IDs are plain integer database row IDs (e.g. `42`), valid only with
+other Subsonic endpoints. Do NOT use file content hashes as Subsonic IDs.
 
-* `search3` — full-text search across songs, albums, artists (returns integer IDs)
-* `createShare` — generate a share URL for songs obtained via `search3` only
-* `getCoverArt` — cover art for songs/albums obtained via Subsonic search
+* `search3` — legacy full-text search (returns integer IDs); superseded by native `db/search`
+* `createShare` — share a numeric-ID song (only if one somehow originates from Subsonic)
+* `getCoverArt` — cover art for numeric-ID songs
 * `scrobble` — report playback for integer-ID songs (`submission=false` on start, `true` at 50%)
 
 Subsonic auth: `u=<username>`, `p=<plain-text password>`, `v=1.16.1`, `c=Sharesonic`, `f=json`
@@ -325,10 +410,12 @@ Songs have two origins with different identifiers:
 |---|---|---|---|---|
 | `file-explorer` (browsing) | filepath string | `/media/<id>?token=<jwt>` | `POST /api/v1/share` | native LFM + LB |
 | `db/random-songs` (shuffle-all) | filepath string | `/media/<id>?token=<jwt>` | `POST /api/v1/share` | native LFM + LB |
-| `search3` (search results) | numeric string (`"42"`) | `/rest/stream.view?id=42&...` | `createShare?id=42` | `scrobble.view?id=42` |
+| `db/search` (search results) | filepath string | `/media/<id>?token=<jwt>` | `POST /api/v1/share` | native LFM + LB |
+| `search3` (legacy, dormant) | numeric string (`"42"`) | `/rest/stream.view?id=42&...` | `createShare?id=42` | `scrobble.view?id=42` |
 
-The app distinguishes Subsonic integer IDs by checking `id.all { it.isDigit() }`.
-Shuffle-all songs now use the native filepath path — no integer IDs from shuffle.
+The app distinguishes Subsonic integer IDs by checking `id.all { it.isDigit() }`. Both shuffle and
+native `db/search` now yield filepath IDs, so the `search3` (numeric) row is legacy only — no
+in-app path currently produces integer IDs.
 
 ## Build & Distribution
 
