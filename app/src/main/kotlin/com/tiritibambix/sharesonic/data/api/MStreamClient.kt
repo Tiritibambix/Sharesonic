@@ -9,10 +9,19 @@ import java.util.concurrent.TimeUnit
 
 object MStreamClient {
 
-    fun build(serverUrl: String): MStreamApiService {
+    /**
+     * Longer read timeout for heavy whole-folder operations (recursive scan +
+     * batch metadata on very large folders): the server walks its filesystem
+     * for these, which can take well over the default 60 s on big libraries.
+     * Use via [buildLongTimeout]; keep normal calls on the shorter default.
+     */
+    fun buildLongTimeout(serverUrl: String): MStreamApiService =
+        build(serverUrl, readTimeoutSeconds = 300)
+
+    fun build(serverUrl: String, readTimeoutSeconds: Long = 60): MStreamApiService {
         val okHttp = OkHttpClient.Builder()
             .connectTimeout(30, TimeUnit.SECONDS)
-            .readTimeout(60, TimeUnit.SECONDS)
+            .readTimeout(readTimeoutSeconds, TimeUnit.SECONDS)
             .writeTimeout(30, TimeUnit.SECONDS)
             // Mirror x-access-token as Authorization: Bearer for reverse-proxy compatibility
             .addInterceptor { chain ->

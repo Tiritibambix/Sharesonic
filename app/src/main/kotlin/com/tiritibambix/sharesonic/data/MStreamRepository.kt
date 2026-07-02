@@ -34,7 +34,16 @@ import com.tiritibambix.sharesonic.data.api.models.TopLevelDir
 
 class MStreamRepository(private val api: MStreamApiService) {
 
-    companion object { private const val TAG = "MStreamRepository" }
+    companion object {
+        private const val TAG = "MStreamRepository"
+
+        /** Max tracks materialized for a folder shuffle (see [collectSongsFast]). Bigger
+         *  folders are randomly sampled down to this — a 100k-track queue is infeasible. */
+        private const val SHUFFLE_MAX = 5000
+
+        /** Filepaths per /db/metadata/batch request, to bound each payload. */
+        private const val METADATA_CHUNK = 2000
+    }
 
     /** Used only by [rateSong] — see the comment there for why null serialization is needed. */
     private val rateSongGson = GsonBuilder().serializeNulls().create()
@@ -137,15 +146,21 @@ class MStreamRepository(private val api: MStreamApiService) {
     }
 
     /**
-     * All playable tracks under [path], gathered in two server requests instead of
-     * [collectSongs]' recursive per-subfolder client walk — so it scales to very large
+     * Playable tracks under [path] for shuffle, gathered with server-side requests instead
+     * of [collectSongs]' recursive per-subfolder client walk — so it scales to very large
      * folders (tens of thousands of files) that would otherwise hang the client:
      *
      *  1. `/api/v1/file-explorer/recursive` → every filepath in the subtree (one request),
-     *  2. `/api/v1/db/metadata/batch`       → all their metadata (one request).
+     *  2. `/api/v1/db/metadata/batch`       → their metadata (chunked into a few requests).
      *
-     * Order is preserved from the scan; unindexed files fall back to a minimal EntryDto
-     * (filepath only) so they stay playable. Used by folder shuffle.
+     * A folder can hold 100k+ files (e.g. a whole-genre library); materializing that many
+     * queue entries + their metadata is infeasible on-device, so the result is capped at
+     * [SHUFFLE_MAX], sampled randomly across the *whole* folder (shuffle filepaths, then
+     * take the cap). Folders under the cap are returned in full. Unindexed files fall back
+     * to a minimal EntryDto (filepath only) so they stay playable.
+     *
+     * Build the repo with [com.tiritibambix.sharesonic.data.api.MStreamClient.buildLongTimeout]
+     * when calling this — the server-side recursive walk can exceed the normal read timeout.
      */
     suspend fun collectSongsFast(token: String, path: String): List<EntryDto> {
         val filepaths = try {
@@ -157,15 +172,21 @@ class MStreamRepository(private val api: MStreamApiService) {
         }
         if (filepaths.isEmpty()) return emptyList()
 
-        val meta: Map<String, MStreamFileMetaWrapper> = try {
-            api.metadataBatch(token, filepaths)
-        } catch (e: kotlinx.coroutines.CancellationException) {
-            throw e
-        } catch (e: Exception) {
-            emptyMap()
+        val selected = if (filepaths.size > SHUFFLE_MAX) filepaths.shuffled().take(SHUFFLE_MAX) else filepaths
+
+        val meta = HashMap<String, MStreamFileMetaWrapper>(selected.size)
+        for (chunk in selected.chunked(METADATA_CHUNK)) {
+            val part: Map<String, MStreamFileMetaWrapper> = try {
+                api.metadataBatch(token, chunk)
+            } catch (e: kotlinx.coroutines.CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                emptyMap()
+            }
+            meta.putAll(part)
         }
 
-        return filepaths.map { fp ->
+        return selected.map { fp ->
             meta[fp]?.let { fileMetaWrapperToEntryDto(it) }
                 ?: EntryDto(id = fp, title = fp.substringAfterLast('/'), isDir = false, path = fp)
         }
