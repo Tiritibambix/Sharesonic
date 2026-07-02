@@ -238,26 +238,14 @@ private fun SearchResults(
                 ArtistRow(
                     artist = artist,
                     onClick = {
+                        // Match the Velvet webapp's viewArtistProfile: tapping an artist
+                        // shows that artist's own tracks (exact tag match via
+                        // artist-folder-songs, including featuring/variant tags), never a
+                        // guessed folder. Folder navigation lives in the Folders section
+                        // above. This also fixes the "featuring artist opens a huge shared
+                        // folder where you can't find the track" problem — the track is
+                        // listed directly and plays on tap.
                         coroutineScope.launch {
-                            // Tier 1: server-authoritative resolution — every song the
-                            // server has for this artist tag (+ raw tag variants) comes
-                            // back with a verified real filepath, so the derived folder
-                            // can never be a wrong-depth guess (see SearchViewModel).
-                            val resolved = viewModel.resolveArtistFolderAuthoritative(artist.name, artist.variants)
-                            if (resolved != null) {
-                                onOpenFolder(resolved, artist.name)
-                                return@launch
-                            }
-                            // Tier 2: scan every known vpath for a matching subfolder —
-                            // only ever returns paths observed directly via file-explorer.
-                            val viaVpathScan = viewModel.resolveArtistFolder(artist.name)
-                            if (viaVpathScan != null) {
-                                onOpenFolder(viaVpathScan, artist.name)
-                                return@launch
-                            }
-                            // Tier 3: no real on-disk folder found anywhere — show the
-                            // dedicated results screen, fed by the same server-verified
-                            // song list Tier 1 already fetched (if any).
                             val songs = viewModel.fetchArtistSongsRaw(artist.name, artist.variants).orEmpty()
                             viewModel.setArtistResults(songs)
                             onOpenArtistResults(artist.name)
