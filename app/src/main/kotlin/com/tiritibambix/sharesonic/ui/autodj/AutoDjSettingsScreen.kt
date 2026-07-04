@@ -18,6 +18,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
+import com.tiritibambix.sharesonic.ui.theme.textSecondary
 import kotlin.math.roundToInt
 
 /**
@@ -292,7 +293,7 @@ private fun StarRatingPicker(
                                       else Icons.Filled.StarBorder,
                         contentDescription = "$star star",
                         tint = if (star <= rating) MaterialTheme.colorScheme.primary
-                               else MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.38f),
+                               else MaterialTheme.colorScheme.textSecondary.copy(alpha = 0.38f),
                         modifier = Modifier.size(22.dp)
                     )
                 }
@@ -307,8 +308,8 @@ private fun StarRatingPicker(
                 Icon(
                     imageVector = Icons.Default.Close,
                     contentDescription = "Reset to any rating",
-                    tint = if (rating != 0) MaterialTheme.colorScheme.onSurfaceVariant
-                           else MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.25f),
+                    tint = if (rating != 0) MaterialTheme.colorScheme.textSecondary
+                           else MaterialTheme.colorScheme.textSecondary.copy(alpha = 0.25f),
                     modifier = Modifier.size(20.dp)
                 )
             }
@@ -338,7 +339,7 @@ private fun SourceFoldersSelector(
         Text(
             "Which library folders Auto-DJ draws songs from",
             style = MaterialTheme.typography.bodySmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant
+            color = MaterialTheme.colorScheme.textSecondary
         )
         Spacer(Modifier.height(4.dp))
 
@@ -457,7 +458,7 @@ private fun SettingRow(
                 Text(
                     description,
                     style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                    color = MaterialTheme.colorScheme.textSecondary
                 )
             }
         }
@@ -512,7 +513,7 @@ private fun StepperSetting(
                 Text(
                     description,
                     style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                    color = MaterialTheme.colorScheme.textSecondary
                 )
             }
         }

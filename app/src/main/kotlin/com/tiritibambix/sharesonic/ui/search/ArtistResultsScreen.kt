@@ -17,6 +17,7 @@ import androidx.compose.ui.unit.dp
 import com.tiritibambix.sharesonic.data.api.models.EntryDto
 import com.tiritibambix.sharesonic.data.settings.ServerSettings
 import com.tiritibambix.sharesonic.ui.player.PlayerViewModel
+import com.tiritibambix.sharesonic.ui.theme.textSecondary
 
 /**
  * Standalone "folder-like" results page for an artist whose tag-derived name has
@@ -93,7 +94,7 @@ fun ArtistResultsScreen(
                 Text(
                     "No tracks found for $artistName",
                     modifier = Modifier.align(Alignment.Center),
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                    color = MaterialTheme.colorScheme.textSecondary
                 )
             } else {
                 LazyColumn(

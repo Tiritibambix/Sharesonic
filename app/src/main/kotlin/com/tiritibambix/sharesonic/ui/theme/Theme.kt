@@ -4,6 +4,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.darkColorScheme
 import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import com.tiritibambix.sharesonic.data.settings.AppTheme
 
 /**
@@ -157,9 +158,16 @@ fun SharesonicTheme(
         AppTheme.DARK   -> DarkAppColorScheme
         AppTheme.LIGHT  -> LightAppColorScheme
     }
-    MaterialTheme(
-        colorScheme = colorScheme,
-        typography  = Typography,
-        content     = content
-    )
+    val inks = when (appTheme) {
+        AppTheme.VELVET -> VelvetInks
+        AppTheme.DARK   -> DarkInks
+        AppTheme.LIGHT  -> LightInks
+    }
+    CompositionLocalProvider(LocalSharesonicInks provides inks) {
+        MaterialTheme(
+            colorScheme = colorScheme,
+            typography  = Typography,
+            content     = content
+        )
+    }
 }

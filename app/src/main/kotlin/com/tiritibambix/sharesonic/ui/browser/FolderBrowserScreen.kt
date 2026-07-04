@@ -42,6 +42,7 @@ import coil.compose.AsyncImage
 import com.tiritibambix.sharesonic.data.api.models.EntryDto
 import com.tiritibambix.sharesonic.ui.player.PlayerViewModel
 import com.tiritibambix.sharesonic.ui.share.ShareExpiryDialog
+import com.tiritibambix.sharesonic.ui.theme.textSecondary
 import com.tiritibambix.sharesonic.utils.LocalIsTV
 import kotlinx.coroutines.launch
 
@@ -272,7 +273,7 @@ fun FolderBrowserScreen(
                         Text(
                             "Empty folder",
                             modifier = Modifier.align(Alignment.Center),
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                            color = MaterialTheme.colorScheme.textSecondary
                         )
                     } else {
                         Box(modifier = Modifier.fillMaxSize()) {
@@ -501,7 +502,7 @@ fun FolderBrowserScreen(
                 if (playlists.isEmpty()) {
                     Text(
                         "No playlists yet.\nCreate one in the Playlists screen first.",
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                        color = MaterialTheme.colorScheme.textSecondary
                     )
                 } else {
                     Column(
@@ -735,7 +736,7 @@ private fun EntryRow(
                     tint = if (entry.isDir)
                         MaterialTheme.colorScheme.primary
                     else
-                        MaterialTheme.colorScheme.onSurfaceVariant
+                        MaterialTheme.colorScheme.textSecondary
                 )
             }
         }
@@ -755,7 +756,7 @@ private fun EntryRow(
                         entry.album?.let { append(it) }
                     }.ifBlank { "" },
                     style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    color = MaterialTheme.colorScheme.textSecondary,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis
                 )
@@ -767,7 +768,7 @@ private fun EntryRow(
             Text(
                 text = formatDuration(entry.duration),
                 style = MaterialTheme.typography.labelSmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
+                color = MaterialTheme.colorScheme.textSecondary
             )
         }
 
@@ -777,7 +778,7 @@ private fun EntryRow(
                 Icon(
                     imageVector = Icons.Default.MoreVert,
                     contentDescription = "More options",
-                    tint = MaterialTheme.colorScheme.onSurfaceVariant
+                    tint = MaterialTheme.colorScheme.textSecondary
                 )
             }
         }
@@ -850,7 +851,7 @@ private fun LetterStrip(
                 color  = if (letter == activeLetter)
                     MaterialTheme.colorScheme.primary
                 else
-                    MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f)
+                    MaterialTheme.colorScheme.textSecondary.copy(alpha = 0.6f)
             )
         }
     }

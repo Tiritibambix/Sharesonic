@@ -40,6 +40,7 @@ val VelvetYellow      = Color(0xFFFBBF24)   // --yellow  warning (unused by M3 b
 val VelvetT1          = Color(0xFFEEEEFF)   // --t1 primary text (near-white with lavender)
 val VelvetT2          = Color(0xFF8888B0)   // --t2 secondary text
 val VelvetT3          = Color(0xFF7E8EC0)   // --t3 muted text
+val VelvetT4          = Color(0xFF2A3A5E)   // --t4 dim / disabled ink
 
 // Very dark (used for onPrimary, onAccent text)
 val VelvetInk         = Color(0xFF0D0B1A)   // near-black with purple tint

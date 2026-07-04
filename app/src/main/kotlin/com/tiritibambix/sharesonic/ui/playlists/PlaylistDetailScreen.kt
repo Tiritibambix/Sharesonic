@@ -16,6 +16,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.tiritibambix.sharesonic.data.api.models.EntryDto
 import com.tiritibambix.sharesonic.ui.player.PlayerViewModel
+import com.tiritibambix.sharesonic.ui.theme.textSecondary
 import com.tiritibambix.sharesonic.utils.LocalIsTV
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -105,7 +106,7 @@ fun PlaylistDetailScreen(
                                 Text(
                                     "Type to search",
                                     modifier = Modifier.align(Alignment.Center),
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    color = MaterialTheme.colorScheme.textSecondary,
                                     style = MaterialTheme.typography.bodySmall
                                 )
                             is AddSongsState.Loading ->
@@ -125,7 +126,7 @@ fun PlaylistDetailScreen(
                                     Text(
                                         "No songs found",
                                         modifier = Modifier.align(Alignment.Center),
-                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                        color = MaterialTheme.colorScheme.textSecondary,
                                         style = MaterialTheme.typography.bodySmall
                                     )
                                 } else {
@@ -222,7 +223,7 @@ fun PlaylistDetailScreen(
                         Text(
                             "No songs — tap + to add some",
                             modifier = Modifier.align(Alignment.Center),
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                            color = MaterialTheme.colorScheme.textSecondary
                         )
                     } else {
                         val isTV = LocalIsTV.current
@@ -328,7 +329,7 @@ private fun SongRow(song: EntryDto, onClick: () -> Unit) {
                 Text(
                     sub,
                     style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    color = MaterialTheme.colorScheme.textSecondary,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis
                 )
@@ -338,7 +339,7 @@ private fun SongRow(song: EntryDto, onClick: () -> Unit) {
             Text(
                 "%d:%02d".format(it / 60, it % 60),
                 style = MaterialTheme.typography.labelSmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
+                color = MaterialTheme.colorScheme.textSecondary
             )
         }
     }
@@ -362,7 +363,7 @@ private fun AddSongRow(song: EntryDto, onAdd: () -> Unit) {
                 Text(
                     it,
                     style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    color = MaterialTheme.colorScheme.textSecondary,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis
                 )

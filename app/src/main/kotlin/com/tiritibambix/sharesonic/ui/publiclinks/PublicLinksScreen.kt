@@ -22,6 +22,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.tiritibambix.sharesonic.data.api.models.VelvetShareListItem
+import com.tiritibambix.sharesonic.ui.theme.textSecondary
 import java.time.Instant
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
@@ -95,7 +96,7 @@ fun PublicLinksScreen(
                             Icon(
                                 Icons.Default.Link,
                                 contentDescription = null,
-                                tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f),
+                                tint = MaterialTheme.colorScheme.textSecondary.copy(alpha = 0.5f),
                                 modifier = Modifier.size(40.dp)
                             )
                             Text(
@@ -104,7 +105,7 @@ fun PublicLinksScreen(
                             )
                             Text(
                                 "Share a track or folder to create one.",
-                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                color = MaterialTheme.colorScheme.textSecondary,
                                 style = MaterialTheme.typography.bodyMedium
                             )
                         }
@@ -175,7 +176,7 @@ private fun PublicLinkRow(
             Text(
                 "${link.songCount} ${if (link.songCount == 1) "track" else "tracks"} · ${formatExpiry(link.expires)}",
                 style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
+                color = MaterialTheme.colorScheme.textSecondary
             )
         }
         IconButton(onClick = onCopy) {

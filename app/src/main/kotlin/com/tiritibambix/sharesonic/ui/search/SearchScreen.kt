@@ -26,7 +26,10 @@ import com.tiritibambix.sharesonic.data.api.models.EntryDto
 import com.tiritibambix.sharesonic.data.api.models.SearchResult3
 import com.tiritibambix.sharesonic.data.api.models.TopLevelDir
 import com.tiritibambix.sharesonic.data.settings.ServerSettings
+import com.tiritibambix.sharesonic.ui.common.AlbumCardGrid
 import com.tiritibambix.sharesonic.ui.player.PlayerViewModel
+import com.tiritibambix.sharesonic.ui.theme.textSecondary
+import com.tiritibambix.sharesonic.ui.theme.textTertiary
 import kotlinx.coroutines.launch
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -87,7 +90,7 @@ fun SearchScreen(
                         Text(
                             "Type to search your library",
                             modifier = Modifier.align(Alignment.Center),
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                            color = MaterialTheme.colorScheme.textTertiary
                         )
                     }
                     is SearchState.Loading -> {
@@ -146,14 +149,14 @@ private fun SearchField(
             Icon(
                 Icons.Default.Search,
                 contentDescription = null,
-                tint = MaterialTheme.colorScheme.onSurfaceVariant
+                tint = MaterialTheme.colorScheme.textSecondary
             )
             Box(modifier = Modifier.weight(1f)) {
                 if (query.isEmpty()) {
                     Text(
                         "Search songs, albums, artists…",
                         style = MaterialTheme.typography.bodyLarge,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f),
+                        color = MaterialTheme.colorScheme.textTertiary,
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis
                     )
@@ -180,7 +183,7 @@ private fun SearchField(
                         Icons.Default.Clear,
                         contentDescription = "Clear search",
                         modifier = Modifier.size(18.dp),
-                        tint = MaterialTheme.colorScheme.onSurfaceVariant
+                        tint = MaterialTheme.colorScheme.textSecondary
                     )
                 }
             }
@@ -205,7 +208,7 @@ private fun SearchResults(
             Text(
                 "No results",
                 modifier = Modifier.align(Alignment.Center),
-                color = MaterialTheme.colorScheme.onSurfaceVariant
+                color = MaterialTheme.colorScheme.textTertiary
             )
         }
         return
@@ -257,16 +260,20 @@ private fun SearchResults(
         }
 
         // ── Albums ───────────────────────────────────────────────────────
+        // Grid of rounded cards (mStream album_grid parity) rather than the
+        // flat list the other sections use — albums are a visual result set
+        // (cover art is the primary signifier), the others are text-first.
         if (result.album.isNotEmpty()) {
             item { SectionHeader("Albums") }
-            itemsIndexed(result.album, key = { idx, _ -> "album_$idx" }) { _, album ->
-                EntryRow(
-                    entry = album,
-                    coverArtUrl = album.coverArt?.let { nativeCoverArtUrl(settings, it) },
-                    isAlbum = true,
-                    onClick = { onOpenFolder(album.id, album.displayName) }
+            item {
+                AlbumCardGrid(
+                    items = result.album,
+                    key = { it.id },
+                    title = { it.displayName },
+                    subtitle = { it.artist },
+                    coverArtUrl = { it.coverArt?.let { c -> nativeCoverArtUrl(settings, c) } },
+                    onClick = { onOpenFolder(it.id, it.displayName) },
                 )
-                HorizontalDivider(thickness = 0.5.dp)
             }
         }
 
@@ -383,7 +390,7 @@ internal fun EntryRow(
                     imageVector = if (isAlbum) Icons.Default.Album else Icons.Default.MusicNote,
                     contentDescription = null,
                     modifier = Modifier.padding(12.dp),
-                    tint = MaterialTheme.colorScheme.onSurfaceVariant
+                    tint = MaterialTheme.colorScheme.textSecondary
                 )
             }
         }
@@ -403,7 +410,7 @@ internal fun EntryRow(
                 Text(
                     sub,
                     style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    color = MaterialTheme.colorScheme.textSecondary,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis
                 )
@@ -414,7 +421,7 @@ internal fun EntryRow(
                 Text(
                     formatDuration(it),
                     style = MaterialTheme.typography.labelSmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                    color = MaterialTheme.colorScheme.textTertiary
                 )
             }
         }

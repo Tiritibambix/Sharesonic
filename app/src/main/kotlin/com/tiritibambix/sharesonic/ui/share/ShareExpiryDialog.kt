@@ -18,6 +18,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
+import com.tiritibambix.sharesonic.ui.theme.textSecondary
 
 /**
  * Asks the user how long the public share link should remain valid before
@@ -50,7 +51,7 @@ fun ShareExpiryDialog(
                 Text(
                     "Leave empty for a link that never expires.",
                     style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                    color = MaterialTheme.colorScheme.textSecondary
                 )
                 OutlinedTextField(
                     value = daysText,

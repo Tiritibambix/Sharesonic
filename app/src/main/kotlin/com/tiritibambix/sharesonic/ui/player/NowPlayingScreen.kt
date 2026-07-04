@@ -1,6 +1,6 @@
 package com.tiritibambix.sharesonic.ui.player
 
-import androidx.compose.animation.animateColorAsState
+import androidx.compose.animation.Crossfade
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
@@ -25,12 +25,14 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import coil.compose.AsyncImage
 import com.tiritibambix.sharesonic.ui.share.ShareExpiryDialog
+import com.tiritibambix.sharesonic.ui.theme.textSecondary
 import com.tiritibambix.sharesonic.utils.LocalIsTV
 import kotlinx.coroutines.launch
 
@@ -81,7 +83,7 @@ fun NowPlayingScreen(
                                     color = if (pagerState.currentPage == PAGE_NOW_PLAYING)
                                         MaterialTheme.colorScheme.primary
                                     else
-                                        MaterialTheme.colorScheme.onSurfaceVariant
+                                        MaterialTheme.colorScheme.textSecondary
                                 )
                             }
                             TextButton(
@@ -96,7 +98,7 @@ fun NowPlayingScreen(
                                     color = if (pagerState.currentPage == PAGE_QUEUE)
                                         MaterialTheme.colorScheme.primary
                                     else
-                                        MaterialTheme.colorScheme.onSurfaceVariant
+                                        MaterialTheme.colorScheme.textSecondary
                                 )
                             }
                         }
@@ -115,7 +117,7 @@ fun NowPlayingScreen(
                                             if (pagerState.currentPage == i)
                                                 MaterialTheme.colorScheme.primary
                                             else
-                                                MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.4f)
+                                                MaterialTheme.colorScheme.textSecondary.copy(alpha = 0.4f)
                                         )
                                 )
                             }
@@ -164,7 +166,7 @@ fun NowPlayingScreen(
                             tint = if (state.autoDjEnabled)
                                        MaterialTheme.colorScheme.primary
                                    else
-                                       MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f)
+                                       MaterialTheme.colorScheme.textSecondary.copy(alpha = 0.5f)
                         )
                     }
                     // More actions (sleep timer, track info) — Now Playing page only
@@ -176,7 +178,7 @@ fun NowPlayingScreen(
                                 tint = if (state.sleepRemainingMs != null)
                                            MaterialTheme.colorScheme.primary
                                        else
-                                           MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f)
+                                           MaterialTheme.colorScheme.textSecondary.copy(alpha = 0.6f)
                             )
                         }
                     }
@@ -189,7 +191,7 @@ fun NowPlayingScreen(
                 Text(
                     "Nothing playing",
                     modifier = Modifier.align(Alignment.Center),
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                    color = MaterialTheme.colorScheme.textSecondary
                 )
             }
             return@Scaffold
@@ -291,39 +293,40 @@ private fun NowPlayingPage(state: PlayerState, viewModel: PlayerViewModel) {
     var showShareExpiryDialog by remember { mutableStateOf(false) }
     val playlists by viewModel.playlists.collectAsState()
 
-    Column(
-        modifier = Modifier
-            .fillMaxSize()
-            .navigationBarsPadding(),
-        horizontalAlignment = Alignment.CenterHorizontally
-    ) {
-        // Ambient backdrop tinted by the artwork's dominant colour. Animates on track change.
-        val ambient = rememberAmbientColor(state.coverArtUrl)
-        val ambientColor by animateColorAsState(
-            targetValue = ambient ?: MaterialTheme.colorScheme.primary.copy(alpha = 0f),
+    val base = MaterialTheme.colorScheme.background
+    // Album-art halo — full-screen OKLCH radial glow seeded from the cover.
+    // Wraps the whole page (title, controls, seek bar, actions) rather than the
+    // cover area only, so the tint reads as ambient lighting instead of a swatch.
+    val ambientBrush = rememberAmbientBrush(state.coverArtUrl, base = base)
+    Box(modifier = Modifier.fillMaxSize()) {
+        Crossfade(
+            targetState = ambientBrush,
             animationSpec = tween(700),
-            label = "ambient"
-        )
-
+            label = "ambient",
+            modifier = Modifier.fillMaxSize()
+        ) { brush ->
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .background(brush ?: SolidColor(base))
+            )
+        }
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .navigationBarsPadding(),
+            horizontalAlignment = Alignment.CenterHorizontally
+        ) {
         // Cover art area — FLEXIBLE (weight 1f): it soaks up whatever vertical space
         // the fixed controls below don't use, so the whole page always fits on screen
         // and NEVER scrolls. The artwork is a centred square sized to fit; the ambient
-        // glow fills the area behind it.
+        // glow (drawn by the parent Box above) fills the area behind it.
         Box(
             modifier = Modifier
                 .fillMaxWidth()
                 .weight(1f),
             contentAlignment = Alignment.Center
         ) {
-            Box(
-                modifier = Modifier
-                    .matchParentSize()
-                    .background(
-                        Brush.verticalGradient(
-                            listOf(ambientColor.copy(alpha = 0.40f), androidx.compose.ui.graphics.Color.Transparent)
-                        )
-                    )
-            )
             BoxWithConstraints(
                 modifier = Modifier
                     .fillMaxSize()
@@ -388,7 +391,7 @@ private fun NowPlayingPage(state: PlayerState, viewModel: PlayerViewModel) {
                 Text(
                     text = subtitle,
                     style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    color = MaterialTheme.colorScheme.textSecondary,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis
                 )
@@ -423,7 +426,7 @@ private fun NowPlayingPage(state: PlayerState, viewModel: PlayerViewModel) {
                     Text(
                         text = formatLabel,
                         style = MaterialTheme.typography.labelMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.65f),
+                        color = MaterialTheme.colorScheme.textSecondary.copy(alpha = 0.65f),
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis,
                         textAlign = TextAlign.Center,
@@ -492,7 +495,7 @@ private fun NowPlayingPage(state: PlayerState, viewModel: PlayerViewModel) {
                     onSeek = { f -> viewModel.seekTo((f * state.durationMs).toLong()) },
                     onScrub = { f -> scrubFraction = f },
                     playedColor = MaterialTheme.colorScheme.primary,
-                    trackColor = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.25f),
+                    trackColor = MaterialTheme.colorScheme.textSecondary.copy(alpha = 0.25f),
                     modifier = Modifier
                         .fillMaxWidth()
                         .height(38.dp)
@@ -505,12 +508,12 @@ private fun NowPlayingPage(state: PlayerState, viewModel: PlayerViewModel) {
                     Text(
                         formatMs(shownMs),
                         style = MaterialTheme.typography.labelSmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                        color = MaterialTheme.colorScheme.textSecondary
                     )
                     Text(
                         formatMs(state.durationMs),
                         style = MaterialTheme.typography.labelSmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                        color = MaterialTheme.colorScheme.textSecondary
                     )
                 }
             }
@@ -584,7 +587,7 @@ private fun NowPlayingPage(state: PlayerState, viewModel: PlayerViewModel) {
                 Text(
                     "← Swipe for queue",
                     style = MaterialTheme.typography.labelSmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f),
+                    color = MaterialTheme.colorScheme.textSecondary.copy(alpha = 0.5f),
                     modifier = Modifier.fillMaxWidth(),
                     textAlign = TextAlign.Center
                 )
@@ -592,7 +595,8 @@ private fun NowPlayingPage(state: PlayerState, viewModel: PlayerViewModel) {
         }
 
         Spacer(Modifier.height(8.dp))
-    }
+        }  // Column (page content)
+    }      // Box (ambient wrapper)
 
     // ── Share — ask for expiry before creating the link (Velvet style) ──
     if (showShareExpiryDialog) {
@@ -614,7 +618,7 @@ private fun NowPlayingPage(state: PlayerState, viewModel: PlayerViewModel) {
                 if (playlists.isEmpty()) {
                     Text(
                         "No playlists yet.\nCreate one in the Playlists screen first.",
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                        color = MaterialTheme.colorScheme.textSecondary
                     )
                 } else {
                     Column(
@@ -672,7 +676,7 @@ private fun RatingStars(
                     imageVector = if (star <= rating) Icons.Filled.Star else Icons.Filled.StarBorder,
                     contentDescription = "$star ${if (star == 1) "star" else "stars"}",
                     tint = if (star <= rating) MaterialTheme.colorScheme.primary
-                           else MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.4f),
+                           else MaterialTheme.colorScheme.textSecondary.copy(alpha = 0.4f),
                     modifier = Modifier.size(22.dp)
                 )
             }
@@ -687,8 +691,8 @@ private fun RatingStars(
             Icon(
                 imageVector = Icons.Default.Close,
                 contentDescription = "Clear rating",
-                tint = if (rating != 0) MaterialTheme.colorScheme.onSurfaceVariant
-                       else MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.25f),
+                tint = if (rating != 0) MaterialTheme.colorScheme.textSecondary
+                       else MaterialTheme.colorScheme.textSecondary.copy(alpha = 0.25f),
                 modifier = Modifier.size(18.dp)
             )
         }
@@ -705,7 +709,7 @@ private fun QueuePage(state: PlayerState, viewModel: PlayerViewModel, isTV: Bool
             Text(
                 "Queue is empty",
                 modifier = Modifier.align(Alignment.Center),
-                color = MaterialTheme.colorScheme.onSurfaceVariant
+                color = MaterialTheme.colorScheme.textSecondary
             )
         }
         return
@@ -807,7 +811,7 @@ private fun QueueSongRow(
                 Text(
                     "${index + 1}",
                     style = MaterialTheme.typography.labelMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                    color = MaterialTheme.colorScheme.textSecondary
                 )
             }
         }
@@ -825,7 +829,7 @@ private fun QueueSongRow(
                 Text(
                     song.artist!!,
                     style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    color = MaterialTheme.colorScheme.textSecondary,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis
                 )
@@ -836,7 +840,7 @@ private fun QueueSongRow(
             Text(
                 formatDuration(it),
                 style = MaterialTheme.typography.labelSmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
+                color = MaterialTheme.colorScheme.textSecondary
             )
         }
 
@@ -955,7 +959,7 @@ fun MiniPlayerBar(
                             style = MaterialTheme.typography.bodySmall,
                             maxLines = 1,
                             overflow = TextOverflow.Ellipsis,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                            color = MaterialTheme.colorScheme.textSecondary
                         )
                     }
                 }
@@ -969,9 +973,9 @@ fun MiniPlayerBar(
                         Icons.Default.SkipPrevious,
                         contentDescription = "Previous",
                         tint = if (state.queueIndex > 0)
-                            MaterialTheme.colorScheme.onSurfaceVariant
+                            MaterialTheme.colorScheme.textSecondary
                         else
-                            MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.38f)
+                            MaterialTheme.colorScheme.textSecondary.copy(alpha = 0.38f)
                     )
                 }
                 FilledIconButton(
@@ -992,9 +996,9 @@ fun MiniPlayerBar(
                         Icons.Default.SkipNext,
                         contentDescription = "Next",
                         tint = if (state.queueIndex < state.queue.lastIndex)
-                            MaterialTheme.colorScheme.onSurfaceVariant
+                            MaterialTheme.colorScheme.textSecondary
                         else
-                            MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.38f)
+                            MaterialTheme.colorScheme.textSecondary.copy(alpha = 0.38f)
                     )
                 }
                 // Auto-DJ toggle — headphones icon
@@ -1008,7 +1012,7 @@ fun MiniPlayerBar(
                         tint = if (state.autoDjEnabled)
                                    MaterialTheme.colorScheme.primary
                                else
-                                   MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.4f)
+                                   MaterialTheme.colorScheme.textSecondary.copy(alpha = 0.4f)
                     )
                 }
             }

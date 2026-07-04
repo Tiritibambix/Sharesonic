@@ -25,6 +25,7 @@ import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
 import com.tiritibambix.sharesonic.data.settings.SettingsRepository
 import com.tiritibambix.sharesonic.playback.EqualizerController
+import com.tiritibambix.sharesonic.ui.theme.textSecondary
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.update
@@ -101,7 +102,7 @@ fun EqSettingsScreen(
             ) {
                 Text(
                     "Equalizer not available on this device.",
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                    color = MaterialTheme.colorScheme.textSecondary
                 )
             }
             return@Scaffold
@@ -140,7 +141,7 @@ fun EqSettingsScreen(
                         Text(
                             formatGain(levelMb),
                             style = MaterialTheme.typography.labelMedium,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                            color = MaterialTheme.colorScheme.textSecondary
                         )
                     }
                     Slider(

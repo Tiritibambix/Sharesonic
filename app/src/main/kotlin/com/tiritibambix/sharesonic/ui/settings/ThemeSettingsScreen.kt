@@ -10,6 +10,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import com.tiritibambix.sharesonic.data.settings.AppTheme
+import com.tiritibambix.sharesonic.ui.theme.textSecondary
 
 /** Velvet / Dark / Light visual-theme picker, opened from the Settings menu. */
 @OptIn(ExperimentalMaterial3Api::class)
@@ -43,7 +44,7 @@ fun ThemeSettingsScreen(
         ) {
             Text(
                 "Velvet est le thème par défaut de l'application.",
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                color = MaterialTheme.colorScheme.textSecondary,
                 style = MaterialTheme.typography.bodyMedium
             )
 

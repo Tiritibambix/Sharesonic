@@ -16,6 +16,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.tiritibambix.sharesonic.data.api.models.NativePlaylist
+import com.tiritibambix.sharesonic.ui.theme.textSecondary
 
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalFoundationApi::class)
 @Composable
@@ -164,7 +165,7 @@ fun PlaylistsScreen(
                         Text(
                             "No playlists — tap + to create one",
                             modifier = Modifier.align(Alignment.Center),
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                            color = MaterialTheme.colorScheme.textSecondary
                         )
                     } else {
                         LazyColumn(
@@ -222,13 +223,13 @@ private fun PlaylistRow(
             Text(
                 "${playlist.songCount} songs",
                 style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
+                color = MaterialTheme.colorScheme.textSecondary
             )
         }
         Icon(
             Icons.Default.ChevronRight,
             contentDescription = null,
-            tint = MaterialTheme.colorScheme.onSurfaceVariant
+            tint = MaterialTheme.colorScheme.textSecondary
         )
 
         DropdownMenu(expanded = showMenu, onDismissRequest = { showMenu = false }) {

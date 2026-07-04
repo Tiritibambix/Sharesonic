@@ -28,8 +28,6 @@ sealed class Screen(val route: String) {
         const val ARG_NAME = "folderName"
     }
 
-    data object NowPlaying : Screen("nowplaying")
-
     data object Search : Screen("search")
 
     /**

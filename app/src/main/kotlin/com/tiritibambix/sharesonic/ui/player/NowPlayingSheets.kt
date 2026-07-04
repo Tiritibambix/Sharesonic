@@ -35,6 +35,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.tiritibambix.sharesonic.data.Result
 import com.tiritibambix.sharesonic.data.api.models.EntryDto
+import com.tiritibambix.sharesonic.ui.theme.textSecondary
 
 /**
  * Enriched track-info dialog: a key/value list of every metadata field the track
@@ -77,7 +78,7 @@ fun TrackInfoDialog(
                         Text(
                             label,
                             style = MaterialTheme.typography.labelMedium,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            color = MaterialTheme.colorScheme.textSecondary,
                             modifier = Modifier.width(96.dp)
                         )
                         Text(value, style = MaterialTheme.typography.bodyMedium)
@@ -90,7 +91,7 @@ fun TrackInfoDialog(
                     Text(
                         "Path",
                         style = MaterialTheme.typography.labelMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                        color = MaterialTheme.colorScheme.textSecondary
                     )
                     SelectionContainer {
                         Text(path, style = MaterialTheme.typography.bodySmall)
@@ -183,7 +184,7 @@ fun LyricsSheet(
                     if (r.data.isEmpty()) {
                         Text(
                             "No lyrics found",
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                            color = MaterialTheme.colorScheme.textSecondary
                         )
                     } else {
                         Column(

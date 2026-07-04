@@ -1,23 +1,18 @@
 package com.tiritibambix.sharesonic.ui.navigation
 
-import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.slideInHorizontally
-import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.slideOutHorizontally
-import androidx.compose.animation.slideOutVertically
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.*
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
-import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavType
 import androidx.navigation.compose.NavHost
@@ -28,7 +23,6 @@ import com.tiritibambix.sharesonic.data.settings.SettingsRepository
 import com.tiritibambix.sharesonic.ui.browser.FolderBrowserScreen
 import com.tiritibambix.sharesonic.ui.browser.FolderBrowserViewModel
 import com.tiritibambix.sharesonic.ui.browser.FolderBrowserViewModelFactory
-import com.tiritibambix.sharesonic.ui.player.NowPlayingScreen
 import com.tiritibambix.sharesonic.ui.player.PlayerViewModel
 import com.tiritibambix.sharesonic.ui.player.PlayerViewModelFactory
 import com.tiritibambix.sharesonic.ui.search.ArtistResultsScreen
@@ -55,7 +49,8 @@ import com.tiritibambix.sharesonic.ui.settings.EqViewModelFactory
 import com.tiritibambix.sharesonic.ui.publiclinks.PublicLinksScreen
 import com.tiritibambix.sharesonic.ui.publiclinks.PublicLinksViewModel
 import com.tiritibambix.sharesonic.ui.publiclinks.PublicLinksViewModelFactory
-import com.tiritibambix.sharesonic.ui.player.MiniPlayerBar
+import com.tiritibambix.sharesonic.ui.player.PlayerPanel
+import com.tiritibambix.sharesonic.ui.player.rememberPlayerPanelState
 import com.tiritibambix.sharesonic.ui.share.ShareConfirmScreen
 
 @Composable
@@ -76,9 +71,8 @@ fun AppNavGraph() {
     }
 
     val playerState by playerVm.state.collectAsState()
-    val navBackStackEntry by navController.currentBackStackEntryAsState()
-    val showMiniPlayer = playerState.currentSong != null &&
-        navBackStackEntry?.destination?.route != Screen.NowPlaying.route
+    val panelState = rememberPlayerPanelState()
+    val showMiniPlayer = playerState.currentSong != null
 
     // Paint the Velvet background behind everything so the slide/fold transitions
     // never reveal a flash of the window's default background through the gaps
@@ -214,47 +208,9 @@ fun AppNavGraph() {
                 onOpenThemeSettings = { navController.navigate(Screen.ThemeSettings.route) },
                 onOpenPublicLinks = { navController.navigate(Screen.PublicLinks.route) },
                 onOpenEqualizer = { navController.navigate(Screen.EqualizerSettings.route) },
-                onOpenNowPlaying = { navController.navigate(Screen.NowPlaying.route) },
+                onOpenNowPlaying = { panelState.expand() },
                 onOpenSearch = { navController.navigate(Screen.Search.route) },
                 onOpenPlaylists = { navController.navigate(Screen.Playlists.route) },
-                onShareCreated = ::onShareCreated
-            )
-        }
-
-        composable(
-            route = Screen.NowPlaying.route,
-            // Override the global horizontal push with a vertical "fold" — but only
-            // on the two edges that actually border the mini player: opening the
-            // player (enter) and closing it back down to the browser/queue (popExit).
-            // The other two edges — sharing a track pushes ShareConfirm on top, and
-            // returning from it — used to *also* slide vertically while ShareConfirm
-            // simultaneously slid in horizontally per the global rule: two screens
-            // visibly fighting along perpendicular axes at once, which is exactly
-            // the "immonde" clash being reported. Those two edges now use a plain
-            // cross-fade instead, matching ShareConfirm's own fade component so the
-            // whole sequence reads as one cohesive motion rather than a collision.
-            enterTransition = {
-                slideInVertically(
-                    initialOffsetY = { fullHeight -> fullHeight / 3 },
-                    animationSpec = tween(durationMillis = 320, easing = FastOutSlowInEasing)
-                ) + fadeIn(animationSpec = tween(durationMillis = 240, easing = FastOutSlowInEasing))
-            },
-            exitTransition = {
-                fadeOut(animationSpec = tween(durationMillis = 200, easing = FastOutSlowInEasing))
-            },
-            popEnterTransition = {
-                fadeIn(animationSpec = tween(durationMillis = 240, easing = FastOutSlowInEasing))
-            },
-            popExitTransition = {
-                slideOutVertically(
-                    targetOffsetY = { fullHeight -> fullHeight / 3 },
-                    animationSpec = tween(durationMillis = 320, easing = FastOutSlowInEasing)
-                ) + fadeOut(animationSpec = tween(durationMillis = 200, easing = FastOutSlowInEasing))
-            }
-        ) {
-            NowPlayingScreen(
-                viewModel = playerVm,
-                onBack = { navController.popBackStack() },
                 onShareCreated = ::onShareCreated
             )
         }
@@ -272,7 +228,7 @@ fun AppNavGraph() {
                 onOpenArtistResults = { artistName ->
                     navController.navigate(Screen.ArtistResults.createRoute(artistName))
                 },
-                onOpenNowPlaying = { navController.navigate(Screen.NowPlaying.route) },
+                onOpenNowPlaying = { panelState.expand() },
                 onShareCreated = ::onShareCreated
             )
         }
@@ -305,7 +261,7 @@ fun AppNavGraph() {
                 settings = settings,
                 playerViewModel = playerVm,
                 onBack = { navController.popBackStack() },
-                onOpenNowPlaying = { navController.navigate(Screen.NowPlaying.route) }
+                onOpenNowPlaying = { panelState.expand() }
             )
         }
 
@@ -348,7 +304,7 @@ fun AppNavGraph() {
                 viewModel = detailVm,
                 playerViewModel = playerVm,
                 onBack = { navController.popBackStack() },
-                onOpenNowPlaying = { navController.navigate(Screen.NowPlaying.route) }
+                onOpenNowPlaying = { panelState.expand() }
             )
         }
         composable(Screen.AutoDjSettings.route) {
@@ -363,31 +319,22 @@ fun AppNavGraph() {
 
     } // NavHost
 
-    // ── Mini player overlay ───────────────────────────────────────────────────
-    AnimatedVisibility(
+    // ── Drag-up player panel ──────────────────────────────────────────────────
+    // Unified mini + Now Playing surface: drag the mini bar (or tap it) to
+    // expand to full screen, drag or swipe down to collapse, system Back
+    // collapses when expanded. Replaces the old separate Screen.NowPlaying
+    // route + AnimatedVisibility mini bar.
+    PlayerPanel(
+        state = panelState,
+        playerState = playerState,
         visible = showMiniPlayer,
-        // Same feel as the Now Playing ↔ Queue pager transition: a clean directional
-        // slide with no fade — rises up from the bottom edge when it appears, sinks
-        // back down below it when it disappears.
-        enter = slideInVertically(
-            initialOffsetY = { fullHeight -> fullHeight },
-            animationSpec = tween(durationMillis = 320, easing = FastOutSlowInEasing)
-        ),
-        exit = slideOutVertically(
-            targetOffsetY = { fullHeight -> fullHeight },
-            animationSpec = tween(durationMillis = 320, easing = FastOutSlowInEasing)
-        ),
-        modifier = Modifier.align(Alignment.BottomCenter)
-    ) {
-        MiniPlayerBar(
-            state = playerState,
-            onPlayPause = playerVm::playPause,
-            onSkipPrev = playerVm::skipPrev,
-            onSkipNext = playerVm::skipNext,
-            onClick = { navController.navigate(Screen.NowPlaying.route) },
-            onToggleAutoDj = playerVm::toggleAutoDj
-        )
-    }
+        onPlayPause = playerVm::playPause,
+        onSkipPrev = playerVm::skipPrev,
+        onSkipNext = playerVm::skipNext,
+        onToggleAutoDj = playerVm::toggleAutoDj,
+        onShareCreated = ::onShareCreated,
+        viewModel = playerVm,
+    )
     } // Box
 
     // Auto-navigate to browser when already configured
