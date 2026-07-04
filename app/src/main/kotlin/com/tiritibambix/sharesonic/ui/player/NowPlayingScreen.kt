@@ -26,7 +26,9 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.draw.drawWithCache
+import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
@@ -475,46 +477,27 @@ private fun NowPlayingPage(state: PlayerState, viewModel: PlayerViewModel) {
                 Icon(Icons.Default.SkipPrevious, contentDescription = "Previous",
                     modifier = Modifier.size(36.dp))
             }
-            // Theme-accent halo behind the play/pause button — the visual anchor
-            // of the page. The 68 dp button sits centred in a 160 dp Box; the
-            // gradient stops are shifted so peak alpha lands right at the
-            // button's edge, then fades to Transparent by the wrapper edge.
-            // (Earlier version had evenly-spaced stops on a 108 dp wrapper — by
-            // the time the glow left the button's edge its alpha was ~7 %,
-            // effectively invisible on a dark background.)
-            val playGlow = MaterialTheme.colorScheme.primary
-            Box(
+            // Subtle theme-accent shadow under the play/pause button, mirroring
+            // mStream's `BoxShadow(color: primary.withAlpha(0.4), blurRadius: 16,
+            // offset: (0, 6))`. Modifier.shadow uses the platform shadow API —
+            // on API 28+ spotColor tints the shadow with primary; on 26-27 it
+            // falls back to a plain grey shadow, which still reads as depth.
+            FilledIconButton(
+                onClick = { viewModel.playPause() },
                 modifier = Modifier
-                    .size(160.dp)
-                    .drawBehind {
-                        val r = size.minDimension / 2f
-                        drawCircle(
-                            brush = Brush.radialGradient(
-                                colorStops = arrayOf(
-                                    0.0f to playGlow.copy(alpha = 0.55f),
-                                    // 68 dp button in a 160 dp Box: edge at 0.425 r.
-                                    0.42f to playGlow.copy(alpha = 0.45f),
-                                    1.0f to Color.Transparent,
-                                ),
-                                center = center,
-                                radius = r,
-                            ),
-                            radius = r,
-                            center = center,
-                        )
-                    },
-                contentAlignment = Alignment.Center,
-            ) {
-                FilledIconButton(
-                    onClick = { viewModel.playPause() },
-                    modifier = Modifier.size(68.dp)
-                ) {
-                    Icon(
-                        imageVector = if (state.isPlaying) Icons.Default.Pause else Icons.Default.PlayArrow,
-                        contentDescription = null,
-                        modifier = Modifier.size(36.dp)
+                    .size(68.dp)
+                    .shadow(
+                        elevation = 12.dp,
+                        shape = CircleShape,
+                        ambientColor = MaterialTheme.colorScheme.primary,
+                        spotColor = MaterialTheme.colorScheme.primary,
                     )
-                }
+            ) {
+                Icon(
+                    imageVector = if (state.isPlaying) Icons.Default.Pause else Icons.Default.PlayArrow,
+                    contentDescription = null,
+                    modifier = Modifier.size(36.dp)
+                )
             }
             IconButton(
                 onClick = { viewModel.skipNext() },
@@ -539,33 +522,28 @@ private fun NowPlayingPage(state: PlayerState, viewModel: PlayerViewModel) {
                     .fillMaxWidth()
                     .padding(horizontal = 28.dp)
             ) {
-                // Soft accent halo tracking the playhead. Painted on a taller
-                // (90 dp) wrapper so the radial glow has vertical room to fade —
-                // drawing it directly on the 38 dp seek-bar strip made the
-                // circle so much larger than the strip that its top and bottom
-                // arcs sliced across as visible horizontal bands, which the eye
-                // read as "colour streaks under the waveform", not a halo.
+                // Subtle accent glow behind the played portion only: vertical
+                // taper (transparent → primary alpha → transparent) so the
+                // halo blooms softly above and below the played bars and stops
+                // at the playhead — the unplayed side stays flat.
                 val waveGlow = MaterialTheme.colorScheme.primary
                 Box(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .height(90.dp)
+                        .height(48.dp)
                         .drawBehind {
                             val head = (scrubFraction ?: fraction).coerceIn(0f, 1f)
-                            val r = size.height * 0.9f
-                            val c = Offset(size.width * head, size.height / 2f)
-                            drawCircle(
-                                brush = Brush.radialGradient(
-                                    colorStops = arrayOf(
-                                        0.0f to waveGlow.copy(alpha = 0.45f),
-                                        0.45f to waveGlow.copy(alpha = 0.18f),
-                                        1.0f to Color.Transparent,
-                                    ),
-                                    center = c,
-                                    radius = r,
+                            if (head <= 0f) return@drawBehind
+                            drawRect(
+                                brush = Brush.verticalGradient(
+                                    colors = listOf(
+                                        Color.Transparent,
+                                        waveGlow.copy(alpha = 0.22f),
+                                        Color.Transparent,
+                                    )
                                 ),
-                                radius = r,
-                                center = c,
+                                topLeft = Offset(0f, 0f),
+                                size = Size(size.width * head, size.height),
                             )
                         },
                     contentAlignment = Alignment.Center,
