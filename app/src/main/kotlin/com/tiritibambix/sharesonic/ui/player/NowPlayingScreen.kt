@@ -475,26 +475,31 @@ private fun NowPlayingPage(state: PlayerState, viewModel: PlayerViewModel) {
                 Icon(Icons.Default.SkipPrevious, contentDescription = "Previous",
                     modifier = Modifier.size(36.dp))
             }
-            // Soft theme-accent halo behind the play/pause button — the visual
-            // anchor of the page. The glow lives on a slightly larger Box so it
-            // extends past the FilledIconButton's clip; radial from centre out
-            // to Transparent, alpha capped low so it reads as ambient light.
+            // Theme-accent halo behind the play/pause button — the visual anchor
+            // of the page. The 68 dp button sits centred in a 160 dp Box; the
+            // gradient stops are shifted so peak alpha lands right at the
+            // button's edge, then fades to Transparent by the wrapper edge.
+            // (Earlier version had evenly-spaced stops on a 108 dp wrapper — by
+            // the time the glow left the button's edge its alpha was ~7 %,
+            // effectively invisible on a dark background.)
             val playGlow = MaterialTheme.colorScheme.primary
             Box(
                 modifier = Modifier
-                    .size(108.dp)
+                    .size(160.dp)
                     .drawBehind {
+                        val r = size.minDimension / 2f
                         drawCircle(
                             brush = Brush.radialGradient(
-                                colors = listOf(
-                                    playGlow.copy(alpha = 0.30f),
-                                    playGlow.copy(alpha = 0.10f),
-                                    Color.Transparent,
+                                colorStops = arrayOf(
+                                    0.0f to playGlow.copy(alpha = 0.55f),
+                                    // 68 dp button in a 160 dp Box: edge at 0.425 r.
+                                    0.42f to playGlow.copy(alpha = 0.45f),
+                                    1.0f to Color.Transparent,
                                 ),
                                 center = center,
-                                radius = size.minDimension / 2f,
+                                radius = r,
                             ),
-                            radius = size.minDimension / 2f,
+                            radius = r,
                             center = center,
                         )
                     },
@@ -534,36 +539,49 @@ private fun NowPlayingPage(state: PlayerState, viewModel: PlayerViewModel) {
                     .fillMaxWidth()
                     .padding(horizontal = 28.dp)
             ) {
-                // Soft accent glow tracking the played position of the waveform.
-                // Radial from (width × fraction, mid-height) — the "playhead" —
-                // fades to Transparent so it reads as ambient light around the
-                // scrubber rather than a heavy underline.
+                // Soft accent halo tracking the playhead. Painted on a taller
+                // (90 dp) wrapper so the radial glow has vertical room to fade —
+                // drawing it directly on the 38 dp seek-bar strip made the
+                // circle so much larger than the strip that its top and bottom
+                // arcs sliced across as visible horizontal bands, which the eye
+                // read as "colour streaks under the waveform", not a halo.
                 val waveGlow = MaterialTheme.colorScheme.primary
-                WaveformSeekBar(
-                    fraction = fraction,
-                    seedKey = state.currentSong!!.id,
-                    onSeek = { f -> viewModel.seekTo((f * state.durationMs).toLong()) },
-                    onScrub = { f -> scrubFraction = f },
-                    playedColor = MaterialTheme.colorScheme.primary,
-                    trackColor = MaterialTheme.colorScheme.textSecondary.copy(alpha = 0.25f),
+                Box(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .height(38.dp)
+                        .height(90.dp)
                         .drawBehind {
                             val head = (scrubFraction ?: fraction).coerceIn(0f, 1f)
-                            drawRect(
+                            val r = size.height * 0.9f
+                            val c = Offset(size.width * head, size.height / 2f)
+                            drawCircle(
                                 brush = Brush.radialGradient(
-                                    colors = listOf(
-                                        waveGlow.copy(alpha = 0.28f),
-                                        waveGlow.copy(alpha = 0.08f),
-                                        Color.Transparent,
+                                    colorStops = arrayOf(
+                                        0.0f to waveGlow.copy(alpha = 0.45f),
+                                        0.45f to waveGlow.copy(alpha = 0.18f),
+                                        1.0f to Color.Transparent,
                                     ),
-                                    center = Offset(size.width * head, size.height / 2f),
-                                    radius = size.width * 0.35f,
-                                )
+                                    center = c,
+                                    radius = r,
+                                ),
+                                radius = r,
+                                center = c,
                             )
-                        }
-                )
+                        },
+                    contentAlignment = Alignment.Center,
+                ) {
+                    WaveformSeekBar(
+                        fraction = fraction,
+                        seedKey = state.currentSong!!.id,
+                        onSeek = { f -> viewModel.seekTo((f * state.durationMs).toLong()) },
+                        onScrub = { f -> scrubFraction = f },
+                        playedColor = MaterialTheme.colorScheme.primary,
+                        trackColor = MaterialTheme.colorScheme.textSecondary.copy(alpha = 0.25f),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(38.dp)
+                    )
+                }
                 Spacer(Modifier.height(4.dp))
                 Row(
                     modifier = Modifier.fillMaxWidth(),
