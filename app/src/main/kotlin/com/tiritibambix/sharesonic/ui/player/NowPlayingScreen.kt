@@ -24,7 +24,11 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.drawBehind
+import androidx.compose.ui.draw.drawWithCache
+import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.style.TextAlign
@@ -294,21 +298,36 @@ private fun NowPlayingPage(state: PlayerState, viewModel: PlayerViewModel) {
     val playlists by viewModel.playlists.collectAsState()
 
     val base = MaterialTheme.colorScheme.background
-    // Album-art halo — full-screen OKLCH radial glow seeded from the cover.
-    // Wraps the whole page (title, controls, seek bar, actions) rather than the
-    // cover area only, so the tint reads as ambient lighting instead of a swatch.
-    val ambientBrush = rememberAmbientBrush(state.coverArtUrl, base = base)
+    // Album-art halo — OKLCH radial glow anchored top-centre (mStream parity),
+    // seeded from the cover's vibrant swatch. The brush is built at draw time
+    // (Modifier.drawWithCache) because Brush.radialGradient's center/radius are
+    // in pixels — feeding fractional values or Offset.Unspecified put the seed
+    // in the top-left corner or dead-centre (invisible / wrong). Building with
+    // `size` in hand lets us point the halo at (width/2, 0) with a radius of
+    // 1.25 × the shortest side, which is what mStream's ambientGradient does.
+    val ambientSeed = rememberAmbientColor(state.coverArtUrl, vibrant = true)
     Box(modifier = Modifier.fillMaxSize()) {
         Crossfade(
-            targetState = ambientBrush,
+            targetState = ambientSeed,
             animationSpec = tween(700),
             label = "ambient",
             modifier = Modifier.fillMaxSize()
-        ) { brush ->
+        ) { seed ->
             Box(
                 modifier = Modifier
                     .fillMaxSize()
-                    .background(brush ?: SolidColor(base))
+                    .drawWithCache {
+                        val brush = seed?.let {
+                            ambientBrush(
+                                seed = it,
+                                base = base,
+                                vibrant = true,
+                                center = Offset(size.width / 2f, 0f),
+                                radius = size.minDimension * 1.25f,
+                            )
+                        } ?: SolidColor(base)
+                        onDrawBehind { drawRect(brush = brush) }
+                    }
             )
         }
         Column(
@@ -456,15 +475,41 @@ private fun NowPlayingPage(state: PlayerState, viewModel: PlayerViewModel) {
                 Icon(Icons.Default.SkipPrevious, contentDescription = "Previous",
                     modifier = Modifier.size(36.dp))
             }
-            FilledIconButton(
-                onClick = { viewModel.playPause() },
-                modifier = Modifier.size(68.dp)
+            // Soft theme-accent halo behind the play/pause button — the visual
+            // anchor of the page. The glow lives on a slightly larger Box so it
+            // extends past the FilledIconButton's clip; radial from centre out
+            // to Transparent, alpha capped low so it reads as ambient light.
+            val playGlow = MaterialTheme.colorScheme.primary
+            Box(
+                modifier = Modifier
+                    .size(108.dp)
+                    .drawBehind {
+                        drawCircle(
+                            brush = Brush.radialGradient(
+                                colors = listOf(
+                                    playGlow.copy(alpha = 0.30f),
+                                    playGlow.copy(alpha = 0.10f),
+                                    Color.Transparent,
+                                ),
+                                center = center,
+                                radius = size.minDimension / 2f,
+                            ),
+                            radius = size.minDimension / 2f,
+                            center = center,
+                        )
+                    },
+                contentAlignment = Alignment.Center,
             ) {
-                Icon(
-                    imageVector = if (state.isPlaying) Icons.Default.Pause else Icons.Default.PlayArrow,
-                    contentDescription = null,
-                    modifier = Modifier.size(36.dp)
-                )
+                FilledIconButton(
+                    onClick = { viewModel.playPause() },
+                    modifier = Modifier.size(68.dp)
+                ) {
+                    Icon(
+                        imageVector = if (state.isPlaying) Icons.Default.Pause else Icons.Default.PlayArrow,
+                        contentDescription = null,
+                        modifier = Modifier.size(36.dp)
+                    )
+                }
             }
             IconButton(
                 onClick = { viewModel.skipNext() },
@@ -489,6 +534,11 @@ private fun NowPlayingPage(state: PlayerState, viewModel: PlayerViewModel) {
                     .fillMaxWidth()
                     .padding(horizontal = 28.dp)
             ) {
+                // Soft accent glow tracking the played position of the waveform.
+                // Radial from (width × fraction, mid-height) — the "playhead" —
+                // fades to Transparent so it reads as ambient light around the
+                // scrubber rather than a heavy underline.
+                val waveGlow = MaterialTheme.colorScheme.primary
                 WaveformSeekBar(
                     fraction = fraction,
                     seedKey = state.currentSong!!.id,
@@ -499,6 +549,20 @@ private fun NowPlayingPage(state: PlayerState, viewModel: PlayerViewModel) {
                     modifier = Modifier
                         .fillMaxWidth()
                         .height(38.dp)
+                        .drawBehind {
+                            val head = (scrubFraction ?: fraction).coerceIn(0f, 1f)
+                            drawRect(
+                                brush = Brush.radialGradient(
+                                    colors = listOf(
+                                        waveGlow.copy(alpha = 0.28f),
+                                        waveGlow.copy(alpha = 0.08f),
+                                        Color.Transparent,
+                                    ),
+                                    center = Offset(size.width * head, size.height / 2f),
+                                    radius = size.width * 0.35f,
+                                )
+                            )
+                        }
                 )
                 Spacer(Modifier.height(4.dp))
                 Row(
