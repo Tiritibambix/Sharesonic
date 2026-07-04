@@ -64,15 +64,19 @@ fun AppNavGraph() {
 
     val playerVm: PlayerViewModel = viewModel(factory = PlayerViewModelFactory(context))
 
-    var pendingShareUrl by remember { mutableStateOf("") }
-    fun onShareCreated(url: String) {
-        pendingShareUrl = url
-        navController.navigate(Screen.ShareConfirm.route)
-    }
-
     val playerState by playerVm.state.collectAsState()
     val panelState = rememberPlayerPanelState()
     val showMiniPlayer = playerState.currentSong != null
+
+    var pendingShareUrl by remember { mutableStateOf("") }
+    fun onShareCreated(url: String) {
+        pendingShareUrl = url
+        // Collapse the player sheet so the ShareConfirm route isn't hidden
+        // under it (the sheet at t=1 covers the whole screen, and users can
+        // trigger a share from Now Playing).
+        panelState.collapse()
+        navController.navigate(Screen.ShareConfirm.route)
+    }
 
     // Paint the Velvet background behind everything so the slide/fold transitions
     // never reveal a flash of the window's default background through the gaps
@@ -208,7 +212,7 @@ fun AppNavGraph() {
                 onOpenThemeSettings = { navController.navigate(Screen.ThemeSettings.route) },
                 onOpenPublicLinks = { navController.navigate(Screen.PublicLinks.route) },
                 onOpenEqualizer = { navController.navigate(Screen.EqualizerSettings.route) },
-                onOpenNowPlaying = { panelState.expand() },
+                onOpenNowPlaying = { /* mini-bar stays collapsed; user expands manually */ },
                 onOpenSearch = { navController.navigate(Screen.Search.route) },
                 onOpenPlaylists = { navController.navigate(Screen.Playlists.route) },
                 onShareCreated = ::onShareCreated
@@ -228,7 +232,7 @@ fun AppNavGraph() {
                 onOpenArtistResults = { artistName ->
                     navController.navigate(Screen.ArtistResults.createRoute(artistName))
                 },
-                onOpenNowPlaying = { panelState.expand() },
+                onOpenNowPlaying = { /* mini-bar stays collapsed; user expands manually */ },
                 onShareCreated = ::onShareCreated
             )
         }
@@ -261,7 +265,7 @@ fun AppNavGraph() {
                 settings = settings,
                 playerViewModel = playerVm,
                 onBack = { navController.popBackStack() },
-                onOpenNowPlaying = { panelState.expand() }
+                onOpenNowPlaying = { /* mini-bar stays collapsed; user expands manually */ }
             )
         }
 
@@ -304,7 +308,7 @@ fun AppNavGraph() {
                 viewModel = detailVm,
                 playerViewModel = playerVm,
                 onBack = { navController.popBackStack() },
-                onOpenNowPlaying = { panelState.expand() }
+                onOpenNowPlaying = { /* mini-bar stays collapsed; user expands manually */ }
             )
         }
         composable(Screen.AutoDjSettings.route) {
