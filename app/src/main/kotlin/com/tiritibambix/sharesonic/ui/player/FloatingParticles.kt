@@ -42,12 +42,11 @@ import kotlin.random.Random
  */
 @Composable
 fun FloatingParticles(
-    color: Color?,
+    color: Color,
     seedKey: String,
     modifier: Modifier = Modifier,
     count: Int = 22,
 ) {
-    if (color == null) return
 
     val particles = remember(seedKey, count) {
         val rng = Random(seedKey.hashCode())

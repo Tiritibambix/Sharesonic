@@ -172,26 +172,48 @@ fun NowPlayingScreen(
                     }
                 },
                 actions = {
-                    // Track info lives in the "⋮ More" sheet (below), so there's no
-                    // separate ⓘ button here — it would duplicate that entry.
-
-                    // Share the whole queue as one public playlist link — only
-                    // makes sense while looking at the queue, so it only appears there.
-                    if (pagerState.currentPage == PAGE_QUEUE && state.queue.isNotEmpty()) {
-                        if (state.shareLoading) {
-                            Box(modifier = Modifier.size(48.dp), contentAlignment = Alignment.Center) {
-                                CircularProgressIndicator(modifier = Modifier.size(20.dp), strokeWidth = 2.dp)
+                    // Track info lives in the "⋮ More" sheet, so there's no
+                    // separate ⓘ button here.
+                    //
+                    // Slot 1: page-dependent — Share on Queue, MoreVert on NP.
+                    // Slot 2: Auto-DJ (always) — kept at the SAME rightmost
+                    // position on both pages so the headphones glyph doesn't
+                    // hop left when switching from Now Playing to Queue.
+                    when {
+                        pagerState.currentPage == PAGE_QUEUE && state.queue.isNotEmpty() -> {
+                            if (state.shareLoading) {
+                                Box(
+                                    modifier = Modifier.size(48.dp),
+                                    contentAlignment = Alignment.Center,
+                                ) {
+                                    CircularProgressIndicator(
+                                        modifier = Modifier.size(20.dp),
+                                        strokeWidth = 2.dp,
+                                    )
+                                }
+                            } else {
+                                IconButton(onClick = { showShareQueueExpiryDialog = true }) {
+                                    Icon(
+                                        imageVector = Icons.Default.Share,
+                                        contentDescription = "Share queue",
+                                    )
+                                }
                             }
-                        } else {
-                            IconButton(onClick = { showShareQueueExpiryDialog = true }) {
+                        }
+                        pagerState.currentPage == PAGE_NOW_PLAYING && state.currentSong != null -> {
+                            IconButton(onClick = { showMoreSheet = true }) {
                                 Icon(
-                                    imageVector = Icons.Default.Share,
-                                    contentDescription = "Share queue"
+                                    imageVector = Icons.Default.MoreVert,
+                                    contentDescription = "More",
+                                    tint = if (state.sleepRemainingMs != null)
+                                               MaterialTheme.colorScheme.primary
+                                           else
+                                               MaterialTheme.colorScheme.textSecondary.copy(alpha = 0.6f)
                                 )
                             }
                         }
                     }
-                    // Auto-DJ toggle — headphones icon, lit when enabled
+                    // Auto-DJ toggle — headphones icon, lit when enabled.
                     IconToggleButton(
                         checked = state.autoDjEnabled,
                         onCheckedChange = { viewModel.toggleAutoDj() }
@@ -204,19 +226,6 @@ fun NowPlayingScreen(
                                    else
                                        MaterialTheme.colorScheme.textSecondary.copy(alpha = 0.5f)
                         )
-                    }
-                    // More actions (sleep timer, track info) — Now Playing page only
-                    if (pagerState.currentPage == PAGE_NOW_PLAYING && state.currentSong != null) {
-                        IconButton(onClick = { showMoreSheet = true }) {
-                            Icon(
-                                imageVector = Icons.Default.MoreVert,
-                                contentDescription = "More",
-                                tint = if (state.sleepRemainingMs != null)
-                                           MaterialTheme.colorScheme.primary
-                                       else
-                                           MaterialTheme.colorScheme.textSecondary.copy(alpha = 0.6f)
-                            )
-                        }
                     }
                 }
             )
@@ -385,9 +394,10 @@ private fun NowPlayingPage(state: PlayerState, viewModel: PlayerViewModel) {
             )
         }
         // Firefly-like particles drifting behind the content, tinted with the
-        // same ambient seed so they read as motes of the artwork's own colour.
+        // same ambient seed. On grayscale artwork (seed = null) they fall back
+        // to the current theme's primary so the field is never invisible.
         FloatingParticles(
-            color = ambientSeed,
+            color = ambientSeed ?: MaterialTheme.colorScheme.primary,
             seedKey = state.currentSong?.id ?: "none",
             modifier = Modifier.fillMaxSize(),
         )
@@ -601,16 +611,24 @@ private fun NowPlayingPage(state: PlayerState, viewModel: PlayerViewModel) {
                     .fillMaxWidth()
                     .padding(horizontal = 28.dp)
             ) {
-                // Accent glow behind the played portion only. The wrapper is 72 dp
-                // (vs. 38 dp seek bar) so the vertical taper has visible room to
-                // bloom above and below the bars; peak alpha is 0.42 to actually
-                // read on a dark ambient halo — the previous 0.27 in a 48 dp box
-                // was too tight and too dim to notice.
+                // Accent glow painted directly under the played portion of the
+                // seek bar. Wrapping the WaveformSeekBar in a taller Box broke
+                // seeking (touches landed on the wrapper area, not the Canvas)
+                // so the glow rides on the seek bar's own modifier — a vertical
+                // taper from Transparent through primary alpha back to
+                // Transparent, then clipped horizontally at the playhead so
+                // nothing bleeds past it onto the unplayed bars.
                 val waveGlow = MaterialTheme.colorScheme.primary
-                Box(
+                WaveformSeekBar(
+                    fraction = fraction,
+                    seedKey = state.currentSong!!.id,
+                    onSeek = { f -> viewModel.seekTo((f * state.durationMs).toLong()) },
+                    onScrub = { f -> scrubFraction = f },
+                    playedColor = MaterialTheme.colorScheme.primary,
+                    trackColor = MaterialTheme.colorScheme.textSecondary.copy(alpha = 0.25f),
                     modifier = Modifier
                         .fillMaxWidth()
-                        .height(72.dp)
+                        .height(38.dp)
                         .drawBehind {
                             val head = (scrubFraction ?: fraction).coerceIn(0f, 1f)
                             if (head <= 0f) return@drawBehind
@@ -618,28 +636,15 @@ private fun NowPlayingPage(state: PlayerState, viewModel: PlayerViewModel) {
                                 brush = Brush.verticalGradient(
                                     colors = listOf(
                                         Color.Transparent,
-                                        waveGlow.copy(alpha = 0.42f),
+                                        waveGlow.copy(alpha = 0.45f),
                                         Color.Transparent,
                                     )
                                 ),
                                 topLeft = Offset(0f, 0f),
                                 size = Size(size.width * head, size.height),
                             )
-                        },
-                    contentAlignment = Alignment.Center,
-                ) {
-                    WaveformSeekBar(
-                        fraction = fraction,
-                        seedKey = state.currentSong!!.id,
-                        onSeek = { f -> viewModel.seekTo((f * state.durationMs).toLong()) },
-                        onScrub = { f -> scrubFraction = f },
-                        playedColor = MaterialTheme.colorScheme.primary,
-                        trackColor = MaterialTheme.colorScheme.textSecondary.copy(alpha = 0.25f),
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .height(38.dp)
-                    )
-                }
+                        }
+                )
                 Spacer(Modifier.height(4.dp))
                 Row(
                     modifier = Modifier.fillMaxWidth(),
