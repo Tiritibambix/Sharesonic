@@ -418,7 +418,7 @@ private fun NowPlayingPage(state: PlayerState, viewModel: PlayerViewModel) {
             BoxWithConstraints(
                 modifier = Modifier
                     .fillMaxSize()
-                    .padding(24.dp),
+                    .padding(horizontal = 16.dp, vertical = 8.dp),
                 contentAlignment = Alignment.Center
             ) {
                 val side = minOf(maxWidth, maxHeight)
@@ -617,7 +617,7 @@ private fun NowPlayingPage(state: PlayerState, viewModel: PlayerViewModel) {
                 // transparent) has room to bloom past the seek bar's own 38 dp
                 // strip, making the halo actually readable.
                 val waveGlow = MaterialTheme.colorScheme.primary
-                Box(modifier = Modifier.fillMaxWidth().height(78.dp)) {
+                Box(modifier = Modifier.fillMaxWidth().height(54.dp)) {
                     Canvas(modifier = Modifier.fillMaxSize()) {
                         val head = (scrubFraction ?: fraction).coerceIn(0f, 1f)
                         if (head <= 0f) return@Canvas

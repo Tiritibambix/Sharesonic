@@ -80,7 +80,7 @@ fun FloatingParticles(
                 brush = Brush.radialGradient(
                     colors = listOf(
                         color.copy(alpha = alpha),
-                        color.copy(alpha = alpha * 0.35f),
+                        color.copy(alpha = alpha * 0.50f),
                         Color.Transparent,
                     ),
                     center = Offset(cx, cy),
@@ -115,7 +115,7 @@ private data class Particle(
                 0.09f + r.nextFloat() * 0.07f       // large: 9-16 % of min edge
             else
                 0.02f + r.nextFloat() * 0.04f       // small: 2-6 %
-            val baseAlpha = 0.18f + r.nextFloat() * 0.28f
+            val baseAlpha = 0.30f + r.nextFloat() * 0.35f
             // Motion frequencies: very slow (0.05-0.18 rad/s ≈ 35-125 s per cycle).
             val omegaX = 0.05f + r.nextFloat() * 0.13f
             val omegaY = 0.05f + r.nextFloat() * 0.13f
