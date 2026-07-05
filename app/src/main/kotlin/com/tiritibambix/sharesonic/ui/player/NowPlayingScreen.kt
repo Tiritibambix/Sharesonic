@@ -109,10 +109,27 @@ fun NowPlayingScreen(
                             }
                         }
                     } else {
-                        // Phone: dot indicator + label
+                        // Phone: tapping the dot indicator + label toggles the pager
+                        // between Now Playing and Queue. This is the discoverable way
+                        // back to the player from a scrolled-full queue where the
+                        // right-swipe gesture is caught by SwipeToDismissBox on the
+                        // row and never reaches the pager.
                         Row(
                             horizontalArrangement = Arrangement.spacedBy(6.dp),
-                            verticalAlignment = Alignment.CenterVertically
+                            verticalAlignment = Alignment.CenterVertically,
+                            modifier = Modifier
+                                .clip(RoundedCornerShape(20.dp))
+                                .clickable {
+                                    coroutineScope.launch {
+                                        pagerState.animateScrollToPage(
+                                            if (pagerState.currentPage == PAGE_NOW_PLAYING)
+                                                PAGE_QUEUE
+                                            else
+                                                PAGE_NOW_PLAYING
+                                        )
+                                    }
+                                }
+                                .padding(horizontal = 6.dp, vertical = 4.dp)
                         ) {
                             repeat(2) { i ->
                                 Box(
@@ -332,6 +349,13 @@ private fun NowPlayingPage(state: PlayerState, viewModel: PlayerViewModel) {
                     }
             )
         }
+        // Firefly-like particles drifting behind the content, tinted with the
+        // same ambient seed so they read as motes of the artwork's own colour.
+        FloatingParticles(
+            color = ambientSeed,
+            seedKey = state.currentSong?.id ?: "none",
+            modifier = Modifier.fillMaxSize(),
+        )
         Column(
             modifier = Modifier
                 .fillMaxSize()
@@ -487,9 +511,9 @@ private fun NowPlayingPage(state: PlayerState, viewModel: PlayerViewModel) {
                 modifier = Modifier
                     .size(68.dp)
                     .shadow(
-                        // 12 dp × 1.10 (rounded up) — subtle +10 % boost per user
-                        // ask; matches mStream's shadow feel but a hair stronger.
-                        elevation = 14.dp,
+                        // Two successive +10 % bumps: 12 → 14 → ~15.4, rounded up to
+                        // 16 dp for a rounder, clearly-perceptible halo.
+                        elevation = 16.dp,
                         shape = CircleShape,
                         ambientColor = MaterialTheme.colorScheme.primary,
                         spotColor = MaterialTheme.colorScheme.primary,
@@ -540,8 +564,8 @@ private fun NowPlayingPage(state: PlayerState, viewModel: PlayerViewModel) {
                                 brush = Brush.verticalGradient(
                                     colors = listOf(
                                         Color.Transparent,
-                                        // 0.22 × 1.10 = 0.242 — +10 % relative bump.
-                                        waveGlow.copy(alpha = 0.242f),
+                                        // Two successive +10 % bumps: 0.22 → 0.242 → 0.266.
+                                        waveGlow.copy(alpha = 0.266f),
                                         Color.Transparent,
                                     )
                                 ),

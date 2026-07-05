@@ -33,15 +33,24 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import com.tiritibambix.sharesonic.data.Result
 import com.tiritibambix.sharesonic.data.api.models.EntryDto
 import com.tiritibambix.sharesonic.ui.theme.textSecondary
 
 /**
- * Enriched track-info dialog: a key/value list of every metadata field the track
- * carries (nulls hidden), with the full file path — selectable for copying — last.
- * Replaces the old path-only dialog with a full metadata view.
+ * Track-info panel — a "frosted" card floating over the darkened Now Playing
+ * background, inspired by Velvet's `.np-info` / `.np-meta` layout: title +
+ * artist header on top, a two-column key/value metadata grid in the middle,
+ * and the full filepath in a monospace card at the bottom.
+ *
+ * Rendered inside a Dialog with `usePlatformDefaultWidth = false` so the panel
+ * can be a wide rounded surface (not the narrow AlertDialog rail), on a
+ * translucent scrim. A tint of the current theme's `surface` at reduced alpha
+ * over the scrim reads as frosted glass without needing the RenderScript /
+ * `haze` library — the darkened content behind still bleeds through visibly.
  */
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun TrackInfoDialog(
     song: EntryDto,
@@ -51,9 +60,6 @@ fun TrackInfoDialog(
     onDismiss: () -> Unit
 ) {
     val rows: List<Pair<String, String>> = buildList {
-        (song.title ?: song.name)?.takeIf { it.isNotBlank() }?.let { add("Title" to it) }
-        song.artist?.takeIf { it.isNotBlank() }?.let { add("Artist" to it) }
-        song.album?.takeIf { it.isNotBlank() }?.let { add("Album" to it) }
         song.year?.let { add("Year" to it.toString()) }
         song.track?.let { add("Track" to it.toString()) }
         song.genres?.filter { it.isNotBlank() }?.takeIf { it.isNotEmpty() }
@@ -68,41 +74,137 @@ fun TrackInfoDialog(
         song.rating?.takeIf { it > 0 }?.let { add("Rating" to "${it / 2} / 5") }
     }
 
-    AlertDialog(
+    androidx.compose.ui.window.Dialog(
         onDismissRequest = onDismiss,
-        title = { Text("Track info") },
-        text = {
-            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                rows.forEach { (label, value) ->
-                    Row(modifier = Modifier.fillMaxWidth()) {
-                        Text(
-                            label,
-                            style = MaterialTheme.typography.labelMedium,
-                            color = MaterialTheme.colorScheme.textSecondary,
-                            modifier = Modifier.width(96.dp)
-                        )
-                        Text(value, style = MaterialTheme.typography.bodyMedium)
+        properties = androidx.compose.ui.window.DialogProperties(
+            usePlatformDefaultWidth = false,
+        ),
+    ) {
+        androidx.compose.material3.Surface(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 20.dp)
+                .heightIn(max = 620.dp),
+            shape = androidx.compose.foundation.shape.RoundedCornerShape(20.dp),
+            // Frosted-glass feel: translucent surface + heavy tonal elevation +
+            // a soft primary-tinted border. Combined with the Dialog's scrim,
+            // whatever is behind still shows through, tinted by the theme.
+            color = MaterialTheme.colorScheme.surface.copy(alpha = 0.72f),
+            tonalElevation = 8.dp,
+            border = androidx.compose.foundation.BorderStroke(
+                width = 1.dp,
+                color = MaterialTheme.colorScheme.primary.copy(alpha = 0.18f),
+            ),
+        ) {
+            Column(
+                modifier = Modifier
+                    .padding(horizontal = 22.dp, vertical = 20.dp)
+                    .verticalScroll(rememberScrollState()),
+                verticalArrangement = Arrangement.spacedBy(14.dp),
+            ) {
+                // ── Header: title + artist + album ──
+                Text(
+                    text = (song.title ?: song.name).orEmpty(),
+                    style = MaterialTheme.typography.titleLarge,
+                    color = MaterialTheme.colorScheme.onSurface,
+                    fontWeight = androidx.compose.ui.text.font.FontWeight.SemiBold,
+                    maxLines = 2,
+                    overflow = TextOverflow.Ellipsis,
+                )
+                song.artist?.takeIf { it.isNotBlank() }?.let {
+                    Text(
+                        it,
+                        style = MaterialTheme.typography.bodyLarge,
+                        color = MaterialTheme.colorScheme.textSecondary,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                    )
+                }
+                song.album?.takeIf { it.isNotBlank() }?.let {
+                    Text(
+                        it,
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.textSecondary.copy(alpha = 0.78f),
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                    )
+                }
+
+                if (rows.isNotEmpty()) {
+                    HorizontalDivider(
+                        color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.12f),
+                    )
+                    // ── Two-column metadata grid: 10sp uppercase label / 13sp value.
+                    Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                        rows.forEach { (label, value) ->
+                            MetadataRow(label = label, value = value)
+                        }
                     }
                 }
+
                 song.path?.takeIf { it.isNotBlank() }?.let { path ->
-                    Spacer(Modifier.height(4.dp))
-                    HorizontalDivider()
-                    Spacer(Modifier.height(4.dp))
-                    Text(
-                        "Path",
-                        style = MaterialTheme.typography.labelMedium,
-                        color = MaterialTheme.colorScheme.textSecondary
+                    HorizontalDivider(
+                        color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.12f),
                     )
-                    SelectionContainer {
-                        Text(path, style = MaterialTheme.typography.bodySmall)
+                    Text(
+                        "PATH",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.textSecondary,
+                        letterSpacing = 0.7.sp,
+                        fontWeight = androidx.compose.ui.text.font.FontWeight.SemiBold,
+                    )
+                    // Monospace card, mirrors Velvet's `.np-fp-path`.
+                    androidx.compose.material3.Surface(
+                        shape = androidx.compose.foundation.shape.RoundedCornerShape(10.dp),
+                        color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.05f),
+                        border = androidx.compose.foundation.BorderStroke(
+                            width = 1.dp,
+                            color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.10f),
+                        ),
+                    ) {
+                        SelectionContainer {
+                            Text(
+                                path,
+                                style = MaterialTheme.typography.bodySmall.copy(
+                                    fontFamily = androidx.compose.ui.text.font.FontFamily.Monospace,
+                                    lineHeight = 18.sp,
+                                ),
+                                modifier = Modifier.padding(horizontal = 12.dp, vertical = 10.dp),
+                            )
+                        }
                     }
+                }
+
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.End,
+                ) {
+                    TextButton(onClick = onDismiss) { Text("Close") }
                 }
             }
-        },
-        confirmButton = {
-            TextButton(onClick = onDismiss) { Text("Close") }
         }
-    )
+    }
+}
+
+@Composable
+private fun MetadataRow(label: String, value: String) {
+    Row(modifier = Modifier.fillMaxWidth()) {
+        Text(
+            label.uppercase(),
+            style = MaterialTheme.typography.labelSmall,
+            color = MaterialTheme.colorScheme.textSecondary,
+            letterSpacing = 0.7.sp,
+            fontWeight = androidx.compose.ui.text.font.FontWeight.SemiBold,
+            modifier = Modifier.width(108.dp),
+        )
+        Text(
+            value,
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.onSurface,
+            overflow = TextOverflow.Ellipsis,
+            maxLines = 2,
+        )
+    }
 }
 
 /**
