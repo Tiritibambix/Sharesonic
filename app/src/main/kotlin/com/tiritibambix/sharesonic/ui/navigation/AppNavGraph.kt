@@ -215,6 +215,20 @@ fun AppNavGraph() {
                 onOpenNowPlaying = { /* mini-bar stays collapsed; user expands manually */ },
                 onOpenSearch = { navController.navigate(Screen.Search.route) },
                 onOpenPlaylists = { navController.navigate(Screen.Playlists.route) },
+                // Home icon in the top bar: pop every browser frame in one go
+                // and land on a fresh root browser. Settings stays as the
+                // start destination so system Back still exits the app.
+                onGoRoot = {
+                    navController.navigate(
+                        Screen.Browser.createRoute(Screen.Browser.ROOT, "Library")
+                    ) {
+                        popUpTo(Screen.Settings.route) {
+                            inclusive = false
+                            saveState = false
+                        }
+                        launchSingleTop = true
+                    }
+                },
                 onShareCreated = ::onShareCreated
             )
         }

@@ -2,6 +2,7 @@ package com.tiritibambix.sharesonic.ui.player
 
 import androidx.compose.animation.Crossfade
 import androidx.compose.animation.core.tween
+import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.rememberScrollState
@@ -172,13 +173,24 @@ fun NowPlayingScreen(
                     }
                 },
                 actions = {
-                    // Track info lives in the "⋮ More" sheet, so there's no
-                    // separate ⓘ button here.
-                    //
-                    // Slot 1: page-dependent — Share on Queue, MoreVert on NP.
-                    // Slot 2: Auto-DJ (always) — kept at the SAME rightmost
-                    // position on both pages so the headphones glyph doesn't
-                    // hop left when switching from Now Playing to Queue.
+                    // Slot 1 (LEFT): Auto-DJ — always. Kept at a fixed slot so
+                    // the headphones glyph doesn't hop position when swapping
+                    // between Now Playing and Queue.
+                    // Slot 2 (RIGHT): page-dependent — MoreVert on Now Playing,
+                    // Share on Queue. These two share the slot.
+                    IconToggleButton(
+                        checked = state.autoDjEnabled,
+                        onCheckedChange = { viewModel.toggleAutoDj() }
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Headphones,
+                            contentDescription = if (state.autoDjEnabled) "Auto-DJ on" else "Auto-DJ off",
+                            tint = if (state.autoDjEnabled)
+                                       MaterialTheme.colorScheme.primary
+                                   else
+                                       MaterialTheme.colorScheme.textSecondary.copy(alpha = 0.5f)
+                        )
+                    }
                     when {
                         pagerState.currentPage == PAGE_QUEUE && state.queue.isNotEmpty() -> {
                             if (state.shareLoading) {
@@ -212,20 +224,6 @@ fun NowPlayingScreen(
                                 )
                             }
                         }
-                    }
-                    // Auto-DJ toggle — headphones icon, lit when enabled.
-                    IconToggleButton(
-                        checked = state.autoDjEnabled,
-                        onCheckedChange = { viewModel.toggleAutoDj() }
-                    ) {
-                        Icon(
-                            imageVector = Icons.Default.Headphones,
-                            contentDescription = if (state.autoDjEnabled) "Auto-DJ on" else "Auto-DJ off",
-                            tint = if (state.autoDjEnabled)
-                                       MaterialTheme.colorScheme.primary
-                                   else
-                                       MaterialTheme.colorScheme.textSecondary.copy(alpha = 0.5f)
-                        )
                     }
                 }
             )
@@ -611,40 +609,43 @@ private fun NowPlayingPage(state: PlayerState, viewModel: PlayerViewModel) {
                     .fillMaxWidth()
                     .padding(horizontal = 28.dp)
             ) {
-                // Accent glow painted directly under the played portion of the
-                // seek bar. Wrapping the WaveformSeekBar in a taller Box broke
-                // seeking (touches landed on the wrapper area, not the Canvas)
-                // so the glow rides on the seek bar's own modifier — a vertical
-                // taper from Transparent through primary alpha back to
-                // Transparent, then clipped horizontally at the playhead so
-                // nothing bleeds past it onto the unplayed bars.
+                // Accent halo behind the played portion of the seek bar. The
+                // glow renders in a 78 dp wrapper as a SIBLING Canvas — same
+                // layer, painted first (behind), with no pointer handling — so
+                // the WaveformSeekBar's own Canvas keeps ownership of the seek
+                // gestures. The vertical taper (transparent → primary alpha →
+                // transparent) has room to bloom past the seek bar's own 38 dp
+                // strip, making the halo actually readable.
                 val waveGlow = MaterialTheme.colorScheme.primary
-                WaveformSeekBar(
-                    fraction = fraction,
-                    seedKey = state.currentSong!!.id,
-                    onSeek = { f -> viewModel.seekTo((f * state.durationMs).toLong()) },
-                    onScrub = { f -> scrubFraction = f },
-                    playedColor = MaterialTheme.colorScheme.primary,
-                    trackColor = MaterialTheme.colorScheme.textSecondary.copy(alpha = 0.25f),
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(38.dp)
-                        .drawBehind {
-                            val head = (scrubFraction ?: fraction).coerceIn(0f, 1f)
-                            if (head <= 0f) return@drawBehind
-                            drawRect(
-                                brush = Brush.verticalGradient(
-                                    colors = listOf(
-                                        Color.Transparent,
-                                        waveGlow.copy(alpha = 0.45f),
-                                        Color.Transparent,
-                                    )
-                                ),
-                                topLeft = Offset(0f, 0f),
-                                size = Size(size.width * head, size.height),
-                            )
-                        }
-                )
+                Box(modifier = Modifier.fillMaxWidth().height(78.dp)) {
+                    Canvas(modifier = Modifier.fillMaxSize()) {
+                        val head = (scrubFraction ?: fraction).coerceIn(0f, 1f)
+                        if (head <= 0f) return@Canvas
+                        drawRect(
+                            brush = Brush.verticalGradient(
+                                colors = listOf(
+                                    Color.Transparent,
+                                    waveGlow.copy(alpha = 0.55f),
+                                    Color.Transparent,
+                                )
+                            ),
+                            topLeft = Offset(0f, 0f),
+                            size = Size(size.width * head, size.height),
+                        )
+                    }
+                    WaveformSeekBar(
+                        fraction = fraction,
+                        seedKey = state.currentSong!!.id,
+                        onSeek = { f -> viewModel.seekTo((f * state.durationMs).toLong()) },
+                        onScrub = { f -> scrubFraction = f },
+                        playedColor = MaterialTheme.colorScheme.primary,
+                        trackColor = MaterialTheme.colorScheme.textSecondary.copy(alpha = 0.25f),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(38.dp)
+                            .align(Alignment.Center)
+                    )
+                }
                 Spacer(Modifier.height(4.dp))
                 Row(
                     modifier = Modifier.fillMaxWidth(),

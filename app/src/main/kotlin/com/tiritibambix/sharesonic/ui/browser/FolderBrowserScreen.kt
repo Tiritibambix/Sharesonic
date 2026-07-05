@@ -61,6 +61,7 @@ fun FolderBrowserScreen(
     onOpenNowPlaying: () -> Unit,
     onOpenSearch: () -> Unit,
     onOpenPlaylists: () -> Unit,
+    onGoRoot: () -> Unit,
     onShareCreated: (url: String) -> Unit
 ) {
     val isTV = LocalIsTV.current
@@ -201,6 +202,14 @@ fun FolderBrowserScreen(
                     }
                 },
                 actions = {
+                    // Jump straight to the library root — spares the user 15
+                    // Back presses when they're deep in nested folders. Hidden
+                    // at the root itself (nothing to go back to).
+                    if (folderName != "Library") {
+                        IconButton(onClick = onGoRoot) {
+                            Icon(Icons.Default.Home, contentDescription = "Library root")
+                        }
+                    }
                     // TV: the bottom-end FAB column isn't reachable via D-pad, so
                     // Play-in-order/Shuffle are exposed here instead, alongside the
                     // already-reachable Search/Playlists icons.
@@ -235,12 +244,25 @@ fun FolderBrowserScreen(
                 Column(horizontalAlignment = Alignment.End, verticalArrangement = Arrangement.spacedBy(12.dp)) {
                     // Leaf folder = contains tracks but no subfolders — offer to play
                     // them in their displayed (sorted) order, alongside Shuffle.
+                    // Explicit primary/onPrimary — the M3 FAB default is
+                    // primaryContainer, which the accent-override turns into a
+                    // ~16 % alpha wash over surfaceVariant (dull/faded on a
+                    // dark background). Using primary keeps Play + Shuffle
+                    // visually alive whatever accent the user picks.
                     if (entries.isNotEmpty() && entries.none { it.isDir }) {
-                        FloatingActionButton(onClick = ::playInOrder) {
+                        FloatingActionButton(
+                            onClick = ::playInOrder,
+                            containerColor = MaterialTheme.colorScheme.primary,
+                            contentColor = MaterialTheme.colorScheme.onPrimary,
+                        ) {
                             Icon(Icons.Default.PlayArrow, contentDescription = "Play in order")
                         }
                     }
-                    FloatingActionButton(onClick = ::triggerShuffle) {
+                    FloatingActionButton(
+                        onClick = ::triggerShuffle,
+                        containerColor = MaterialTheme.colorScheme.primary,
+                        contentColor = MaterialTheme.colorScheme.onPrimary,
+                    ) {
                         if (shuffleLoading)
                             CircularProgressIndicator(modifier = Modifier.size(20.dp), strokeWidth = 2.dp)
                         else

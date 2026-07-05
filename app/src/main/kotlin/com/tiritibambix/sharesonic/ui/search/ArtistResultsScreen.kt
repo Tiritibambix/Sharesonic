@@ -71,8 +71,8 @@ fun ArtistResultsScreen(
                             playerViewModel.playQueue(songs.shuffled())
                             onOpenNowPlaying()
                         },
-                        containerColor = MaterialTheme.colorScheme.secondaryContainer,
-                        contentColor = MaterialTheme.colorScheme.onSecondaryContainer
+                        containerColor = MaterialTheme.colorScheme.primary,
+                        contentColor = MaterialTheme.colorScheme.onPrimary,
                     ) {
                         Icon(Icons.Default.Shuffle, contentDescription = "Shuffle")
                     }
@@ -82,7 +82,9 @@ fun ArtistResultsScreen(
                             onOpenNowPlaying()
                         },
                         icon = { Icon(Icons.Default.PlayArrow, contentDescription = null) },
-                        text = { Text("Play all") }
+                        text = { Text("Play all") },
+                        containerColor = MaterialTheme.colorScheme.primary,
+                        contentColor = MaterialTheme.colorScheme.onPrimary,
                     )
                     Spacer(modifier = Modifier.height(fabBottomPadding))
                 }

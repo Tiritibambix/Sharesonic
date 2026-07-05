@@ -183,25 +183,28 @@ fun PlaylistDetailScreen(
                     horizontalAlignment = Alignment.End,
                     verticalArrangement = Arrangement.spacedBy(12.dp)
                 ) {
-                    // Secondary: Shuffle
+                    // Explicit primary/onPrimary — the M3 FAB default is
+                    // primaryContainer, which the accent-override renders as
+                    // a very faded wash over surfaceVariant.
                     SmallFloatingActionButton(
                         onClick = {
                             playerViewModel.playQueue(entries.map { it.dto }.shuffled())
                             onOpenNowPlaying()
                         },
-                        containerColor = MaterialTheme.colorScheme.secondaryContainer,
-                        contentColor = MaterialTheme.colorScheme.onSecondaryContainer
+                        containerColor = MaterialTheme.colorScheme.primary,
+                        contentColor = MaterialTheme.colorScheme.onPrimary,
                     ) {
                         Icon(Icons.Default.Shuffle, contentDescription = "Shuffle")
                     }
-                    // Primary: Play all
                     ExtendedFloatingActionButton(
                         onClick = {
                             playerViewModel.playQueue(entries.map { it.dto })
                             onOpenNowPlaying()
                         },
                         icon = { Icon(Icons.Default.PlayArrow, contentDescription = null) },
-                        text = { Text("Play all") }
+                        text = { Text("Play all") },
+                        containerColor = MaterialTheme.colorScheme.primary,
+                        contentColor = MaterialTheme.colorScheme.onPrimary,
                     )
                     Spacer(modifier = Modifier.height(fabBottomPadding))
                 }
