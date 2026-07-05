@@ -74,28 +74,22 @@ fun TrackInfoDialog(
         song.rating?.takeIf { it > 0 }?.let { add("Rating" to "${it / 2} / 5") }
     }
 
-    androidx.compose.ui.window.Dialog(
-        onDismissRequest = onDismiss,
-        properties = androidx.compose.ui.window.DialogProperties(
-            usePlatformDefaultWidth = false,
+    androidx.compose.material3.Surface(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 20.dp)
+            .heightIn(max = 620.dp),
+        shape = androidx.compose.foundation.shape.RoundedCornerShape(20.dp),
+        // Solid theme-coloured surface — the frosted-glass effect is the blurred
+        // Now Playing content BEHIND this modal (applied by the parent), not the
+        // modal itself. A soft primary-tinted border lifts it off the scrim.
+        color = MaterialTheme.colorScheme.surface,
+        tonalElevation = 6.dp,
+        border = androidx.compose.foundation.BorderStroke(
+            width = 1.dp,
+            color = MaterialTheme.colorScheme.primary.copy(alpha = 0.18f),
         ),
     ) {
-        androidx.compose.material3.Surface(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 20.dp)
-                .heightIn(max = 620.dp),
-            shape = androidx.compose.foundation.shape.RoundedCornerShape(20.dp),
-            // Frosted-glass feel: translucent surface + heavy tonal elevation +
-            // a soft primary-tinted border. Combined with the Dialog's scrim,
-            // whatever is behind still shows through, tinted by the theme.
-            color = MaterialTheme.colorScheme.surface.copy(alpha = 0.72f),
-            tonalElevation = 8.dp,
-            border = androidx.compose.foundation.BorderStroke(
-                width = 1.dp,
-                color = MaterialTheme.colorScheme.primary.copy(alpha = 0.18f),
-            ),
-        ) {
             Column(
                 modifier = Modifier
                     .padding(horizontal = 22.dp, vertical = 20.dp)
@@ -184,7 +178,6 @@ fun TrackInfoDialog(
             }
         }
     }
-}
 
 @Composable
 private fun MetadataRow(label: String, value: String) {

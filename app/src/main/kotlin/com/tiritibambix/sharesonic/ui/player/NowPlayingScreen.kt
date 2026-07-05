@@ -23,10 +23,10 @@ import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.blur
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.draw.drawWithCache
-import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Brush
@@ -69,7 +69,20 @@ fun NowPlayingScreen(
         }
     }
 
+    // Frosted-glass effect: when the track-info modal is open, the whole Now
+    // Playing surface (Scaffold + Now Playing page + queue) blurs behind it,
+    // exactly like the folder-browser drawer scrim. The modal itself renders
+    // OVER this blurred layer as a solid theme-coloured surface — so what looks
+    // frosted is the *background*, not the modal.
+    val contentBlur by androidx.compose.animation.core.animateDpAsState(
+        targetValue = if (showFileInfoDialog) 18.dp else 0.dp,
+        animationSpec = androidx.compose.animation.core.tween(200),
+        label = "info-blur",
+    )
+
+    Box(modifier = Modifier.fillMaxSize()) {
     Scaffold(
+        modifier = Modifier.blur(contentBlur),
         topBar = {
             TopAppBar(
                 title = {
@@ -233,12 +246,11 @@ fun NowPlayingScreen(
         }
     }
 
-    // ── Track info dialog — triggered by the ⓘ in the top bar (or the More sheet).
-    // Full metadata table; the file path (selectable, copyable) sits last. ──
+    // ── Track info overlay — sits over the blurred Scaffold as a solid, theme-
+    // coloured card. The scrim below darkens the frosted layer just enough for
+    // the modal to read as the focused surface. Tapping the scrim dismisses. ──
     if (showFileInfoDialog) {
         state.currentSong?.let { song ->
-            // Fetch fresh, full metadata on open so bpm/key/genres/year/track always
-            // show — search-origin songs carry none of those on their EntryDto.
             val fresh by produceState<com.tiritibambix.sharesonic.data.api.models.VelvetInnerMetadata?>(
                 initialValue = null, key1 = song.id
             ) {
@@ -254,15 +266,38 @@ fun NowPlayingScreen(
                 artist = song.artist ?: fresh?.artist,
                 album = song.album ?: fresh?.album
             )
-            TrackInfoDialog(
-                song = enriched,
-                bitrateKbps = state.audioBitrateKbps,
-                sampleRateHz = state.audioSampleRateHz,
-                channels = state.audioChannels,
-                onDismiss = { showFileInfoDialog = false }
-            )
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .background(Color.Black.copy(alpha = 0.32f))
+                    .clickable(
+                        interactionSource = remember { androidx.compose.foundation.interaction.MutableInteractionSource() },
+                        indication = null,
+                        onClick = { showFileInfoDialog = false }
+                    ),
+                contentAlignment = Alignment.Center,
+            ) {
+                // Consume clicks on the card so tapping the modal doesn't
+                // bubble up to the scrim's dismiss handler.
+                Box(
+                    modifier = Modifier.clickable(
+                        interactionSource = remember { androidx.compose.foundation.interaction.MutableInteractionSource() },
+                        indication = null,
+                        onClick = { },
+                    )
+                ) {
+                    TrackInfoDialog(
+                        song = enriched,
+                        bitrateKbps = state.audioBitrateKbps,
+                        sampleRateHz = state.audioSampleRateHz,
+                        channels = state.audioChannels,
+                        onDismiss = { showFileInfoDialog = false }
+                    )
+                }
+            }
         }
     }
+    } // outer Box wrapping the Scaffold + blur + overlay
 
     // ── More actions sheet (sleep timer + lyrics + track info) ──
     if (showMoreSheet) {
@@ -501,29 +536,47 @@ private fun NowPlayingPage(state: PlayerState, viewModel: PlayerViewModel) {
                 Icon(Icons.Default.SkipPrevious, contentDescription = "Previous",
                     modifier = Modifier.size(36.dp))
             }
-            // Subtle theme-accent shadow under the play/pause button, mirroring
-            // mStream's `BoxShadow(color: primary.withAlpha(0.4), blurRadius: 16,
-            // offset: (0, 6))`. Modifier.shadow uses the platform shadow API —
-            // on API 28+ spotColor tints the shadow with primary; on 26-27 it
-            // falls back to a plain grey shadow, which still reads as depth.
-            FilledIconButton(
-                onClick = { viewModel.playPause() },
+            // Theme-accent halo behind the play/pause button — an explicit
+            // drawBehind radial glow rather than Modifier.shadow, because a
+            // Material shadow at any reasonable elevation reads as a subtle
+            // drop and the coloured-shadow spotColor requires API 28+ anyway.
+            // The button is 68 dp, the wrapper 128 dp — enough room for a
+            // visible ring of primary alpha bleeding out past the button edge.
+            val playGlow = MaterialTheme.colorScheme.primary
+            Box(
                 modifier = Modifier
-                    .size(68.dp)
-                    .shadow(
-                        // Two successive +10 % bumps: 12 → 14 → ~15.4, rounded up to
-                        // 16 dp for a rounder, clearly-perceptible halo.
-                        elevation = 16.dp,
-                        shape = CircleShape,
-                        ambientColor = MaterialTheme.colorScheme.primary,
-                        spotColor = MaterialTheme.colorScheme.primary,
-                    )
+                    .size(128.dp)
+                    .drawBehind {
+                        val r = size.minDimension / 2f
+                        drawCircle(
+                            brush = Brush.radialGradient(
+                                colorStops = arrayOf(
+                                    // Button occupies ~ r * 0.53. Peak alpha lands
+                                    // just past the button edge so the halo reads
+                                    // as light escaping around it.
+                                    0.45f to playGlow.copy(alpha = 0.55f),
+                                    0.72f to playGlow.copy(alpha = 0.22f),
+                                    1.0f to Color.Transparent,
+                                ),
+                                center = center,
+                                radius = r,
+                            ),
+                            radius = r,
+                            center = center,
+                        )
+                    },
+                contentAlignment = Alignment.Center,
             ) {
-                Icon(
-                    imageVector = if (state.isPlaying) Icons.Default.Pause else Icons.Default.PlayArrow,
-                    contentDescription = null,
-                    modifier = Modifier.size(36.dp)
-                )
+                FilledIconButton(
+                    onClick = { viewModel.playPause() },
+                    modifier = Modifier.size(68.dp)
+                ) {
+                    Icon(
+                        imageVector = if (state.isPlaying) Icons.Default.Pause else Icons.Default.PlayArrow,
+                        contentDescription = null,
+                        modifier = Modifier.size(36.dp)
+                    )
+                }
             }
             IconButton(
                 onClick = { viewModel.skipNext() },
@@ -548,15 +601,16 @@ private fun NowPlayingPage(state: PlayerState, viewModel: PlayerViewModel) {
                     .fillMaxWidth()
                     .padding(horizontal = 28.dp)
             ) {
-                // Subtle accent glow behind the played portion only: vertical
-                // taper (transparent → primary alpha → transparent) so the
-                // halo blooms softly above and below the played bars and stops
-                // at the playhead — the unplayed side stays flat.
+                // Accent glow behind the played portion only. The wrapper is 72 dp
+                // (vs. 38 dp seek bar) so the vertical taper has visible room to
+                // bloom above and below the bars; peak alpha is 0.42 to actually
+                // read on a dark ambient halo — the previous 0.27 in a 48 dp box
+                // was too tight and too dim to notice.
                 val waveGlow = MaterialTheme.colorScheme.primary
                 Box(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .height(48.dp)
+                        .height(72.dp)
                         .drawBehind {
                             val head = (scrubFraction ?: fraction).coerceIn(0f, 1f)
                             if (head <= 0f) return@drawBehind
@@ -564,8 +618,7 @@ private fun NowPlayingPage(state: PlayerState, viewModel: PlayerViewModel) {
                                 brush = Brush.verticalGradient(
                                     colors = listOf(
                                         Color.Transparent,
-                                        // Two successive +10 % bumps: 0.22 → 0.242 → 0.266.
-                                        waveGlow.copy(alpha = 0.266f),
+                                        waveGlow.copy(alpha = 0.42f),
                                         Color.Transparent,
                                     )
                                 ),
