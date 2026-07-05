@@ -19,6 +19,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.lifecycle.lifecycleScope
 import com.tiritibambix.sharesonic.data.settings.AppTheme
 import com.tiritibambix.sharesonic.data.settings.SettingsRepository
@@ -34,8 +35,11 @@ class MainActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
 
-        val appThemeFlow = SettingsRepository(applicationContext).appTheme
+        val settingsRepo = SettingsRepository(applicationContext)
+        val appThemeFlow = settingsRepo.appTheme
             .stateIn(lifecycleScope, SharingStarted.Eagerly, AppTheme.VELVET)
+        val accentColorFlow = settingsRepo.accentColor
+            .stateIn(lifecycleScope, SharingStarted.Eagerly, null)
 
         // Pick up a stack trace saved by the last crash (see SharesonicApp) so it
         // can be shown + copied on this launch — no adb needed to diagnose crashes.
@@ -45,7 +49,11 @@ class MainActivity : ComponentActivity() {
         val runningOnTV = isTV()
         setContent {
             val appTheme by appThemeFlow.collectAsState()
-            SharesonicTheme(appTheme = appTheme) {
+            val accentArgb by accentColorFlow.collectAsState()
+            SharesonicTheme(
+                appTheme = appTheme,
+                accent = accentArgb?.let { Color(it) },
+            ) {
                 CompositionLocalProvider(LocalIsTV provides runningOnTV) {
                     AppNavGraph()
 

@@ -76,3 +76,21 @@ internal val LightInks = SharesonicInks(
     borderSoft    = LightBorder,
     borderStrong  = LightBorder2,
 )
+
+internal val HighContrastInks = SharesonicInks(
+    textPrimary   = HcT1,
+    textSecondary = HcT2,
+    textTertiary  = HcT3,
+    textDim       = HcT4,
+    borderSoft    = HcBorder,
+    borderStrong  = HcBorder2,
+)
+
+internal val ColorblindInks = SharesonicInks(
+    textPrimary   = CbT1,
+    textSecondary = CbT2,
+    textTertiary  = CbT3,
+    textDim       = CbT4,
+    borderSoft    = CbBorder,
+    borderStrong  = CbBorder2,
+)

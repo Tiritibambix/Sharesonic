@@ -148,20 +148,108 @@ private val LightAppColorScheme = lightColorScheme(
     inversePrimary    = LightPrimaryHov,
 )
 
+/**
+ * High-contrast scheme (AAA) — pure black on white with a yellow accent.
+ * Mapped from the user-supplied :root.hc CSS variables.
+ */
+private val HighContrastColorScheme = darkColorScheme(
+    primary             = HcPrimary,
+    onPrimary           = HcInk,
+    primaryContainer    = HcPrimaryDark,
+    onPrimaryContainer  = HcPrimaryOnC,
+
+    secondary             = HcAccent,
+    onSecondary           = HcInk,
+    secondaryContainer    = HcAccentDark,
+    onSecondaryContainer  = HcAccentOnC,
+
+    tertiary             = HcGreen,
+    onTertiary           = HcInk,
+    tertiaryContainer    = HcGreenDark,
+    onTertiaryContainer  = HcGreenOnC,
+
+    error             = HcRed,
+    onError           = HcInk,
+    errorContainer    = HcRedDark,
+    onErrorContainer  = HcRed,
+
+    background   = HcBg,
+    onBackground = HcT1,
+    surface      = HcSurface,
+    onSurface    = HcT1,
+    surfaceVariant   = HcRaised,
+    onSurfaceVariant = HcT2,
+
+    outline        = HcBorder,
+    outlineVariant = HcBorder2,
+
+    inverseSurface    = HcT1,
+    inverseOnSurface  = HcBg,
+    inversePrimary    = HcPrimaryHov,
+)
+
+/**
+ * Colourblind-safe scheme — blue primary + orange accent, no red/green
+ * reliance (Velvet :root.cb). Deuteranopia-friendly.
+ */
+private val ColorblindColorScheme = darkColorScheme(
+    primary             = CbPrimary,
+    onPrimary           = CbInk,
+    primaryContainer    = CbPrimaryDark,
+    onPrimaryContainer  = CbPrimaryOnC,
+
+    secondary             = CbAccent,
+    onSecondary           = CbInk,
+    secondaryContainer    = CbAccentDark,
+    onSecondaryContainer  = CbAccentOnC,
+
+    tertiary             = CbGreen,
+    onTertiary           = CbInk,
+    tertiaryContainer    = CbGreenDark,
+    onTertiaryContainer  = CbGreenOnC,
+
+    error             = CbRed,
+    onError           = CbInk,
+    errorContainer    = CbRedDark,
+    onErrorContainer  = CbRed,
+
+    background   = CbBg,
+    onBackground = CbT1,
+    surface      = CbSurface,
+    onSurface    = CbT1,
+    surfaceVariant   = CbRaised,
+    onSurfaceVariant = CbT2,
+
+    outline        = CbBorder,
+    outlineVariant = CbBorder2,
+
+    inverseSurface    = CbT1,
+    inverseOnSurface  = CbBg,
+    inversePrimary    = CbPrimaryHov,
+)
+
 @Composable
 fun SharesonicTheme(
     appTheme: AppTheme = AppTheme.VELVET,
+    accent: androidx.compose.ui.graphics.Color? = null,
     content: @Composable () -> Unit
 ) {
-    val colorScheme = when (appTheme) {
-        AppTheme.VELVET -> VelvetColorScheme
-        AppTheme.DARK   -> DarkAppColorScheme
-        AppTheme.LIGHT  -> LightAppColorScheme
+    val baseScheme = when (appTheme) {
+        AppTheme.VELVET          -> VelvetColorScheme
+        AppTheme.DARK            -> DarkAppColorScheme
+        AppTheme.LIGHT           -> LightAppColorScheme
+        AppTheme.HIGH_CONTRAST   -> HighContrastColorScheme
+        AppTheme.COLORBLIND_SAFE -> ColorblindColorScheme
     }
+    // User-picked accent (theme's primary override). See AccentOverride.kt for
+    // the derivation of onPrimary / surfaceTint / inversePrimary from `accent`.
+    val colorScheme = if (accent != null) baseScheme.withAccent(accent) else baseScheme
     val inks = when (appTheme) {
-        AppTheme.VELVET -> VelvetInks
-        AppTheme.DARK   -> DarkInks
-        AppTheme.LIGHT  -> LightInks
+        AppTheme.VELVET          -> VelvetInks
+        AppTheme.DARK            -> DarkInks
+        AppTheme.LIGHT           -> LightInks
+        AppTheme.HIGH_CONTRAST   -> HighContrastInks
+        AppTheme.COLORBLIND_SAFE -> ColorblindInks
     }
     CompositionLocalProvider(LocalSharesonicInks provides inks) {
         MaterialTheme(

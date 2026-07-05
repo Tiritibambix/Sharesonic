@@ -114,3 +114,73 @@ val LightT3          = Color(0xFF7878A0)   // --t3 muted text
 val LightT4          = Color(0xFFB8B8D0)   // --t4
 
 val LightInk         = Color(0xFFFFFFFF)   // white — used for onPrimary/onAccent text
+
+// ── High-contrast palette — AAA pure black/white, yellow accent ──────────────
+// Mapped from Velvet's :root.hc CSS variables.
+
+val HcBg          = Color(0xFF000000)   // --bg       pure black
+val HcSurface     = Color(0xFF000000)   // --surface
+val HcRaised      = Color(0xFF0A0A0A)   // --raised
+val HcCard        = Color(0xFF0A0A0A)   // --card
+
+val HcBorder      = Color(0xFFFFFFFF)   // --border   pure white
+val HcBorder2     = Color(0xFFFFFFFF)   // --border2  pure white
+
+val HcPrimary       = Color(0xFFFFFFFF)   // --primary
+val HcPrimaryHov    = Color(0xFFFFFFFF)   // --primary-h
+val HcPrimaryDark   = Color(0xFF333333)   // dark container for primary
+val HcPrimaryOnC    = Color(0xFF000000)   // on primaryContainer
+
+val HcAccent      = Color(0xFFFFE066)   // --accent   yellow
+val HcAccentDark  = Color(0xFF4A3E0F)   // dark container for accent
+val HcAccentOnC   = Color(0xFF000000)   // on secondaryContainer
+
+val HcGreen       = Color(0xFF00E676)   // --green
+val HcGreenDark   = Color(0xFF063919)   // dark container for green
+val HcGreenOnC    = Color(0xFF9DFFC0)   // on tertiaryContainer
+
+val HcRed         = Color(0xFFFF5252)   // --red
+val HcRedDark     = Color(0xFF4A0F0F)   // error container
+val HcYellow      = Color(0xFFFFE066)   // --yellow
+
+val HcT1          = Color(0xFFFFFFFF)   // --t1
+val HcT2          = Color(0xFFFFFFFF)   // --t2 — white for HC readability
+val HcT3          = Color(0xFFE6E6E6)   // --t3
+val HcT4          = Color(0xFF9A9A9A)   // --t4
+
+val HcInk         = Color(0xFF000000)   // near-black ink
+
+// ── Colourblind-safe palette — blue primary + orange accent (no red/green) ───
+// Mapped from Velvet's :root.cb CSS variables.
+
+val CbBg          = Color(0xFF10131A)   // --bg
+val CbSurface     = Color(0xFF161A24)   // --surface
+val CbRaised      = Color(0xFF1D2230)   // --raised
+val CbCard        = Color(0xFF1B2030)   // --card
+
+val CbBorder      = Color(0xFF2A3140)   // --border
+val CbBorder2     = Color(0xFF3A4458)   // --border2
+
+val CbPrimary       = Color(0xFF3B82F6)   // --primary  blue
+val CbPrimaryHov    = Color(0xFF2F6FE0)   // --primary-h
+val CbPrimaryDark   = Color(0xFF16244A)   // dark container for primary
+val CbPrimaryOnC    = Color(0xFFDCE7FA)   // on primaryContainer
+
+val CbAccent      = Color(0xFFF59E0B)   // --accent  orange
+val CbAccentDark  = Color(0xFF4A3009)   // dark container for accent
+val CbAccentOnC   = Color(0xFFFFEEDA)   // on secondaryContainer
+
+val CbGreen       = Color(0xFF3B82F6)   // --green    intentionally = primary (no red/green)
+val CbGreenDark   = Color(0xFF16244A)   // dark container for green
+val CbGreenOnC    = Color(0xFFDCE7FA)   // on tertiaryContainer
+
+val CbRed         = Color(0xFFF59E0B)   // --red      intentionally = accent
+val CbRedDark     = Color(0xFF4A3009)   // error container
+val CbYellow      = Color(0xFFF59E0B)   // --yellow
+
+val CbT1          = Color(0xFFF3F5F9)   // --t1
+val CbT2          = Color(0xFFAAB4C6)   // --t2
+val CbT3          = Color(0xFFAEB8CA)   // --t3
+val CbT4          = Color(0xFF2A3140)   // --t4
+
+val CbInk         = Color(0xFF0A0F1A)   // near-black ink

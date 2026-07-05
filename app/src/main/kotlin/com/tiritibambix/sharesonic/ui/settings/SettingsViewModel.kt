@@ -29,9 +29,13 @@ class SettingsViewModel(private val repo: SettingsRepository) : ViewModel() {
     val settings: StateFlow<ServerSettings> = repo.settings
         .stateIn(viewModelScope, SharingStarted.Eagerly, ServerSettings())
 
-    /** Selected visual theme — Velvet (default), Dark or Light. */
+    /** Selected visual theme — one of [AppTheme]'s five entries. */
     val appTheme: StateFlow<AppTheme> = repo.appTheme
         .stateIn(viewModelScope, SharingStarted.Eagerly, AppTheme.VELVET)
+
+    /** User-picked accent override as ARGB int; null = current theme's built-in primary. */
+    val accentColor: StateFlow<Int?> = repo.accentColor
+        .stateIn(viewModelScope, SharingStarted.Eagerly, null)
 
     init {
         // On boot, refresh the stored JWT so it stays signed by the current server secret.
@@ -82,6 +86,13 @@ class SettingsViewModel(private val repo: SettingsRepository) : ViewModel() {
     fun setAppTheme(theme: AppTheme) {
         viewModelScope.launch {
             repo.saveAppTheme(theme)
+        }
+    }
+
+    /** Persists (or clears with [argb] = null) the user's accent override. */
+    fun setAccentColor(argb: Int?) {
+        viewModelScope.launch {
+            repo.saveAccentColor(argb)
         }
     }
 

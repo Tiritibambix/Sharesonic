@@ -487,7 +487,9 @@ private fun NowPlayingPage(state: PlayerState, viewModel: PlayerViewModel) {
                 modifier = Modifier
                     .size(68.dp)
                     .shadow(
-                        elevation = 12.dp,
+                        // 12 dp × 1.10 (rounded up) — subtle +10 % boost per user
+                        // ask; matches mStream's shadow feel but a hair stronger.
+                        elevation = 14.dp,
                         shape = CircleShape,
                         ambientColor = MaterialTheme.colorScheme.primary,
                         spotColor = MaterialTheme.colorScheme.primary,
@@ -538,7 +540,8 @@ private fun NowPlayingPage(state: PlayerState, viewModel: PlayerViewModel) {
                                 brush = Brush.verticalGradient(
                                     colors = listOf(
                                         Color.Transparent,
-                                        waveGlow.copy(alpha = 0.22f),
+                                        // 0.22 × 1.10 = 0.242 — +10 % relative bump.
+                                        waveGlow.copy(alpha = 0.242f),
                                         Color.Transparent,
                                     )
                                 ),

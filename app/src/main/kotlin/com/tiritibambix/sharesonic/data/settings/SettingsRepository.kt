@@ -42,6 +42,9 @@ class SettingsRepository(private val context: Context) {
         val VPATHS     = stringPreferencesKey("vpaths")
         /** Selected visual theme — see [AppTheme]. Stored as the enum's [Enum.name]. */
         val APP_THEME  = stringPreferencesKey("app_theme")
+        /** User-picked accent colour override as an ARGB int, or absent to use the
+         *  current theme's built-in primary. */
+        val ACCENT_COLOR = intPreferencesKey("accent_color")
         /** Equalizer on/off. */
         val EQ_ENABLED = booleanPreferencesKey("eq_enabled")
         /** Equalizer band gains in millibels, comma-joined in band order. */
@@ -91,6 +94,16 @@ class SettingsRepository(private val context: Context) {
     suspend fun saveAppTheme(theme: AppTheme) {
         context.dataStore.edit { prefs ->
             prefs[Keys.APP_THEME] = theme.name
+        }
+    }
+
+    /** User-picked accent override; null = use the current theme's built-in primary. */
+    val accentColor: Flow<Int?> = context.dataStore.data.map { it[Keys.ACCENT_COLOR] }
+
+    suspend fun saveAccentColor(argb: Int?) {
+        context.dataStore.edit { prefs ->
+            if (argb == null) prefs.remove(Keys.ACCENT_COLOR)
+            else prefs[Keys.ACCENT_COLOR] = argb
         }
     }
 
