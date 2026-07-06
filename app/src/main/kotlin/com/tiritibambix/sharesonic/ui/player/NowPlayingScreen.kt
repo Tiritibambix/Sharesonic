@@ -627,16 +627,24 @@ private fun NowPlayingPage(state: PlayerState, viewModel: PlayerViewModel) {
                         val waveH = 38.dp.toPx()
                         val centerY = size.height / 2f
                         val playedBars = (head * n).toInt()
-                        val expand = 3.dp.toPx()
-                        val cr = CornerRadius((barWidth + expand) / 2f)
+                        val expandOuter = 6.dp.toPx()
+                        val expandInner = 3.dp.toPx()
+                        val crOuter = CornerRadius((barWidth + expandOuter) / 2f)
+                        val crInner = CornerRadius((barWidth + expandInner) / 2f)
                         for (i in 0 until playedBars.coerceAtMost(n)) {
                             val h = (glowHeights[i] * waveH).coerceAtLeast(barWidth)
                             val x = i * (barWidth + gap)
                             drawRoundRect(
-                                color = waveGlow.copy(alpha = 0.32f),
-                                topLeft = Offset(x - expand / 2, centerY - h / 2 - expand / 2),
-                                size = Size(barWidth + expand, h + expand),
-                                cornerRadius = cr,
+                                color = waveGlow.copy(alpha = 0.18f),
+                                topLeft = Offset(x - expandOuter / 2, centerY - h / 2 - expandOuter / 2),
+                                size = Size(barWidth + expandOuter, h + expandOuter),
+                                cornerRadius = crOuter,
+                            )
+                            drawRoundRect(
+                                color = waveGlow.copy(alpha = 0.50f),
+                                topLeft = Offset(x - expandInner / 2, centerY - h / 2 - expandInner / 2),
+                                size = Size(barWidth + expandInner, h + expandInner),
+                                cornerRadius = crInner,
                             )
                         }
                     }
