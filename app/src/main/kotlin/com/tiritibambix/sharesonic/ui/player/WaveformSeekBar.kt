@@ -40,7 +40,7 @@ fun WaveformSeekBar(
     modifier: Modifier = Modifier,
     playedColor: Color,
     trackColor: Color,
-    barCount: Int = 56,
+    barCount: Int = 112,
     onScrub: ((Float?) -> Unit)? = null
 ) {
     // Deterministic bar heights (0.18..1.0 of the available height), stable per track.

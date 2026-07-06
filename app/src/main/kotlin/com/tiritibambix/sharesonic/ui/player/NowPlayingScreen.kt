@@ -612,7 +612,7 @@ private fun NowPlayingPage(state: PlayerState, viewModel: PlayerViewModel) {
                     .padding(horizontal = 28.dp)
             ) {
                 val waveGlow = MaterialTheme.colorScheme.primary
-                val glowBarCount = 56
+                val glowBarCount = 112
                 val glowHeights = remember(state.currentSong!!.id, glowBarCount) {
                     val rng = Random(state.currentSong!!.id.hashCode())
                     FloatArray(glowBarCount) { 0.18f + rng.nextFloat() * 0.82f }
@@ -621,7 +621,7 @@ private fun NowPlayingPage(state: PlayerState, viewModel: PlayerViewModel) {
                     Canvas(
                         modifier = Modifier
                             .fillMaxSize()
-                            .blur(6.dp)
+                            .blur(8.dp)
                     ) {
                         val head = (scrubFraction ?: fraction).coerceIn(0f, 1f)
                         if (head <= 0f) return@Canvas
@@ -636,7 +636,7 @@ private fun NowPlayingPage(state: PlayerState, viewModel: PlayerViewModel) {
                             val h = (glowHeights[i] * waveH).coerceAtLeast(barWidth)
                             val x = i * (barWidth + gap)
                             drawRoundRect(
-                                color = waveGlow.copy(alpha = 0.70f),
+                                color = waveGlow.copy(alpha = 0.85f),
                                 topLeft = Offset(x, centerY - h / 2),
                                 size = Size(barWidth, h),
                                 cornerRadius = cr,
