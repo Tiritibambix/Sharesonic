@@ -41,6 +41,7 @@ import coil.compose.AsyncImage
 import com.tiritibambix.sharesonic.ui.share.ShareExpiryDialog
 import com.tiritibambix.sharesonic.ui.theme.textSecondary
 import com.tiritibambix.sharesonic.utils.LocalIsTV
+import kotlin.random.Random
 import kotlinx.coroutines.launch
 
 private const val PAGE_NOW_PLAYING = 0
@@ -609,29 +610,34 @@ private fun NowPlayingPage(state: PlayerState, viewModel: PlayerViewModel) {
                     .fillMaxWidth()
                     .padding(horizontal = 28.dp)
             ) {
-                // Accent halo behind the played portion of the seek bar. The
-                // glow renders in a 78 dp wrapper as a SIBLING Canvas — same
-                // layer, painted first (behind), with no pointer handling — so
-                // the WaveformSeekBar's own Canvas keeps ownership of the seek
-                // gestures. The vertical taper (transparent → primary alpha →
-                // transparent) has room to bloom past the seek bar's own 38 dp
-                // strip, making the halo actually readable.
                 val waveGlow = MaterialTheme.colorScheme.primary
-                Box(modifier = Modifier.fillMaxWidth().height(54.dp)) {
+                val glowBarCount = 56
+                val glowHeights = remember(state.currentSong!!.id, glowBarCount) {
+                    val rng = Random(state.currentSong!!.id.hashCode())
+                    FloatArray(glowBarCount) { 0.18f + rng.nextFloat() * 0.82f }
+                }
+                Box(modifier = Modifier.fillMaxWidth().height(46.dp)) {
                     Canvas(modifier = Modifier.fillMaxSize()) {
                         val head = (scrubFraction ?: fraction).coerceIn(0f, 1f)
                         if (head <= 0f) return@Canvas
-                        drawRect(
-                            brush = Brush.verticalGradient(
-                                colors = listOf(
-                                    Color.Transparent,
-                                    waveGlow.copy(alpha = 0.55f),
-                                    Color.Transparent,
-                                )
-                            ),
-                            topLeft = Offset(0f, 0f),
-                            size = Size(size.width * head, size.height),
-                        )
+                        val n = glowHeights.size
+                        val gap = 3f
+                        val barWidth = ((size.width - gap * (n - 1)) / n).coerceAtLeast(1f)
+                        val waveH = 38.dp.toPx()
+                        val centerY = size.height / 2f
+                        val playedBars = (head * n).toInt()
+                        val expand = 3.dp.toPx()
+                        val cr = CornerRadius((barWidth + expand) / 2f)
+                        for (i in 0 until playedBars.coerceAtMost(n)) {
+                            val h = (glowHeights[i] * waveH).coerceAtLeast(barWidth)
+                            val x = i * (barWidth + gap)
+                            drawRoundRect(
+                                color = waveGlow.copy(alpha = 0.32f),
+                                topLeft = Offset(x - expand / 2, centerY - h / 2 - expand / 2),
+                                size = Size(barWidth + expand, h + expand),
+                                cornerRadius = cr,
+                            )
+                        }
                     }
                     WaveformSeekBar(
                         fraction = fraction,
