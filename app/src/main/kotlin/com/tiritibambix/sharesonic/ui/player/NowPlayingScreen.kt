@@ -100,12 +100,13 @@ fun NowPlayingScreen(
     Box(modifier = Modifier.fillMaxSize()) {
     Scaffold(
         modifier = Modifier.blur(contentBlur),
+        containerColor = Color.Transparent,
         topBar = {
             TopAppBar(
                 expandedHeight = 40.dp,
                 colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = Color.Transparent,
-                    scrolledContainerColor = Color.Transparent,
+                    containerColor = MaterialTheme.colorScheme.surface.copy(alpha = 0.35f),
+                    scrolledContainerColor = MaterialTheme.colorScheme.surface.copy(alpha = 0.5f),
                 ),
                 title = {
                     if (isTV) {
@@ -255,6 +256,7 @@ fun NowPlayingScreen(
             )
         }
     ) { padding ->
+        val topPadding = padding.calculateTopPadding()
         if (state.currentSong == null) {
             Box(modifier = Modifier.padding(padding).fillMaxSize()) {
                 Text(
@@ -268,17 +270,16 @@ fun NowPlayingScreen(
 
         HorizontalPager(
             state = pagerState,
-            modifier = Modifier
-                .padding(padding)
-                .fillMaxSize()
+            modifier = Modifier.fillMaxSize()
         ) { page ->
             when (page) {
                 PAGE_NOW_PLAYING -> NowPlayingPage(
                     state = state,
                     viewModel = viewModel,
-                    onCoverTap = { showCoverZoom = true }
+                    onCoverTap = { showCoverZoom = true },
+                    topPadding = topPadding,
                 )
-                PAGE_QUEUE       -> QueuePage(state, viewModel, isTV)
+                PAGE_QUEUE       -> QueuePage(state, viewModel, isTV, topPadding = topPadding)
             }
         }
     }
@@ -396,7 +397,8 @@ fun NowPlayingScreen(
 private fun NowPlayingPage(
     state: PlayerState,
     viewModel: PlayerViewModel,
-    onCoverTap: () -> Unit
+    onCoverTap: () -> Unit,
+    topPadding: androidx.compose.ui.unit.Dp = 0.dp,
 ) {
     var showPlaylistPicker by remember { mutableStateOf(false) }
     var showShareExpiryDialog by remember { mutableStateOf(false) }
@@ -446,6 +448,7 @@ private fun NowPlayingPage(
         Column(
             modifier = Modifier
                 .fillMaxSize()
+                .padding(top = topPadding)
                 .navigationBarsPadding(),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
@@ -996,7 +999,7 @@ private fun CoverZoomOverlay(url: String, onDismiss: () -> Unit) {
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-private fun QueuePage(state: PlayerState, viewModel: PlayerViewModel, isTV: Boolean) {
+private fun QueuePage(state: PlayerState, viewModel: PlayerViewModel, isTV: Boolean, topPadding: androidx.compose.ui.unit.Dp = 0.dp) {
     if (state.queue.isEmpty()) {
         Box(modifier = Modifier.fillMaxSize()) {
             Text(
@@ -1015,7 +1018,8 @@ private fun QueuePage(state: PlayerState, viewModel: PlayerViewModel, isTV: Bool
 
     LazyColumn(
         state = listState,
-        modifier = Modifier.fillMaxSize()
+        modifier = Modifier.fillMaxSize(),
+        contentPadding = androidx.compose.foundation.layout.PaddingValues(top = topPadding),
     ) {
         itemsIndexed(state.queue, key = { _, song -> song.id }) { index, song ->
             val isCurrent = index == state.queueIndex
