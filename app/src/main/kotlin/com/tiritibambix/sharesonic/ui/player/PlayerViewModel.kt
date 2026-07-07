@@ -853,10 +853,11 @@ class PlayerViewModel(
 /** Returns true if this string is a Velvet Subsonic numeric track ID (bare integer). */
 private fun String.isSubsonicNumericId(): Boolean = isNotBlank() && all { it.isDigit() }
 
-class PlayerViewModelFactory(private val context: Context) : ViewModelProvider.Factory {
-    private val settingsRepo = SettingsRepository(context)
+class PlayerViewModelFactory(context: Context) : ViewModelProvider.Factory {
+    private val appContext = context.applicationContext
+    private val settingsRepo = SettingsRepository(appContext)
     override fun <T : ViewModel> create(modelClass: Class<T>): T {
         @Suppress("UNCHECKED_CAST")
-        return PlayerViewModel(context, settingsRepo) as T
+        return PlayerViewModel(appContext, settingsRepo) as T
     }
 }
