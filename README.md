@@ -56,7 +56,7 @@ Sharesonic is built for the other scenario: the large, chaotic, lovingly disorga
 | **Lyrics** | Fetch and display lyrics for the current track from the Now Playing "More" sheet (synced or plain, whichever the server has). Loading / found / "none" / error states handled |
 | **Equalizer** | Native Android per-band equalizer reachable from the drawer or Settings: on/off switch, per-band gain sliders, "reset to flat" |
 | **Add to queue** | Swipe left on any track in the browser |
-| **Add to playlist** | Swipe right on a track in the browser, or tap "Playlist" in Now Playing |
+| **Add to playlist** | Swipe right on a track in the browser, or tap "Playlist" in Now Playing. The frosted-glass picker lets you create a new playlist inline (name it and add in one step) or pick an existing one |
 | **Playlist management** | Create, rename, delete playlists; add/remove tracks; play all or shuffle |
 | **Search** | Pill-shaped, Material You search bar with full-text search grouped into Folders, Artists, Albums and Songs. Tapping a folder navigates straight to it; tapping an artist opens a list of that artist's tracks (featuring/variant spellings included) |
 | **Scrobbling** | Playback reported to Velvet, forwarded to Last.fm + ListenBrainz (no API keys needed). Requires **"Scrobble from External Apps"** to be enabled in Velvet's server settings; otherwise Velvet silently ignores the scrobble calls |
