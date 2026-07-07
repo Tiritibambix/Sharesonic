@@ -4,16 +4,12 @@ import androidx.activity.compose.BackHandler
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.AnimationVector1D
 import androidx.compose.animation.core.tween
-import androidx.compose.foundation.background
 import androidx.compose.foundation.gestures.detectVerticalDragGestures
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
-import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.MaterialTheme
@@ -142,28 +138,11 @@ fun PlayerPanel(
             color = MaterialTheme.colorScheme.surface,
             shadowElevation = 12.dp,
         ) {
-            Column(modifier = Modifier.fillMaxSize()) {
-                // Grab handle — 36×4 dp pill, mStream's exact affordance.
-                Box(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(top = 8.dp, bottom = 4.dp),
-                    contentAlignment = Alignment.Center,
-                ) {
-                    Box(
-                        modifier = Modifier
-                            .width(36.dp)
-                            .height(4.dp)
-                            .clip(RoundedCornerShape(4.dp))
-                            .background(MaterialTheme.colorScheme.onSurface.copy(alpha = 0.28f))
-                    )
-                }
-                NowPlayingScreen(
-                    viewModel = viewModel,
-                    onBack = { state.collapse() },
-                    onShareCreated = onShareCreated,
-                )
-            }
+            NowPlayingScreen(
+                viewModel = viewModel,
+                onBack = { state.collapse() },
+                onShareCreated = onShareCreated,
+            )
         }
 
         // ── Collapsed mini bar: pinned to the bottom edge, fades out by t=0.4.
