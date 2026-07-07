@@ -18,7 +18,11 @@ data class ServerSettings(
     val jwtToken: String = ""
 ) {
     val isConfigured: Boolean
-        get() = serverUrl.isNotBlank() && username.isNotBlank() && password.isNotBlank()
+        get() = username.isNotBlank() && password.isNotBlank() &&
+                serverUrl.trim().let { url ->
+                    (url.startsWith("http://") || url.startsWith("https://")) &&
+                    url.removePrefix("https://").removePrefix("http://").isNotBlank()
+                }
 }
 
 /**

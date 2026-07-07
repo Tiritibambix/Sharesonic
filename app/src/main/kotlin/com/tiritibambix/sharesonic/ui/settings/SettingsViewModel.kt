@@ -117,7 +117,12 @@ class SettingsViewModel(private val repo: SettingsRepository) : ViewModel() {
     fun testConnection(serverUrl: String, username: String, password: String) {
         _connectionState.update { ConnectionState.Testing }
         viewModelScope.launch {
-            val api  = VelvetClient.build(serverUrl.trim())
+            val api = try {
+                VelvetClient.build(serverUrl.trim())
+            } catch (e: IllegalArgumentException) {
+                _connectionState.update { ConnectionState.Failure("Invalid URL — must start with http:// or https://") }
+                return@launch
+            }
             val mstr = VelvetRepository(api)
             when (val result = mstr.loginFull(username.trim(), password)) {
                 is Result.Success -> {

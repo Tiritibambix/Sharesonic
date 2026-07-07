@@ -303,13 +303,16 @@ class FolderBrowserViewModel(
      */
     private suspend fun ensureToken(settings: ServerSettings): String? {
         if (settings.jwtToken.isNotEmpty()) return settings.jwtToken
-        val velvet = VelvetRepository(VelvetClient.build(settings.serverUrl))
-        val result = velvet.login(settings.username, settings.password)
-        if (result is Result.Success) {
-            settingsRepo.saveToken(result.data)
-            return result.data
+        return try {
+            val velvet = VelvetRepository(VelvetClient.build(settings.serverUrl))
+            val result = velvet.login(settings.username, settings.password)
+            if (result is Result.Success) {
+                settingsRepo.saveToken(result.data)
+                result.data
+            } else null
+        } catch (e: IllegalArgumentException) {
+            null
         }
-        return null
     }
 }
 
