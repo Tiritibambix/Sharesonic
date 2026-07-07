@@ -100,14 +100,12 @@ fun NowPlayingScreen(
     Box(modifier = Modifier.fillMaxSize()) {
     Scaffold(
         modifier = Modifier.blur(contentBlur),
-        containerColor = Color.Transparent,
-        contentWindowInsets = WindowInsets(0),
         topBar = {
             TopAppBar(
                 expandedHeight = 48.dp,
                 colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = Color.Transparent,
-                    scrolledContainerColor = Color.Transparent,
+                    containerColor = MaterialTheme.colorScheme.surface.copy(alpha = 0.85f),
+                    scrolledContainerColor = MaterialTheme.colorScheme.surface.copy(alpha = 0.95f),
                 ),
                 title = {
                     if (isTV) {
@@ -255,7 +253,7 @@ fun NowPlayingScreen(
         }
     ) { padding ->
         if (state.currentSong == null) {
-            Box(modifier = Modifier.fillMaxSize().statusBarsPadding().padding(top = 48.dp)) {
+            Box(modifier = Modifier.padding(padding).fillMaxSize()) {
                 Text(
                     stringResource(R.string.player_nothing_playing),
                     modifier = Modifier.align(Alignment.Center),
@@ -267,7 +265,9 @@ fun NowPlayingScreen(
 
         HorizontalPager(
             state = pagerState,
-            modifier = Modifier.fillMaxSize()
+            modifier = Modifier
+                .padding(padding)
+                .fillMaxSize()
         ) { page ->
             when (page) {
                 PAGE_NOW_PLAYING -> NowPlayingPage(
@@ -443,8 +443,6 @@ private fun NowPlayingPage(
         Column(
             modifier = Modifier
                 .fillMaxSize()
-                .statusBarsPadding()
-                .padding(top = 48.dp)
                 .navigationBarsPadding(),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
@@ -996,14 +994,8 @@ private fun CoverZoomOverlay(url: String, onDismiss: () -> Unit) {
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun QueuePage(state: PlayerState, viewModel: PlayerViewModel, isTV: Boolean) {
-    val topPadding = Modifier
-        .fillMaxSize()
-        .statusBarsPadding()
-        .padding(top = 48.dp)
-        .navigationBarsPadding()
-
     if (state.queue.isEmpty()) {
-        Box(modifier = topPadding) {
+        Box(modifier = Modifier.fillMaxSize()) {
             Text(
                 stringResource(R.string.queue_empty),
                 modifier = Modifier.align(Alignment.Center),
@@ -1018,7 +1010,6 @@ private fun QueuePage(state: PlayerState, viewModel: PlayerViewModel, isTV: Bool
         listState.animateScrollToItem(state.queueIndex)
     }
 
-    Box(modifier = topPadding) {
     LazyColumn(
         state = listState,
         modifier = Modifier.fillMaxSize()
@@ -1072,7 +1063,6 @@ private fun QueuePage(state: PlayerState, viewModel: PlayerViewModel, isTV: Bool
             HorizontalDivider(thickness = 0.5.dp)
         }
     }
-    } // Box(topPadding)
 }
 
 @Composable
