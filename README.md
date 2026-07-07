@@ -44,7 +44,7 @@ Sharesonic is built for the other scenario: the large, chaotic, lovingly disorga
 | **Folder browsing** | Navigate your full directory tree from root to individual tracks |
 | **Shuffle library** | Server-side random pick via native Velvet API, 30 tracks, no repeats |
 | **Shuffle folder** | Shuffle every track under any sub-directory. Gathered server-side (recursive scan + batch metadata) so it scales to huge folders; very large folders (100k+ tracks) are randomly sampled down to 5000 |
-| **Auto-DJ** | Continuous smart queue: BPM continuity, harmonic mixing (Camelot wheel), similar artists, artist cooldown, genre filter, crossfade. Toggle the headphones icon in the mini player or Now Playing |
+| **Auto-DJ** | Continuous smart queue: BPM continuity, harmonic mixing (Camelot wheel), similar artists, artist cooldown, genre filter, keyword filter (skip songs whose title / artist / album / filename contains any of these words), crossfade. Toggle the headphones icon in the mini player or Now Playing |
 | **Share link on track** | Native Velvet share API → public `server/shared/XXXXXXXXXX` URL → Android share sheet |
 | **Share link on folder** | Long-press any folder → recursively collects every track inside it (including subfolders) and generates a single public link for the whole folder |
 | **Share queue** | Generate one public link for the *entire current queue* in a single tap, straight from the queue view |
@@ -60,6 +60,7 @@ Sharesonic is built for the other scenario: the large, chaotic, lovingly disorga
 | **Playlist management** | Create, rename, delete playlists; add/remove tracks; play all or shuffle |
 | **Search** | Pill-shaped, Material You search bar with full-text search grouped into Folders, Artists, Albums and Songs. Tapping a folder navigates straight to it; tapping an artist opens a list of that artist's tracks (featuring/variant spellings included) |
 | **Scrobbling** | Playback reported to Velvet, forwarded to Last.fm + ListenBrainz (no API keys needed). Requires **"Scrobble from External Apps"** to be enabled in Velvet's server settings; otherwise Velvet silently ignores the scrobble calls |
+| **Language** | 12-language UI (English, Nederlands, Deutsch, Français, Español, Italiano, Português, Polski, Русский, 中文, 日本語, 한국어) plus "System default". Pick from the drawer or Settings hub; the app relaunches instantly in the chosen language |
 | **Crash reporter** | If the app ever crashes, the full stack trace is shown in a copyable dialog on the next launch. No adb needed to diagnose |
 
 ---

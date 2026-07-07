@@ -16,7 +16,8 @@ The goal is an app that does a handful of things well:
 * Sleep timer (pause after a chosen duration)
 * Lyrics viewer for the current track
 * Native Android per-band equalizer
-* Hamburger navigation drawer (Server, Auto-DJ, Equalizer, Themes, Public Links) reachable from anywhere, with Search and Playlists always pinned in the top bar
+* Hamburger navigation drawer (Server, Auto-DJ, Equalizer, Themes, Language, Public Links) reachable from anywhere, with Search and Playlists always pinned in the top bar
+* 12-language UI (en, nl, de, fr, es, it, pt, pl, ru, zh, ja, ko) with an in-app picker + a "System default" row
 
 ## Core Requirements
 
@@ -28,7 +29,8 @@ The goal is an app that does a handful of things well:
 * Share link generation: tap a track → generate a `server/shared/XXXXXXXXXX` public URL via the Velvet native share API → Android share sheet opens with that URL ready to send
 * Share queue: from the queue view, generate a single public link covering every track currently queued (same native share endpoint, fed the queue's filepaths); Subsonic-search-origin tracks are skipped since they aren't shareable through it
 * Star ratings: rate the current track 0–5 stars from Now Playing (synced to Velvet's native 0–10 half-star scale); tapping the active star — or an explicit always-visible clear button — resets it back to "unrated", mirroring the Auto-DJ "minimum rating" picker's affordance
-* Settings reachable via a hamburger navigation drawer containing **Server**, **Auto-DJ**, **Equalizer**, **Themes** and **Public Links**; the hamburger glyph stays in the top-left of every drawer destination so users can tap back out; Search and Playlists icons remain pinned top-right in the Folder Browser at all times
+* Settings reachable via a hamburger navigation drawer containing **Server**, **Auto-DJ**, **Equalizer**, **Themes**, **Language** and **Public Links**; the hamburger glyph stays in the top-left of every drawer destination so users can tap back out; Search and Playlists icons remain pinned top-right in the Folder Browser at all times
+* Language picker (drawer + Settings hub) covering 12 UI languages (matches Velvet's set: en/nl/de/fr/es/it/pt/pl/ru/zh/ja/ko) plus "System default" — the selected BCP-47 tag is persisted in DataStore and applied by `MainActivity.attachBaseContext` (Configuration.setLocale + createConfigurationContext) so every `stringResource` resolves through the wrapped context; changing the language triggers `activity.recreate()`. Playback (PlaybackService) is unaffected — its media notification follows the system locale as expected. Auto-DJ, ViewModel/data-layer error messages and other strings outside `@Composable` context are still English (a known follow-up)
 * Sleep timer, lyrics and full track-info dialog reachable from the Now Playing "⋮ More" bottom sheet
 * Equalizer: native Android per-band effect attached to the ExoPlayer audio session, with persistent on/off + per-band gains
 * In-app crash reporter: any uncaught exception is logged and shown in a copyable dialog on the next launch — no adb needed to diagnose crashes
