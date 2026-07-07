@@ -1,10 +1,14 @@
 package com.tiritibambix.sharesonic.ui.player
 
+import androidx.activity.compose.BackHandler
 import androidx.compose.animation.Crossfade
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
+import androidx.compose.foundation.gestures.detectTapGestures
+import androidx.compose.foundation.gestures.rememberTransformableState
+import androidx.compose.foundation.gestures.transformable
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.clickable
@@ -34,9 +38,13 @@ import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.dp
 import coil.compose.AsyncImage
 import com.tiritibambix.sharesonic.ui.share.ShareExpiryDialog
@@ -64,6 +72,10 @@ fun NowPlayingScreen(
     var showMoreSheet by remember { mutableStateOf(false) }
     var showSleepSheet by remember { mutableStateOf(false) }
     var showLyricsSheet by remember { mutableStateOf(false) }
+    // Full-screen zoomable cover viewer, opened by tapping the artwork on the
+    // Now Playing page. Shares the same frosted-glass backdrop as the track-info
+    // dialog (blur + black scrim), so the two overlays feel visually related.
+    var showCoverZoom by remember { mutableStateOf(false) }
 
     LaunchedEffect(state.shareUrl) {
         state.shareUrl?.let { url ->
@@ -78,7 +90,7 @@ fun NowPlayingScreen(
     // OVER this blurred layer as a solid theme-coloured surface — so what looks
     // frosted is the *background*, not the modal.
     val contentBlur by androidx.compose.animation.core.animateDpAsState(
-        targetValue = if (showFileInfoDialog) 18.dp else 0.dp,
+        targetValue = if (showFileInfoDialog || showCoverZoom) 18.dp else 0.dp,
         animationSpec = androidx.compose.animation.core.tween(200),
         label = "info-blur",
     )
@@ -249,7 +261,11 @@ fun NowPlayingScreen(
                 .fillMaxSize()
         ) { page ->
             when (page) {
-                PAGE_NOW_PLAYING -> NowPlayingPage(state, viewModel)
+                PAGE_NOW_PLAYING -> NowPlayingPage(
+                    state = state,
+                    viewModel = viewModel,
+                    onCoverTap = { showCoverZoom = true }
+                )
                 PAGE_QUEUE       -> QueuePage(state, viewModel, isTV)
             }
         }
@@ -306,6 +322,16 @@ fun NowPlayingScreen(
             }
         }
     }
+
+    // ── Full-screen zoomable cover viewer — sits over the same blurred
+    // Scaffold as the track-info card, with the same scrim, so the two
+    // overlays feel like the same visual family. ──
+    if (showCoverZoom && state.coverArtUrl != null) {
+        CoverZoomOverlay(
+            url = state.coverArtUrl!!,
+            onDismiss = { showCoverZoom = false }
+        )
+    }
     } // outer Box wrapping the Scaffold + blur + overlay
 
     // ── More actions sheet (sleep timer + lyrics + track info) ──
@@ -355,7 +381,11 @@ fun NowPlayingScreen(
 // ── Page 0: Now Playing ───────────────────────────────────────────────────────
 
 @Composable
-private fun NowPlayingPage(state: PlayerState, viewModel: PlayerViewModel) {
+private fun NowPlayingPage(
+    state: PlayerState,
+    viewModel: PlayerViewModel,
+    onCoverTap: () -> Unit
+) {
     var showPlaylistPicker by remember { mutableStateOf(false) }
     var showShareExpiryDialog by remember { mutableStateOf(false) }
     val playlists by viewModel.playlists.collectAsState()
@@ -428,6 +458,16 @@ private fun NowPlayingPage(state: PlayerState, viewModel: PlayerViewModel) {
                     modifier = Modifier
                         .size(side)
                         .clip(RoundedCornerShape(12.dp))
+                        // Tap → full-screen zoomable viewer (only meaningful when
+                        // artwork exists). indication = null keeps it silent over
+                        // the album art. clickable doesn't consume drag events, so
+                        // the HorizontalPager swipe to the Queue page still works.
+                        .clickable(
+                            interactionSource = remember { androidx.compose.foundation.interaction.MutableInteractionSource() },
+                            indication = null,
+                            enabled = state.coverArtUrl != null,
+                            onClick = onCoverTap
+                        )
                 ) {
                     if (state.coverArtUrl != null) {
                         AsyncImage(
@@ -852,6 +892,88 @@ private fun RatingStars(
                 modifier = Modifier.size(18.dp)
             )
         }
+    }
+}
+
+// ── Full-screen cover viewer ──────────────────────────────────────────────────
+
+/**
+ * Fullscreen zoomable album art. Pinch to zoom (1×–5×), pan to move; single tap
+ * at rest dismisses, double-tap toggles between 1× and 2.5× centered on the tap
+ * point. System Back closes the overlay without collapsing the [PlayerPanel]
+ * (this BackHandler is composed on top of PlayerPanel's, so Compose dispatches
+ * to this one while the overlay is visible).
+ *
+ * The `scale`/`offset` state is `remember`ed inside this composable, so it
+ * leaves the composition on dismiss and comes back fresh on the next open.
+ */
+@Composable
+private fun CoverZoomOverlay(url: String, onDismiss: () -> Unit) {
+    var scale by remember { mutableFloatStateOf(1f) }
+    var offset by remember { mutableStateOf(Offset.Zero) }
+    var containerSize by remember { mutableStateOf(IntSize.Zero) }
+
+    // Clamp offset to the scaled overflow: at scale 1 the pan budget is 0, so
+    // the image is pinned centered — a stray one-finger drag on `transformable`
+    // becomes a visual no-op instead of flying the image off-screen.
+    fun clampOffset(o: Offset, s: Float): Offset {
+        val maxX = containerSize.width * (s - 1f) / 2f
+        val maxY = containerSize.height * (s - 1f) / 2f
+        return Offset(o.x.coerceIn(-maxX, maxX), o.y.coerceIn(-maxY, maxY))
+    }
+
+    val transformState = rememberTransformableState { zoom, pan, _ ->
+        val newScale = (scale * zoom).coerceIn(1f, 5f)
+        offset = clampOffset(offset + pan, newScale)
+        scale = newScale
+    }
+
+    BackHandler { onDismiss() }
+
+    Box(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(Color.Black.copy(alpha = 0.32f))
+            .onSizeChanged { containerSize = it }
+            // Tap detector goes BEFORE .transformable so motionless taps aren't
+            // eaten by the pinch/pan gesture recognizer. `onDoubleTap` costs a
+            // ~300 ms delay on single-tap dismiss — acceptable, matches every
+            // standard photo viewer.
+            .pointerInput(Unit) {
+                detectTapGestures(
+                    onTap = { if (scale <= 1.01f) onDismiss() },
+                    onDoubleTap = { tap ->
+                        if (scale > 1f) {
+                            scale = 1f
+                            offset = Offset.Zero
+                        } else {
+                            val target = 2.5f
+                            val center = Offset(
+                                containerSize.width / 2f,
+                                containerSize.height / 2f
+                            )
+                            offset = clampOffset((center - tap) * (target - 1f), target)
+                            scale = target
+                        }
+                    }
+                )
+            }
+            .transformable(transformState),
+        contentAlignment = Alignment.Center,
+    ) {
+        AsyncImage(
+            model = url,
+            contentDescription = "Album art",
+            contentScale = ContentScale.Fit,
+            modifier = Modifier
+                .fillMaxSize()
+                .graphicsLayer {
+                    scaleX = scale
+                    scaleY = scale
+                    translationX = offset.x
+                    translationY = offset.y
+                }
+        )
     }
 }
 

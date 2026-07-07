@@ -35,7 +35,9 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
+import com.tiritibambix.sharesonic.R
 import com.tiritibambix.sharesonic.data.settings.AppTheme
 import com.tiritibambix.sharesonic.ui.theme.CbBg
 import com.tiritibambix.sharesonic.ui.theme.CbPrimary
@@ -69,10 +71,10 @@ fun ThemeSettingsScreen(
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("Theme") },
+                title = { Text(stringResource(R.string.theme_title)) },
                 navigationIcon = {
                     IconButton(onClick = onBack) {
-                        Icon(Icons.Default.Menu, contentDescription = "Menu")
+                        Icon(Icons.Default.Menu, contentDescription = stringResource(R.string.common_menu))
                     }
                 }
             )
@@ -87,7 +89,7 @@ fun ThemeSettingsScreen(
             verticalArrangement = Arrangement.spacedBy(10.dp)
         ) {
             Text(
-                "Velvet est le thème par défaut. Les 5 palettes proviennent de Velvet.",
+                stringResource(R.string.theme_intro),
                 color = MaterialTheme.colorScheme.textSecondary,
                 style = MaterialTheme.typography.bodyMedium
             )
@@ -120,22 +122,22 @@ fun ThemeSettingsScreen(
 
 private data class ThemeSpec(
     val theme: AppTheme,
-    val label: String,
-    val description: String,
+    val labelRes: Int,
+    val descriptionRes: Int,
     val bg: Color,
     val primary: Color,
 )
 
 private val Themes = listOf(
-    ThemeSpec(AppTheme.VELVET,          "Velvet",             "Navy background, purple accent.",
+    ThemeSpec(AppTheme.VELVET,          R.string.theme_velvet, R.string.theme_velvet_desc,
         bg = VelvetBg, primary = VelvetPrimary),
-    ThemeSpec(AppTheme.DARK,            "Dark",               "True near-black, light purple accent.",
+    ThemeSpec(AppTheme.DARK,            R.string.theme_dark,   R.string.theme_dark_desc,
         bg = DarkBg,   primary = DarkPrimary),
-    ThemeSpec(AppTheme.LIGHT,           "Light",              "Soft lavender-gray, deep purple accent.",
+    ThemeSpec(AppTheme.LIGHT,           R.string.theme_light,  R.string.theme_light_desc,
         bg = LightBg,  primary = LightPrimary),
-    ThemeSpec(AppTheme.HIGH_CONTRAST,   "High-Contrast (AAA)","Pure black/white with yellow accent.",
+    ThemeSpec(AppTheme.HIGH_CONTRAST,   R.string.theme_hc,     R.string.theme_hc_desc,
         bg = HcBg,     primary = HcPrimary),
-    ThemeSpec(AppTheme.COLORBLIND_SAFE, "Colourblind-safe",   "Blue + orange, no red/green reliance.",
+    ThemeSpec(AppTheme.COLORBLIND_SAFE, R.string.theme_cb,     R.string.theme_cb_desc,
         bg = CbBg,     primary = CbPrimary),
 )
 
@@ -184,9 +186,9 @@ private fun ThemeRow(spec: ThemeSpec, selected: Boolean, onSelect: () -> Unit) {
             Column(modifier = Modifier
                 .weight(1f)
                 .padding(start = 16.dp)) {
-                Text(spec.label, style = MaterialTheme.typography.bodyLarge)
+                Text(stringResource(spec.labelRes), style = MaterialTheme.typography.bodyLarge)
                 Text(
-                    spec.description,
+                    stringResource(spec.descriptionRes),
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.textSecondary,
                 )
@@ -211,9 +213,9 @@ private fun AccentRow(current: Color, onTap: () -> Unit) {
             verticalAlignment = Alignment.CenterVertically,
         ) {
             Column(modifier = Modifier.weight(1f)) {
-                Text("Accent color", style = MaterialTheme.typography.bodyLarge)
+                Text(stringResource(R.string.theme_accent), style = MaterialTheme.typography.bodyLarge)
                 Text(
-                    "Override the theme's primary. Presets + HSV picker.",
+                    stringResource(R.string.theme_accent_desc),
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.textSecondary,
                 )

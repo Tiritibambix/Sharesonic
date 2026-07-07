@@ -30,6 +30,7 @@ import com.tiritibambix.sharesonic.data.settings.AutoDjSettings
 import com.tiritibambix.sharesonic.data.settings.ServerSettings
 import com.tiritibambix.sharesonic.data.settings.SettingsRepository
 import com.tiritibambix.sharesonic.utils.CamelotWheel
+import com.tiritibambix.sharesonic.utils.KeywordFilter
 import com.tiritibambix.sharesonic.playback.PlaybackService
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.async
@@ -519,27 +520,54 @@ class PlayerViewModel(
                 minRating           = minRating
             )
 
-            when (val r = velvet.fetchAutoDjSong(token, primaryRequest)) {
-                is Result.Success -> {
-                    autoDjIgnoreList = r.data.second
-                    addToQueue(r.data.first)
-                    return@launch
+            // Client-side Keyword Filter — Velvet has no equivalent server field,
+            // so blocked songs are filtered by re-fetching. Each attempt advances
+            // autoDjIgnoreList from the response BEFORE the keyword check, so the
+            // server never returns the same blocked song twice; a pathological
+            // filter word ("a") caps at MAX_KEYWORD_ATTEMPTS and gives up silently
+            // (Auto-DJ retries on the next track transition — same contract as
+            // before). Filter off ⇒ single attempt, byte-identical to old behavior.
+            suspend fun fetchOnce(): EntryDto? {
+                when (val r = velvet.fetchAutoDjSong(
+                    token,
+                    primaryRequest.copy(ignoreList = autoDjIgnoreList)
+                )) {
+                    is Result.Success -> {
+                        autoDjIgnoreList = r.data.second
+                        return r.data.first
+                    }
+                    is Result.Error -> Unit   // fall through to fallback
                 }
-                is Result.Error -> Unit   // fall through to fallback
+                return when (val fallback = velvet.fetchAutoDjSong(
+                    token,
+                    VelvetRandomSongsRequest(ignoreList = autoDjIgnoreList, ignoreVPaths = ignoreVPaths)
+                )) {
+                    is Result.Success -> {
+                        autoDjIgnoreList = fallback.data.second
+                        fallback.data.first
+                    }
+                    is Result.Error -> null
+                }
             }
 
-            // Fallback: plain random (no constraints except ignoreList + source filter)
-            when (val fallback = velvet.fetchAutoDjSong(
-                token,
-                VelvetRandomSongsRequest(ignoreList = autoDjIgnoreList, ignoreVPaths = ignoreVPaths)
-            )) {
-                is Result.Success -> {
-                    autoDjIgnoreList = fallback.data.second
-                    addToQueue(fallback.data.first)
+            val filterWords = autoDjSettings.keywordFilterWords
+            val filterOn = autoDjSettings.keywordFilterEnabled && filterWords.isNotEmpty()
+
+            repeat(MAX_KEYWORD_ATTEMPTS) {
+                val song = fetchOnce() ?: return@launch
+                if (!filterOn || !KeywordFilter.isBlocked(song, filterWords)) {
+                    addToQueue(song)
+                    return@launch
                 }
-                is Result.Error -> Unit   // silently give up — will retry on next transition
+                // Blocked — ignoreList already advanced; loop refetches a different song.
             }
+            // MAX_KEYWORD_ATTEMPTS consecutive blocks: give up this cycle silently.
         }
+    }
+
+    private companion object {
+        /** Cap Keyword Filter refetch attempts so a too-broad word can't loop forever. */
+        const val MAX_KEYWORD_ATTEMPTS = 10
     }
 
     // ── Share ─────────────────────────────────────────────────────────────────

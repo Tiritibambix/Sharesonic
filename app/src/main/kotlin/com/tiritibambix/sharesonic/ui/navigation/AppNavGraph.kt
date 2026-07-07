@@ -43,6 +43,7 @@ import com.tiritibambix.sharesonic.ui.settings.SettingsScreen
 import com.tiritibambix.sharesonic.ui.settings.SettingsViewModel
 import com.tiritibambix.sharesonic.ui.settings.SettingsViewModelFactory
 import com.tiritibambix.sharesonic.ui.settings.ThemeSettingsScreen
+import com.tiritibambix.sharesonic.ui.settings.LanguageSettingsScreen
 import com.tiritibambix.sharesonic.ui.settings.EqSettingsScreen
 import com.tiritibambix.sharesonic.ui.settings.EqViewModel
 import com.tiritibambix.sharesonic.ui.settings.EqViewModelFactory
@@ -52,6 +53,8 @@ import com.tiritibambix.sharesonic.ui.publiclinks.PublicLinksViewModelFactory
 import com.tiritibambix.sharesonic.ui.player.PlayerPanel
 import com.tiritibambix.sharesonic.ui.player.rememberPlayerPanelState
 import com.tiritibambix.sharesonic.ui.share.ShareConfirmScreen
+import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.runBlocking
 
 @Composable
 fun AppNavGraph() {
@@ -78,6 +81,18 @@ fun AppNavGraph() {
         navController.navigate(Screen.ShareConfirm.route)
     }
 
+    // The Browser is the app's real navigation root once a server is configured:
+    // Back from browser root exits the app cleanly. The Settings hub is only the
+    // start destination on first run, so the user isn't dropped into it with no
+    // way back to the library (the original "stuck in Settings" bug — Back would
+    // exit the app since the hub sat below the browser). Also removes the
+    // Settings-flash the old LaunchedEffect caused on every configured launch.
+    val startDestination = remember {
+        val configured = runBlocking { settingsRepo.settings.first() }.isConfigured
+        if (configured) Screen.Browser.createRoute(Screen.Browser.ROOT, "Library")
+        else Screen.Settings.route
+    }
+
     // Paint the Velvet background behind everything so the slide/fold transitions
     // never reveal a flash of the window's default background through the gaps
     // between the outgoing and incoming screens.
@@ -88,7 +103,7 @@ fun AppNavGraph() {
     ) {
     NavHost(
         navController = navController,
-        startDestination = Screen.Settings.route,
+        startDestination = startDestination,
         // Material "shared axis X" — both screens travel a short, equal distance in
         // the same direction while cross-fading. The previous full-width slide-over
         // (new screen sliding the full width while the old one only nudged a quarter
@@ -127,6 +142,7 @@ fun AppNavGraph() {
                 onNavigateToAutoDj = { navController.navigate(Screen.AutoDjSettings.route) },
                 onNavigateToEqualizer = { navController.navigate(Screen.EqualizerSettings.route) },
                 onNavigateToTheme = { navController.navigate(Screen.ThemeSettings.route) },
+                onNavigateToLanguage = { navController.navigate(Screen.LanguageSettings.route) },
                 onNavigateToPublicLinks = { navController.navigate(Screen.PublicLinks.route) }
             )
         }
@@ -136,21 +152,35 @@ fun AppNavGraph() {
                 viewModel = settingsVm,
                 onBack = { navController.popBackStack() },
                 onNavigateToBrowser = {
-                    // ServerSettingsScreen now invokes this only from save()'s
+                    // ServerSettingsScreen invokes this only from save()'s
                     // onSaved completion hook — i.e. after the new settings have
-                    // actually landed in DataStore and the fields looked valid.
-                    // Re-checking settingsVm.settings.value here (the original
-                    // code) was itself a stale-snapshot trap and the root of both
-                    // the double-tap bug and the "Server not configured" race.
+                    // actually landed in DataStore. Clear the whole back stack
+                    // so Browser becomes the new root, whether the user reached
+                    // ServerSettings from the first-run Settings hub or from the
+                    // drawer over an existing Browser stack. popUpTo(0) works
+                    // in both cases; popUpTo(Settings){inclusive=true} would be
+                    // a silent no-op the second time (Settings no longer in the
+                    // stack), which used to leave [Browser, ServerSettings,
+                    // Browser] sandwiches.
                     navController.navigate(
                         Screen.Browser.createRoute(Screen.Browser.ROOT, "Library")
-                    )
+                    ) {
+                        popUpTo(0) { inclusive = true }
+                        launchSingleTop = true
+                    }
                 }
             )
         }
 
         composable(Screen.ThemeSettings.route) {
             ThemeSettingsScreen(
+                viewModel = settingsVm,
+                onBack = { navController.popBackStack() }
+            )
+        }
+
+        composable(Screen.LanguageSettings.route) {
+            LanguageSettingsScreen(
                 viewModel = settingsVm,
                 onBack = { navController.popBackStack() }
             )
@@ -210,22 +240,21 @@ fun AppNavGraph() {
                 onOpenServerSettings = { navController.navigate(Screen.ServerSettings.route) },
                 onOpenAutoDjSettings = { navController.navigate(Screen.AutoDjSettings.route) },
                 onOpenThemeSettings = { navController.navigate(Screen.ThemeSettings.route) },
+                onOpenLanguageSettings = { navController.navigate(Screen.LanguageSettings.route) },
                 onOpenPublicLinks = { navController.navigate(Screen.PublicLinks.route) },
                 onOpenEqualizer = { navController.navigate(Screen.EqualizerSettings.route) },
                 onOpenNowPlaying = { /* mini-bar stays collapsed; user expands manually */ },
                 onOpenSearch = { navController.navigate(Screen.Search.route) },
                 onOpenPlaylists = { navController.navigate(Screen.Playlists.route) },
-                // Home icon in the top bar: pop every browser frame in one go
-                // and land on a fresh root browser. Settings stays as the
-                // start destination so system Back still exits the app.
+                // Home icon in the top bar: clear the whole stack and land on
+                // a fresh root Browser so Back exits the app. popUpTo(0) works
+                // regardless of whether Settings is present in the stack
+                // (post-configuration it isn't — see startDestination above).
                 onGoRoot = {
                     navController.navigate(
                         Screen.Browser.createRoute(Screen.Browser.ROOT, "Library")
                     ) {
-                        popUpTo(Screen.Settings.route) {
-                            inclusive = false
-                            saveState = false
-                        }
+                        popUpTo(0) { inclusive = true; saveState = false }
                         launchSingleTop = true
                     }
                 },
@@ -355,16 +384,10 @@ fun AppNavGraph() {
     )
     } // Box
 
-    // Auto-navigate to browser when already configured
-    LaunchedEffect(settings.isConfigured) {
-        if (settings.isConfigured &&
-            navController.currentDestination?.route == Screen.Settings.route
-        ) {
-            navController.navigate(
-                Screen.Browser.createRoute(Screen.Browser.ROOT, "Library")
-            ) {
-                popUpTo(Screen.Settings.route) { inclusive = false }
-            }
-        }
-    }
+    // No auto-navigate LaunchedEffect here: the conditional startDestination
+    // above already picks Browser vs. Settings hub on launch, and the
+    // ServerSettings save flow explicitly navigates to Browser with
+    // popUpTo(0){inclusive=true} on the first-run configuration path.
+    // Having a second navigation authority here caused the historical
+    // "flash of Settings hub" on every configured launch.
 }

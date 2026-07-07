@@ -20,7 +20,9 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.res.stringResource
 import androidx.lifecycle.lifecycleScope
+import com.tiritibambix.sharesonic.R
 import com.tiritibambix.sharesonic.data.settings.AppTheme
 import com.tiritibambix.sharesonic.data.settings.SettingsRepository
 import com.tiritibambix.sharesonic.ui.navigation.AppNavGraph
@@ -28,9 +30,37 @@ import com.tiritibambix.sharesonic.ui.theme.SharesonicTheme
 import com.tiritibambix.sharesonic.utils.LocalIsTV
 import com.tiritibambix.sharesonic.utils.isTV
 import kotlinx.coroutines.flow.SharingStarted
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.stateIn
+import kotlinx.coroutines.runBlocking
 
 class MainActivity : ComponentActivity() {
+
+    /**
+     * Apply the user-picked UI language BEFORE any resource is resolved.
+     * `attachBaseContext` runs before `onCreate`, so we wrap the incoming
+     * [Context] in one whose configuration carries the target locale — every
+     * `stringResource(...)` and `LocalConfiguration` in Compose then follows it.
+     *
+     * Empty tag ⇒ follow the system locale (no wrapping). Works on minSdk 26
+     * with a plain ComponentActivity, no androidx.appcompat dependency needed.
+     * A [runBlocking] read is fine here: DataStore uses a process-wide
+     * singleton file and this fires once per activity create.
+     */
+    override fun attachBaseContext(newBase: Context) {
+        val tag = runBlocking { SettingsRepository(newBase).appLanguage.first() }
+        if (tag.isEmpty()) {
+            super.attachBaseContext(newBase)
+            return
+        }
+        val locale = java.util.Locale.forLanguageTag(tag)
+        java.util.Locale.setDefault(locale)
+        val config = android.content.res.Configuration(newBase.resources.configuration).apply {
+            setLocale(locale)
+        }
+        super.attachBaseContext(newBase.createConfigurationContext(config))
+    }
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
@@ -62,7 +92,7 @@ class MainActivity : ComponentActivity() {
                     if (showCrash && lastCrash != null) {
                         AlertDialog(
                             onDismissRequest = { },
-                            title = { Text("Previous crash") },
+                            title = { Text(stringResource(R.string.crash_title)) },
                             text = {
                                 SelectionContainer {
                                     Text(
@@ -76,7 +106,7 @@ class MainActivity : ComponentActivity() {
                                 TextButton(onClick = {
                                     crashPrefs.edit().remove(SharesonicApp.KEY_LAST_CRASH).apply()
                                     showCrash = false
-                                }) { Text("Dismiss") }
+                                }) { Text(stringResource(R.string.common_dismiss)) }
                             }
                         )
                     }

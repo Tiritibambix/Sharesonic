@@ -49,6 +49,8 @@ class SettingsRepository(private val context: Context) {
         val EQ_ENABLED = booleanPreferencesKey("eq_enabled")
         /** Equalizer band gains in millibels, comma-joined in band order. */
         val EQ_BANDS   = stringPreferencesKey("eq_bands")
+        /** BCP-47 language tag ("en", "fr", …). Empty string = follow the system locale. */
+        val APP_LANGUAGE = stringPreferencesKey("app_language")
     }
 
     val settings: Flow<ServerSettings> = context.dataStore.data.map { prefs ->
@@ -107,6 +109,13 @@ class SettingsRepository(private val context: Context) {
         }
     }
 
+    /** Selected UI language as a BCP-47 tag; "" means follow the system locale. */
+    val appLanguage: Flow<String> = context.dataStore.data.map { it[Keys.APP_LANGUAGE] ?: "" }
+
+    suspend fun saveAppLanguage(tag: String) {
+        context.dataStore.edit { prefs -> prefs[Keys.APP_LANGUAGE] = tag }
+    }
+
     /** Persisted equalizer state; applied by [com.tiritibambix.sharesonic.playback.PlaybackService] on start. */
     val eqSettings: Flow<EqSettings> = context.dataStore.data.map { prefs ->
         EqSettings(
@@ -141,6 +150,8 @@ class SettingsRepository(private val context: Context) {
         val MIN_RATING             = intPreferencesKey("autodj_min_rating")
         val CROSSFADE_DURATION_SEC = intPreferencesKey("autodj_crossfade_sec")
         val SOURCE_FOLDERS         = stringPreferencesKey("autodj_source_folders")
+        val KEYWORD_FILTER_ENABLED = booleanPreferencesKey("autodj_keyword_filter_enabled")
+        val KEYWORD_FILTER_WORDS   = stringPreferencesKey("autodj_keyword_filter_words")
     }
 
     val autoDjSettings: Flow<AutoDjSettings> = context.dataStore.data.map { prefs ->
@@ -163,7 +174,12 @@ class SettingsRepository(private val context: Context) {
             sourceFolders      = prefs[AutoDjKeys.SOURCE_FOLDERS]
                                      ?.split("|")
                                      ?.filter { it.isNotBlank() }
-                                 ?: emptyList()
+                                 ?: emptyList(),
+            keywordFilterEnabled = prefs[AutoDjKeys.KEYWORD_FILTER_ENABLED] ?: false,
+            keywordFilterWords   = prefs[AutoDjKeys.KEYWORD_FILTER_WORDS]
+                                       ?.split("|")
+                                       ?.filter { it.isNotBlank() }
+                                   ?: emptyList()
         )
     }
 
@@ -182,6 +198,8 @@ class SettingsRepository(private val context: Context) {
             prefs[AutoDjKeys.MIN_RATING]              = settings.minRating
             prefs[AutoDjKeys.CROSSFADE_DURATION_SEC]  = settings.crossfadeDurationSec
             prefs[AutoDjKeys.SOURCE_FOLDERS]          = settings.sourceFolders.joinToString("|")
+            prefs[AutoDjKeys.KEYWORD_FILTER_ENABLED]  = settings.keywordFilterEnabled
+            prefs[AutoDjKeys.KEYWORD_FILTER_WORDS]    = settings.keywordFilterWords.joinToString("|")
         }
     }
 }

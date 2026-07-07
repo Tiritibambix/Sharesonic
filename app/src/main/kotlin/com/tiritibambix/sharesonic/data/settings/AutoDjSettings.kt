@@ -45,5 +45,15 @@ data class AutoDjSettings(
      * Library virtual paths Auto-DJ picks songs from.
      * Empty = all library (no restriction). Stored as a sorted list of vpath names.
      */
-    val sourceFolders: List<String> = emptyList()
+    val sourceFolders: List<String> = emptyList(),
+
+    /**
+     * Client-side keyword blocker (mirrors Velvet's autoplay Keyword Filter):
+     * skip any fetched song whose title / artist / album / filepath — normalized —
+     * contains any of these words. Velvet's server has no such field, so filtering
+     * happens in [com.tiritibambix.sharesonic.ui.player.PlayerViewModel] after each
+     * random-song fetch, retrying up to 10× before giving up.
+     */
+    val keywordFilterEnabled: Boolean = false,
+    val keywordFilterWords: List<String> = emptyList()
 )

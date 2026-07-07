@@ -181,6 +181,32 @@ fun AutoDjSettingsContent(
             }
         }
 
+        // ── Keyword Filter ────────────────────────────────────────────────
+        // Client-side blocker (Velvet's server has no equivalent field). The
+        // PlayerViewModel refetches when a fetched candidate is blocked; see
+        // KeywordFilter.isBlocked for the exact matching rule.
+        item { SectionDivider() }
+        item { SectionHeader("Keyword Filter") }
+        item {
+            SettingRow(
+                label = "Enable keyword filter",
+                description = "Skip songs whose title, artist, album or filename contains any of these words"
+            ) {
+                Switch(
+                    checked = s.keywordFilterEnabled,
+                    onCheckedChange = viewModel::setKeywordFilterEnabled
+                )
+            }
+        }
+        item {
+            AnimatedVisibility(visible = s.keywordFilterEnabled) {
+                KeywordsEditor(
+                    words = s.keywordFilterWords,
+                    onUpdate = viewModel::setKeywordFilterWords
+                )
+            }
+        }
+
         // ── Crossfade ─────────────────────────────────────────────────────
         item { SectionDivider() }
         item { SectionHeader("Crossfade") }
@@ -381,6 +407,41 @@ private fun SourceFoldersSelector(
                 Text(vpath, style = MaterialTheme.typography.bodyMedium)
             }
         }
+    }
+}
+
+// ── Keyword text editor ───────────────────────────────────────────────────────
+
+@Composable
+private fun KeywordsEditor(
+    words: List<String>,
+    onUpdate: (List<String>) -> Unit
+) {
+    var text by remember(words) {
+        mutableStateOf(words.joinToString(", "))
+    }
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 16.dp, vertical = 4.dp),
+        verticalArrangement = Arrangement.spacedBy(4.dp)
+    ) {
+        Text(
+            "Keywords (comma-separated)",
+            style = MaterialTheme.typography.bodyMedium
+        )
+        OutlinedTextField(
+            value = text,
+            onValueChange = { v ->
+                text = v
+                onUpdate(v.split(",").map { it.trim() }.filter { it.isNotBlank() })
+            },
+            modifier = Modifier.fillMaxWidth(),
+            placeholder = { Text("remix, acapella, live…") },
+            keyboardOptions = KeyboardOptions(imeAction = ImeAction.Done),
+            singleLine = false,
+            minLines = 2
+        )
     }
 }
 

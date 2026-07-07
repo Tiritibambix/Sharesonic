@@ -34,11 +34,13 @@ import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalHapticFeedback
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import coil.compose.AsyncImage
+import com.tiritibambix.sharesonic.R
 import com.tiritibambix.sharesonic.data.api.models.EntryDto
 import com.tiritibambix.sharesonic.ui.player.PlayerViewModel
 import com.tiritibambix.sharesonic.ui.share.ShareExpiryDialog
@@ -56,6 +58,7 @@ fun FolderBrowserScreen(
     onOpenServerSettings: () -> Unit,
     onOpenAutoDjSettings: () -> Unit,
     onOpenThemeSettings: () -> Unit,
+    onOpenLanguageSettings: () -> Unit,
     onOpenPublicLinks: () -> Unit,
     onOpenEqualizer: () -> Unit,
     onOpenNowPlaying: () -> Unit,
@@ -182,6 +185,7 @@ fun FolderBrowserScreen(
                             onOpenServerSettings = onOpenServerSettings,
                             onOpenAutoDjSettings = onOpenAutoDjSettings,
                             onOpenThemeSettings = onOpenThemeSettings,
+                            onOpenLanguageSettings = onOpenLanguageSettings,
                             onOpenPublicLinks = onOpenPublicLinks,
                             onOpenEqualizer = onOpenEqualizer
                         )
@@ -496,6 +500,7 @@ fun FolderBrowserScreen(
                         onOpenServerSettings = onOpenServerSettings,
                         onOpenAutoDjSettings = onOpenAutoDjSettings,
                         onOpenThemeSettings = onOpenThemeSettings,
+                        onOpenLanguageSettings = onOpenLanguageSettings,
                         onOpenPublicLinks = onOpenPublicLinks,
                         onOpenEqualizer = onOpenEqualizer
                     )
@@ -667,46 +672,54 @@ private fun DrawerMenuItems(
     onOpenServerSettings: () -> Unit,
     onOpenAutoDjSettings: () -> Unit,
     onOpenThemeSettings: () -> Unit,
+    onOpenLanguageSettings: () -> Unit,
     onOpenPublicLinks: () -> Unit,
     onOpenEqualizer: () -> Unit
 ) {
     Spacer(Modifier.height(12.dp))
     Text(
-        "Sharesonic",
+        stringResource(R.string.app_name),
         style = MaterialTheme.typography.titleLarge,
         modifier = Modifier.padding(horizontal = 28.dp, vertical = 8.dp)
     )
     HorizontalDivider()
     NavigationDrawerItem(
-        label = { Text("Server") },
+        label = { Text(stringResource(R.string.browser_drawer_server)) },
         icon = { Icon(Icons.Default.Dns, contentDescription = null) },
         selected = false,
         onClick = { onClose(); onOpenServerSettings() },
         modifier = Modifier.padding(horizontal = 12.dp, vertical = 4.dp)
     )
     NavigationDrawerItem(
-        label = { Text("Auto-DJ") },
+        label = { Text(stringResource(R.string.browser_drawer_autodj)) },
         icon = { Icon(Icons.Default.Headphones, contentDescription = null) },
         selected = false,
         onClick = { onClose(); onOpenAutoDjSettings() },
         modifier = Modifier.padding(horizontal = 12.dp, vertical = 4.dp)
     )
     NavigationDrawerItem(
-        label = { Text("Equalizer") },
+        label = { Text(stringResource(R.string.browser_drawer_equalizer)) },
         icon = { Icon(Icons.Default.GraphicEq, contentDescription = null) },
         selected = false,
         onClick = { onClose(); onOpenEqualizer() },
         modifier = Modifier.padding(horizontal = 12.dp, vertical = 4.dp)
     )
     NavigationDrawerItem(
-        label = { Text("Theme") },
+        label = { Text(stringResource(R.string.browser_drawer_theme)) },
         icon = { Icon(Icons.Default.Palette, contentDescription = null) },
         selected = false,
         onClick = { onClose(); onOpenThemeSettings() },
         modifier = Modifier.padding(horizontal = 12.dp, vertical = 4.dp)
     )
     NavigationDrawerItem(
-        label = { Text("Public Links") },
+        label = { Text(stringResource(R.string.browser_drawer_language)) },
+        icon = { Icon(Icons.Default.Language, contentDescription = null) },
+        selected = false,
+        onClick = { onClose(); onOpenLanguageSettings() },
+        modifier = Modifier.padding(horizontal = 12.dp, vertical = 4.dp)
+    )
+    NavigationDrawerItem(
+        label = { Text(stringResource(R.string.browser_drawer_public_links)) },
         icon = { Icon(Icons.Default.Link, contentDescription = null) },
         selected = false,
         onClick = { onClose(); onOpenPublicLinks() },

@@ -37,6 +37,10 @@ class SettingsViewModel(private val repo: SettingsRepository) : ViewModel() {
     val accentColor: StateFlow<Int?> = repo.accentColor
         .stateIn(viewModelScope, SharingStarted.Eagerly, null)
 
+    /** UI language as a BCP-47 tag. "" means follow the system locale. */
+    val appLanguage: StateFlow<String> = repo.appLanguage
+        .stateIn(viewModelScope, SharingStarted.Eagerly, "")
+
     init {
         // On boot, refresh the stored JWT so it stays signed by the current server secret.
         // Silently ignored on failure — ensureToken() will re-login if the token is truly expired.
@@ -93,6 +97,19 @@ class SettingsViewModel(private val repo: SettingsRepository) : ViewModel() {
     fun setAccentColor(argb: Int?) {
         viewModelScope.launch {
             repo.saveAccentColor(argb)
+        }
+    }
+
+    /**
+     * Persist the UI language and invoke [onSaved] once DataStore has actually
+     * written it. Callers use [onSaved] to trigger `activity.recreate()` — firing
+     * recreate before the write would let [MainActivity.attachBaseContext]
+     * re-read the old tag and undo the switch.
+     */
+    fun setAppLanguage(tag: String, onSaved: () -> Unit = {}) {
+        viewModelScope.launch {
+            repo.saveAppLanguage(tag)
+            onSaved()
         }
     }
 

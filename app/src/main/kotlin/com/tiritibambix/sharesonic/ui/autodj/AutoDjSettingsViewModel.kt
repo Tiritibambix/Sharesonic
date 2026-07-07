@@ -70,6 +70,8 @@ class AutoDjSettingsViewModel(
     fun setMinRating(value: Int) = update { it.copy(minRating = value.coerceIn(0, 5)) }
     fun setCrossfadeDuration(value: Int) = update { it.copy(crossfadeDurationSec = value.coerceIn(0, 12)) }
     fun setSourceFolders(value: List<String>) = update { it.copy(sourceFolders = value) }
+    fun setKeywordFilterEnabled(value: Boolean) = update { it.copy(keywordFilterEnabled = value) }
+    fun setKeywordFilterWords(value: List<String>) = update { it.copy(keywordFilterWords = value) }
 
     private fun update(transform: (AutoDjSettings) -> AutoDjSettings) {
         _settings.update(transform)

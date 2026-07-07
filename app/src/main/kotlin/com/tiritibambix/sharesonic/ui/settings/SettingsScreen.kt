@@ -9,6 +9,7 @@ import androidx.compose.material.icons.filled.ChevronRight
 import androidx.compose.material.icons.filled.Dns
 import androidx.compose.material.icons.filled.GraphicEq
 import androidx.compose.material.icons.filled.Headphones
+import androidx.compose.material.icons.filled.Language
 import androidx.compose.material.icons.filled.Link
 import androidx.compose.material.icons.filled.Palette
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -21,10 +22,14 @@ import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.res.stringResource
+import com.tiritibambix.sharesonic.R
 
 /**
  * Top-level Settings screen — a classic navigable menu (no tabs):
- * Server / Auto-DJ / Theme / Public Links, each opening its own sub-screen.
+ * Server / Auto-DJ / Equalizer / Theme / Language / Public Links, each opening
+ * its own sub-screen. Only reached on first-run (before a server is configured);
+ * afterwards all rows also live in the drawer.
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -33,17 +38,18 @@ fun SettingsScreen(
     onNavigateToAutoDj: () -> Unit,
     onNavigateToEqualizer: () -> Unit,
     onNavigateToTheme: () -> Unit,
+    onNavigateToLanguage: () -> Unit,
     onNavigateToPublicLinks: () -> Unit
 ) {
     Scaffold(
-        topBar = { TopAppBar(title = { Text("Settings") }) }
+        topBar = { TopAppBar(title = { Text(stringResource(R.string.settings_title)) }) }
     ) { padding ->
         LazyColumn(modifier = Modifier.padding(padding).fillMaxSize()) {
             item {
                 SettingsMenuRow(
                     icon = Icons.Default.Dns,
-                    title = "Server",
-                    subtitle = "Velvet URL, account, connection test",
+                    title = stringResource(R.string.settings_server),
+                    subtitle = stringResource(R.string.settings_server_subtitle),
                     onClick = onNavigateToServer
                 )
             }
@@ -51,8 +57,8 @@ fun SettingsScreen(
             item {
                 SettingsMenuRow(
                     icon = Icons.Default.Headphones,
-                    title = "Auto-DJ",
-                    subtitle = "BPM continuity, harmonic mixing, similar artists…",
+                    title = stringResource(R.string.settings_autodj),
+                    subtitle = stringResource(R.string.settings_autodj_subtitle),
                     onClick = onNavigateToAutoDj
                 )
             }
@@ -60,8 +66,8 @@ fun SettingsScreen(
             item {
                 SettingsMenuRow(
                     icon = Icons.Default.GraphicEq,
-                    title = "Equalizer",
-                    subtitle = "Per-band gains for playback",
+                    title = stringResource(R.string.settings_equalizer),
+                    subtitle = stringResource(R.string.settings_equalizer_subtitle),
                     onClick = onNavigateToEqualizer
                 )
             }
@@ -69,17 +75,26 @@ fun SettingsScreen(
             item {
                 SettingsMenuRow(
                     icon = Icons.Default.Palette,
-                    title = "Theme",
-                    subtitle = "Velvet (default), Dark or Light",
+                    title = stringResource(R.string.settings_theme),
+                    subtitle = stringResource(R.string.settings_theme_subtitle),
                     onClick = onNavigateToTheme
                 )
             }
             item { HorizontalDivider() }
             item {
                 SettingsMenuRow(
+                    icon = Icons.Default.Language,
+                    title = stringResource(R.string.settings_language),
+                    subtitle = stringResource(R.string.settings_language_subtitle),
+                    onClick = onNavigateToLanguage
+                )
+            }
+            item { HorizontalDivider() }
+            item {
+                SettingsMenuRow(
                     icon = Icons.Default.Link,
-                    title = "Public Links",
-                    subtitle = "View, copy, open or revoke shared links",
+                    title = stringResource(R.string.settings_public_links),
+                    subtitle = stringResource(R.string.settings_public_links_subtitle),
                     onClick = onNavigateToPublicLinks
                 )
             }
