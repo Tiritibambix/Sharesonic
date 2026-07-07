@@ -28,6 +28,7 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.blur
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.hapticfeedback.HapticFeedback
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
@@ -164,8 +165,12 @@ fun FolderBrowserScreen(
     // stays visible (and tappable-to-dismiss) on the right — making it obvious that
     // there's content behind the drawer and a way back out besides the swipe gesture.
     val contentBlur by animateDpAsState(
-        targetValue = if (drawerState.isOpen) 14.dp else 0.dp,
-        label = "drawerContentBlur"
+        targetValue = when {
+            showPlaylistPicker || showContextMenu -> 18.dp
+            drawerState.isOpen -> 14.dp
+            else -> 0.dp
+        },
+        label = "contentBlur"
     )
 
     ModalNavigationDrawer(
@@ -524,111 +529,252 @@ fun FolderBrowserScreen(
     } // Box
     } // ModalNavigationDrawer content
 
-    // ── Playlist picker (swipe-to-add) ───────────────────────────────────────
+    // ── Playlist picker (swipe-to-add) — frosted-glass overlay ─────────────
     if (showPlaylistPicker && songToAdd != null) {
         val song = songToAdd!!
-        AlertDialog(
-            onDismissRequest = { showPlaylistPicker = false; songToAdd = null },
-            title = { Text(stringResource(R.string.browser_pick_playlist)) },
-            text = {
-                if (playlists.isEmpty()) {
-                    Text(
-                        "No playlists yet.\nCreate one in the Playlists screen first.",
-                        color = MaterialTheme.colorScheme.textSecondary
-                    )
-                } else {
+        var showCreateInput by remember { mutableStateOf(false) }
+        var newPlaylistName by remember { mutableStateOf("") }
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .background(Color.Black.copy(alpha = 0.32f))
+                .clickable(
+                    interactionSource = remember { androidx.compose.foundation.interaction.MutableInteractionSource() },
+                    indication = null,
+                    onClick = { showPlaylistPicker = false; songToAdd = null }
+                ),
+            contentAlignment = Alignment.Center,
+        ) {
+            Box(
+                modifier = Modifier.clickable(
+                    interactionSource = remember { androidx.compose.foundation.interaction.MutableInteractionSource() },
+                    indication = null,
+                    onClick = {},
+                )
+            ) {
+                Surface(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 20.dp)
+                        .heightIn(max = 480.dp),
+                    shape = RoundedCornerShape(20.dp),
+                    color = MaterialTheme.colorScheme.surface,
+                    tonalElevation = 6.dp,
+                    border = androidx.compose.foundation.BorderStroke(
+                        width = 1.dp,
+                        color = MaterialTheme.colorScheme.primary.copy(alpha = 0.18f),
+                    ),
+                ) {
                     Column(
-                        modifier = Modifier
-                            .heightIn(max = 320.dp)
-                            .verticalScroll(rememberScrollState())
+                        modifier = Modifier.padding(horizontal = 22.dp, vertical = 20.dp),
+                        verticalArrangement = Arrangement.spacedBy(12.dp),
                     ) {
-                        playlists.forEach { playlist ->
-                            TextButton(
-                                onClick = {
-                                    viewModel.addToPlaylist(song.id, playlist.name)
-                                    showPlaylistPicker = false
-                                    songToAdd = null
-                                },
-                                modifier = Modifier.fillMaxWidth()
+                        Text(
+                            stringResource(R.string.browser_pick_playlist),
+                            style = MaterialTheme.typography.titleLarge,
+                            fontWeight = FontWeight.SemiBold,
+                        )
+                        song.artist?.let {
+                            Text(
+                                song.displayName + if (it.isNotBlank()) "  ·  $it" else "",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.textSecondary,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis,
+                            )
+                        }
+                        HorizontalDivider(color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.12f))
+
+                        // Create new playlist inline
+                        if (showCreateInput) {
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(8.dp),
                             ) {
-                                Text(
-                                    buildString {
-                                        append(playlist.name)
-                                        append("  ")
-                                        append("(${playlist.songCount})")
-                                    },
-                                    modifier = Modifier.fillMaxWidth()
+                                OutlinedTextField(
+                                    value = newPlaylistName,
+                                    onValueChange = { newPlaylistName = it },
+                                    placeholder = { Text(stringResource(R.string.playlists_name_label)) },
+                                    singleLine = true,
+                                    modifier = Modifier.weight(1f),
+                                    shape = RoundedCornerShape(12.dp),
+                                    textStyle = MaterialTheme.typography.bodyMedium,
                                 )
+                                IconButton(
+                                    onClick = {
+                                        if (newPlaylistName.isNotBlank()) {
+                                            viewModel.createPlaylistAndAdd(newPlaylistName.trim(), song.id)
+                                            showPlaylistPicker = false
+                                            songToAdd = null
+                                        }
+                                    },
+                                    modifier = Modifier.size(40.dp)
+                                ) {
+                                    Icon(Icons.Default.Check, contentDescription = stringResource(R.string.playlists_create), tint = MaterialTheme.colorScheme.primary)
+                                }
                             }
+                        } else {
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .clip(RoundedCornerShape(10.dp))
+                                    .clickable { showCreateInput = true }
+                                    .padding(vertical = 10.dp),
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(14.dp),
+                            ) {
+                                Icon(Icons.Default.Add, contentDescription = null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(22.dp))
+                                Text(stringResource(R.string.playlists_new_title), style = MaterialTheme.typography.bodyLarge, color = MaterialTheme.colorScheme.primary)
+                            }
+                        }
+
+                        // Existing playlists
+                        if (playlists.isNotEmpty()) {
+                            Column(
+                                modifier = Modifier
+                                    .weight(1f, fill = false)
+                                    .verticalScroll(rememberScrollState()),
+                            ) {
+                                playlists.forEach { playlist ->
+                                    Row(
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .clip(RoundedCornerShape(10.dp))
+                                            .clickable {
+                                                viewModel.addToPlaylist(song.id, playlist.name)
+                                                showPlaylistPicker = false
+                                                songToAdd = null
+                                            }
+                                            .padding(vertical = 10.dp),
+                                        verticalAlignment = Alignment.CenterVertically,
+                                        horizontalArrangement = Arrangement.spacedBy(14.dp),
+                                    ) {
+                                        Icon(Icons.Default.QueueMusic, contentDescription = null, tint = MaterialTheme.colorScheme.textSecondary, modifier = Modifier.size(22.dp))
+                                        Text(playlist.name, style = MaterialTheme.typography.bodyLarge, modifier = Modifier.weight(1f))
+                                        Text("${playlist.songCount}", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.textSecondary)
+                                    }
+                                }
+                            }
+                        } else if (!showCreateInput) {
+                            Text(
+                                stringResource(R.string.playlists_empty),
+                                color = MaterialTheme.colorScheme.textSecondary,
+                                style = MaterialTheme.typography.bodyMedium,
+                            )
                         }
                     }
                 }
-            },
-            confirmButton = {},
-            dismissButton = {
-                TextButton(onClick = { showPlaylistPicker = false; songToAdd = null }) {
-                    Text(stringResource(R.string.common_cancel))
-                }
             }
-        )
+        }
     }
 
-    // ── Context menu (long press) ─────────────────────────────────────────────
+    // ── Context menu (long press) — frosted-glass overlay ─────────────────────
     if (showContextMenu && contextEntry != null) {
         val entry = contextEntry!!
-        AlertDialog(
-            onDismissRequest = { showContextMenu = false },
-            title = { Text(entry.displayName, maxLines = 1, overflow = TextOverflow.Ellipsis) },
-            text = {
-                Column {
-                    if (!entry.isDir) {
-                        TextButton(
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .background(Color.Black.copy(alpha = 0.32f))
+                .clickable(
+                    interactionSource = remember { androidx.compose.foundation.interaction.MutableInteractionSource() },
+                    indication = null,
+                    onClick = { showContextMenu = false }
+                ),
+            contentAlignment = Alignment.Center,
+        ) {
+            Box(
+                modifier = Modifier.clickable(
+                    interactionSource = remember { androidx.compose.foundation.interaction.MutableInteractionSource() },
+                    indication = null,
+                    onClick = {},
+                )
+            ) {
+                Surface(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 20.dp),
+                    shape = RoundedCornerShape(20.dp),
+                    color = MaterialTheme.colorScheme.surface,
+                    tonalElevation = 6.dp,
+                    border = androidx.compose.foundation.BorderStroke(
+                        width = 1.dp,
+                        color = MaterialTheme.colorScheme.primary.copy(alpha = 0.18f),
+                    ),
+                ) {
+                    Column(
+                        modifier = Modifier.padding(horizontal = 22.dp, vertical = 20.dp),
+                        verticalArrangement = Arrangement.spacedBy(4.dp),
+                    ) {
+                        Text(
+                            entry.displayName,
+                            style = MaterialTheme.typography.titleMedium,
+                            fontWeight = FontWeight.SemiBold,
+                            maxLines = 2,
+                            overflow = TextOverflow.Ellipsis,
+                        )
+                        entry.artist?.takeIf { it.isNotBlank() }?.let {
+                            Text(
+                                it,
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.textSecondary,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis,
+                            )
+                        }
+                        Spacer(Modifier.height(8.dp))
+                        HorizontalDivider(color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.12f))
+                        Spacer(Modifier.height(4.dp))
+
+                        if (!entry.isDir) {
+                            ContextMenuRow(
+                                icon = Icons.Default.PlayArrow,
+                                label = stringResource(R.string.player_play),
+                                onClick = {
+                                    showContextMenu = false
+                                    playerViewModel.playSong(entry)
+                                    onOpenNowPlaying()
+                                }
+                            )
+                            ContextMenuRow(
+                                icon = Icons.Default.PlaylistAdd,
+                                label = stringResource(R.string.browser_add_to_queue),
+                                onClick = {
+                                    showContextMenu = false
+                                    playerViewModel.addToQueue(entry)
+                                }
+                            )
+                            ContextMenuRow(
+                                icon = Icons.Default.QueueMusic,
+                                label = stringResource(R.string.browser_add_to_playlist),
+                                onClick = {
+                                    showContextMenu = false
+                                    songToAdd = entry
+                                    showPlaylistPicker = true
+                                }
+                            )
+                        }
+                        if (entry.isDir) {
+                            ContextMenuRow(
+                                icon = Icons.Default.Shuffle,
+                                label = stringResource(R.string.browser_shuffle),
+                                onClick = {
+                                    showContextMenu = false
+                                    triggerShuffle()
+                                }
+                            )
+                        }
+                        ContextMenuRow(
+                            icon = Icons.Default.Share,
+                            label = stringResource(R.string.common_share),
                             onClick = {
                                 showContextMenu = false
-                                playerViewModel.playSong(entry)
-                                onOpenNowPlaying()
-                            },
-                            modifier = Modifier.fillMaxWidth()
-                        ) { Text("▶  " + stringResource(R.string.player_play)) }
-                        TextButton(
-                            onClick = {
-                                showContextMenu = false
-                                playerViewModel.addToQueue(entry)
-                            },
-                            modifier = Modifier.fillMaxWidth()
-                        ) { Text("➕  " + stringResource(R.string.browser_add_to_queue)) }
-                        TextButton(
-                            onClick = {
-                                showContextMenu = false
-                                songToAdd = entry
-                                showPlaylistPicker = true
-                            },
-                            modifier = Modifier.fillMaxWidth()
-                        ) { Text("🎵  " + stringResource(R.string.browser_add_to_playlist)) }
+                                shareExpiryTarget = entry
+                            }
+                        )
                     }
-                    if (entry.isDir) {
-                        TextButton(
-                            onClick = {
-                                showContextMenu = false
-                                triggerShuffle()
-                            },
-                            modifier = Modifier.fillMaxWidth()
-                        ) { Text("🔀  " + stringResource(R.string.browser_shuffle)) }
-                    }
-                    TextButton(
-                        onClick = {
-                            showContextMenu = false
-                            shareExpiryTarget = entry
-                        },
-                        modifier = Modifier.fillMaxWidth()
-                    ) { Text("🔗  " + stringResource(R.string.common_share)) }
                 }
-            },
-            confirmButton = {},
-            dismissButton = {
-                TextButton(onClick = { showContextMenu = false }) { Text(stringResource(R.string.common_cancel)) }
             }
-        )
+        }
     }
 
     // ── Share — ask for expiry before creating the link (Velvet style) ──
@@ -822,6 +968,26 @@ private fun EntryRow(
                 )
             }
         }
+    }
+}
+
+@Composable
+private fun ContextMenuRow(
+    icon: androidx.compose.ui.graphics.vector.ImageVector,
+    label: String,
+    onClick: () -> Unit,
+) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(10.dp))
+            .clickable(onClick = onClick)
+            .padding(vertical = 12.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(16.dp),
+    ) {
+        Icon(icon, contentDescription = null, modifier = Modifier.size(22.dp), tint = MaterialTheme.colorScheme.textSecondary)
+        Text(label, style = MaterialTheme.typography.bodyLarge)
     }
 }
 

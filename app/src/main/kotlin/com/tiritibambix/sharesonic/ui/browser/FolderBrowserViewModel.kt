@@ -295,6 +295,19 @@ class FolderBrowserViewModel(
         }
     }
 
+    /** Create a new playlist, add [filepath] to it, then refresh the cached list. */
+    fun createPlaylistAndAdd(playlistName: String, filepath: String) {
+        viewModelScope.launch {
+            val settings = settingsRepo.settings.first()
+            if (!settings.isConfigured) return@launch
+            val token = ensureToken(settings) ?: return@launch
+            val velvet = VelvetRepository(VelvetClient.build(settings.serverUrl))
+            velvet.createPlaylist(token, playlistName)
+            velvet.addSongToPlaylist(token, filepath, playlistName)
+            loadPlaylists(forceRefresh = true)
+        }
+    }
+
     // ── Auth helpers ──────────────────────────────────────────────────────────
 
     /**
