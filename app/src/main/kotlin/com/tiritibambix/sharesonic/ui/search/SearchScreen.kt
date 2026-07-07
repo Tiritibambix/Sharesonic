@@ -28,6 +28,8 @@ import com.tiritibambix.sharesonic.data.api.models.TopLevelDir
 import com.tiritibambix.sharesonic.data.settings.ServerSettings
 import com.tiritibambix.sharesonic.ui.common.AlbumCardGrid
 import com.tiritibambix.sharesonic.ui.player.PlayerViewModel
+import androidx.compose.ui.res.stringResource
+import com.tiritibambix.sharesonic.R
 import com.tiritibambix.sharesonic.ui.theme.textSecondary
 import com.tiritibambix.sharesonic.ui.theme.textTertiary
 import kotlinx.coroutines.launch
@@ -61,10 +63,10 @@ fun SearchScreen(
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("Search") },
+                title = { Text(stringResource(R.string.common_search)) },
                 navigationIcon = {
                     IconButton(onClick = onBack) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
+                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = stringResource(R.string.common_back))
                     }
                 }
             )
@@ -88,7 +90,7 @@ fun SearchScreen(
                 when (val s = searchState) {
                     is SearchState.Idle -> {
                         Text(
-                            "Type to search your library",
+                            stringResource(R.string.search_empty),
                             modifier = Modifier.align(Alignment.Center),
                             color = MaterialTheme.colorScheme.textTertiary
                         )
@@ -154,7 +156,7 @@ private fun SearchField(
             Box(modifier = Modifier.weight(1f)) {
                 if (query.isEmpty()) {
                     Text(
-                        "Search songs, albums, artists…",
+                        stringResource(R.string.search_hint),
                         style = MaterialTheme.typography.bodyLarge,
                         color = MaterialTheme.colorScheme.textTertiary,
                         maxLines = 1,
@@ -181,7 +183,7 @@ private fun SearchField(
                 ) {
                     Icon(
                         Icons.Default.Clear,
-                        contentDescription = "Clear search",
+                        contentDescription = stringResource(R.string.common_close),
                         modifier = Modifier.size(18.dp),
                         tint = MaterialTheme.colorScheme.textSecondary
                     )
@@ -222,7 +224,7 @@ private fun SearchResults(
         // the Velvet webapp surfaces as its "Folders" section — so tapping one
         // opens the correct folder with zero client-side path guessing.
         if (result.folder.isNotEmpty()) {
-            item { SectionHeader("Folders") }
+            item { SectionHeader(stringResource(R.string.search_section_folders)) }
             itemsIndexed(result.folder, key = { idx, _ -> "folder_$idx" }) { _, folder ->
                 FolderRow(
                     name = folder.displayName,
@@ -235,7 +237,7 @@ private fun SearchResults(
         // ── Artists ──────────────────────────────────────────────────────
         if (result.artist.isNotEmpty()) {
             item {
-                SectionHeader("Artists")
+                SectionHeader(stringResource(R.string.search_section_artists))
             }
             itemsIndexed(result.artist, key = { idx, _ -> "artist_$idx" }) { _, artist ->
                 ArtistRow(
@@ -264,7 +266,7 @@ private fun SearchResults(
         // flat list the other sections use — albums are a visual result set
         // (cover art is the primary signifier), the others are text-first.
         if (result.album.isNotEmpty()) {
-            item { SectionHeader("Albums") }
+            item { SectionHeader(stringResource(R.string.search_section_albums)) }
             item {
                 AlbumCardGrid(
                     items = result.album,
@@ -279,7 +281,7 @@ private fun SearchResults(
 
         // ── Songs ────────────────────────────────────────────────────────
         if (result.song.isNotEmpty()) {
-            item { SectionHeader("Songs") }
+            item { SectionHeader(stringResource(R.string.search_section_songs)) }
             itemsIndexed(result.song, key = { idx, _ -> "song_$idx" }) { _, song ->
                 EntryRow(
                     entry = song,

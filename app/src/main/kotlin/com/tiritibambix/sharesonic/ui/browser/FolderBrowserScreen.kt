@@ -199,10 +199,16 @@ fun FolderBrowserScreen(
         modifier = Modifier.blur(contentBlur),
         topBar = {
             TopAppBar(
-                title = { Text(folderName, maxLines = 1, overflow = TextOverflow.Ellipsis) },
+                title = {
+                    // The nav route passes "Library" (a stable identifier used as an
+                    // is-root check below) for the root folder; localize only that
+                    // display case, leave real folder names untouched.
+                    val displayName = if (folderName == "Library") stringResource(R.string.browser_library) else folderName
+                    Text(displayName, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                },
                 navigationIcon = {
                     IconButton(onClick = { drawerScope.launch { drawerState.open() } }) {
-                        Icon(Icons.Default.Menu, contentDescription = "Menu")
+                        Icon(Icons.Default.Menu, contentDescription = stringResource(R.string.common_menu))
                     }
                 },
                 actions = {
@@ -211,7 +217,7 @@ fun FolderBrowserScreen(
                     // at the root itself (nothing to go back to).
                     if (folderName != "Library") {
                         IconButton(onClick = onGoRoot) {
-                            Icon(Icons.Default.Home, contentDescription = "Library root")
+                            Icon(Icons.Default.Home, contentDescription = stringResource(R.string.browser_home))
                         }
                     }
                     // TV: the bottom-end FAB column isn't reachable via D-pad, so
@@ -220,21 +226,21 @@ fun FolderBrowserScreen(
                     if (isTV) {
                         if (entries.isNotEmpty() && entries.none { it.isDir }) {
                             IconButton(onClick = ::playInOrder) {
-                                Icon(Icons.Default.PlayArrow, contentDescription = "Play in order")
+                                Icon(Icons.Default.PlayArrow, contentDescription = stringResource(R.string.browser_play_all))
                             }
                         }
                         IconButton(onClick = ::triggerShuffle) {
                             if (shuffleLoading)
                                 CircularProgressIndicator(modifier = Modifier.size(20.dp), strokeWidth = 2.dp)
                             else
-                                Icon(Icons.Default.Shuffle, contentDescription = "Shuffle")
+                                Icon(Icons.Default.Shuffle, contentDescription = stringResource(R.string.browser_shuffle))
                         }
                     }
                     IconButton(onClick = onOpenSearch) {
-                        Icon(Icons.Default.Search, contentDescription = "Search")
+                        Icon(Icons.Default.Search, contentDescription = stringResource(R.string.browser_search))
                     }
                     IconButton(onClick = onOpenPlaylists) {
-                        Icon(Icons.Default.QueueMusic, contentDescription = "Playlists")
+                        Icon(Icons.Default.QueueMusic, contentDescription = stringResource(R.string.browser_playlists))
                     }
                 }
             )
@@ -259,7 +265,7 @@ fun FolderBrowserScreen(
                             containerColor = MaterialTheme.colorScheme.primary,
                             contentColor = MaterialTheme.colorScheme.onPrimary,
                         ) {
-                            Icon(Icons.Default.PlayArrow, contentDescription = "Play in order")
+                            Icon(Icons.Default.PlayArrow, contentDescription = stringResource(R.string.browser_play_all))
                         }
                     }
                     FloatingActionButton(
@@ -270,7 +276,7 @@ fun FolderBrowserScreen(
                         if (shuffleLoading)
                             CircularProgressIndicator(modifier = Modifier.size(20.dp), strokeWidth = 2.dp)
                         else
-                            Icon(Icons.Default.Shuffle, contentDescription = "Shuffle")
+                            Icon(Icons.Default.Shuffle, contentDescription = stringResource(R.string.browser_shuffle))
                     }
                     Spacer(modifier = Modifier.height(fabBottomPadding))
                 }
@@ -290,7 +296,7 @@ fun FolderBrowserScreen(
                         verticalArrangement = Arrangement.spacedBy(12.dp)
                     ) {
                         Text(s.message, color = MaterialTheme.colorScheme.error)
-                        Button(onClick = { viewModel.refresh() }) { Text("Retry") }
+                        Button(onClick = { viewModel.refresh() }) { Text(stringResource(R.string.common_more)) }
                     }
                 }
 
@@ -524,7 +530,7 @@ fun FolderBrowserScreen(
         val song = songToAdd!!
         AlertDialog(
             onDismissRequest = { showPlaylistPicker = false; songToAdd = null },
-            title = { Text("Add to playlist") },
+            title = { Text(stringResource(R.string.browser_pick_playlist)) },
             text = {
                 if (playlists.isEmpty()) {
                     Text(
@@ -562,7 +568,7 @@ fun FolderBrowserScreen(
             confirmButton = {},
             dismissButton = {
                 TextButton(onClick = { showPlaylistPicker = false; songToAdd = null }) {
-                    Text("Cancel")
+                    Text(stringResource(R.string.common_cancel))
                 }
             }
         )
@@ -584,14 +590,14 @@ fun FolderBrowserScreen(
                                 onOpenNowPlaying()
                             },
                             modifier = Modifier.fillMaxWidth()
-                        ) { Text("▶  Play") }
+                        ) { Text("▶  " + stringResource(R.string.player_play)) }
                         TextButton(
                             onClick = {
                                 showContextMenu = false
                                 playerViewModel.addToQueue(entry)
                             },
                             modifier = Modifier.fillMaxWidth()
-                        ) { Text("➕  Add to queue") }
+                        ) { Text("➕  " + stringResource(R.string.browser_add_to_queue)) }
                         TextButton(
                             onClick = {
                                 showContextMenu = false
@@ -599,7 +605,7 @@ fun FolderBrowserScreen(
                                 showPlaylistPicker = true
                             },
                             modifier = Modifier.fillMaxWidth()
-                        ) { Text("🎵  Add to playlist") }
+                        ) { Text("🎵  " + stringResource(R.string.browser_add_to_playlist)) }
                     }
                     if (entry.isDir) {
                         TextButton(
@@ -608,7 +614,7 @@ fun FolderBrowserScreen(
                                 triggerShuffle()
                             },
                             modifier = Modifier.fillMaxWidth()
-                        ) { Text("🔀  Shuffle folder") }
+                        ) { Text("🔀  " + stringResource(R.string.browser_shuffle)) }
                     }
                     TextButton(
                         onClick = {
@@ -616,12 +622,12 @@ fun FolderBrowserScreen(
                             shareExpiryTarget = entry
                         },
                         modifier = Modifier.fillMaxWidth()
-                    ) { Text("🔗  Share link") }
+                    ) { Text("🔗  " + stringResource(R.string.common_share)) }
                 }
             },
             confirmButton = {},
             dismissButton = {
-                TextButton(onClick = { showContextMenu = false }) { Text("Cancel") }
+                TextButton(onClick = { showContextMenu = false }) { Text(stringResource(R.string.common_cancel)) }
             }
         )
     }
@@ -641,10 +647,10 @@ fun FolderBrowserScreen(
     if (shareState is ShareState.Error) {
         AlertDialog(
             onDismissRequest = { viewModel.clearShareState() },
-            title = { Text("Share failed") },
+            title = { Text(stringResource(R.string.common_share)) },
             text = { Text((shareState as ShareState.Error).message) },
             confirmButton = {
-                TextButton(onClick = { viewModel.clearShareState() }) { Text("OK") }
+                TextButton(onClick = { viewModel.clearShareState() }) { Text(stringResource(R.string.common_ok)) }
             }
         )
     }
@@ -652,9 +658,9 @@ fun FolderBrowserScreen(
     shuffleError?.let { err ->
         AlertDialog(
             onDismissRequest = { shuffleError = null },
-            title = { Text("Shuffle failed") },
+            title = { Text(stringResource(R.string.browser_shuffle)) },
             text = { Text(err) },
-            confirmButton = { TextButton(onClick = { shuffleError = null }) { Text("OK") } }
+            confirmButton = { TextButton(onClick = { shuffleError = null }) { Text(stringResource(R.string.common_ok)) } }
         )
     }
 }
@@ -812,7 +818,7 @@ private fun EntryRow(
             IconButton(onClick = onShowMenu, modifier = Modifier.size(36.dp)) {
                 Icon(
                     imageVector = Icons.Default.MoreVert,
-                    contentDescription = "More options",
+                    contentDescription = stringResource(R.string.common_more),
                     tint = MaterialTheme.colorScheme.textSecondary
                 )
             }

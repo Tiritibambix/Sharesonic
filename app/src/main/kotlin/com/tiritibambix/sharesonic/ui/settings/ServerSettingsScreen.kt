@@ -7,9 +7,11 @@ import androidx.compose.material.icons.filled.Menu
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
+import com.tiritibambix.sharesonic.R
 
 /** Velvet server URL / account / connection-test sub-screen, opened from the Settings menu. */
 @OptIn(ExperimentalMaterial3Api::class)
@@ -22,12 +24,10 @@ fun ServerSettingsScreen(
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("Server") },
+                title = { Text(stringResource(R.string.server_title)) },
                 navigationIcon = {
-                    // Keep the hamburger glyph here too — reached via the drawer,
-                    // tapping it again exits this screen back to the browser.
                     IconButton(onClick = onBack) {
-                        Icon(Icons.Default.Menu, contentDescription = "Menu")
+                        Icon(Icons.Default.Menu, contentDescription = stringResource(R.string.common_menu))
                     }
                 }
             )
@@ -63,8 +63,8 @@ private fun ServerSettingsContent(
         OutlinedTextField(
             value = serverUrl,
             onValueChange = { serverUrl = it },
-            label = { Text("Velvet server URL") },
-            placeholder = { Text("https://velvet.example.com") },
+            label = { Text(stringResource(R.string.server_url_label)) },
+            placeholder = { Text(stringResource(R.string.server_url_placeholder)) },
             singleLine = true,
             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Uri),
             modifier = Modifier.fillMaxWidth()
@@ -73,7 +73,7 @@ private fun ServerSettingsContent(
         OutlinedTextField(
             value = username,
             onValueChange = { username = it },
-            label = { Text("Username") },
+            label = { Text(stringResource(R.string.server_username)) },
             singleLine = true,
             modifier = Modifier.fillMaxWidth()
         )
@@ -81,7 +81,7 @@ private fun ServerSettingsContent(
         OutlinedTextField(
             value = password,
             onValueChange = { password = it },
-            label = { Text("Password") },
+            label = { Text(stringResource(R.string.server_password)) },
             singleLine = true,
             visualTransformation = PasswordVisualTransformation(),
             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
@@ -103,7 +103,7 @@ private fun ServerSettingsContent(
                         strokeWidth = 2.dp
                     )
                 } else {
-                    Text("Test")
+                    Text(stringResource(R.string.server_test))
                 }
             }
 
@@ -126,21 +126,21 @@ private fun ServerSettingsContent(
                 },
                 modifier = Modifier.weight(1f)
             ) {
-                Text("Save")
+                Text(stringResource(R.string.server_save))
             }
         }
 
         when (val state = connectionState) {
             is ConnectionState.Success -> {
                 Text(
-                    "Connection successful",
+                    stringResource(R.string.server_test_success),
                     color = MaterialTheme.colorScheme.primary,
                     style = MaterialTheme.typography.bodyMedium
                 )
             }
             is ConnectionState.Failure -> {
                 Text(
-                    "Failed: ${state.message}",
+                    stringResource(R.string.server_test_failure, state.message),
                     color = MaterialTheme.colorScheme.error,
                     style = MaterialTheme.typography.bodyMedium
                 )

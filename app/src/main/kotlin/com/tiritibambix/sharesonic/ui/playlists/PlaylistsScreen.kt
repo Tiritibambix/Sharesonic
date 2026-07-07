@@ -13,8 +13,10 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import com.tiritibambix.sharesonic.R
 import com.tiritibambix.sharesonic.data.api.models.NativePlaylist
 import com.tiritibambix.sharesonic.ui.theme.textSecondary
 
@@ -50,12 +52,12 @@ fun PlaylistsScreen(
     if (showCreateDialog) {
         AlertDialog(
             onDismissRequest = { showCreateDialog = false; createName = "" },
-            title = { Text("New playlist") },
+            title = { Text(stringResource(R.string.playlists_new_title)) },
             text = {
                 OutlinedTextField(
                     value = createName,
                     onValueChange = { createName = it },
-                    label = { Text("Playlist name") },
+                    label = { Text(stringResource(R.string.playlists_name_label)) },
                     singleLine = true
                 )
             },
@@ -65,11 +67,11 @@ fun PlaylistsScreen(
                         if (createName.isNotBlank()) viewModel.createPlaylist(createName.trim())
                         showCreateDialog = false; createName = ""
                     }
-                ) { Text("Create") }
+                ) { Text(stringResource(R.string.playlists_create)) }
             },
             dismissButton = {
                 TextButton(onClick = { showCreateDialog = false; createName = "" }) {
-                    Text("Cancel")
+                    Text(stringResource(R.string.common_cancel))
                 }
             }
         )
@@ -79,12 +81,12 @@ fun PlaylistsScreen(
     renameTarget?.let { target ->
         AlertDialog(
             onDismissRequest = { renameTarget = null },
-            title = { Text("Rename playlist") },
+            title = { Text(stringResource(R.string.playlists_rename_title)) },
             text = {
                 OutlinedTextField(
                     value = renameName,
                     onValueChange = { renameName = it },
-                    label = { Text("New name") },
+                    label = { Text(stringResource(R.string.playlists_new_name)) },
                     singleLine = true
                 )
             },
@@ -95,10 +97,10 @@ fun PlaylistsScreen(
                             viewModel.renamePlaylist(target.name, renameName.trim())
                         renameTarget = null
                     }
-                ) { Text("Rename") }
+                ) { Text(stringResource(R.string.common_rename)) }
             },
             dismissButton = {
-                TextButton(onClick = { renameTarget = null }) { Text("Cancel") }
+                TextButton(onClick = { renameTarget = null }) { Text(stringResource(R.string.common_cancel)) }
             }
         )
     }
@@ -107,16 +109,16 @@ fun PlaylistsScreen(
     deleteTarget?.let { target ->
         AlertDialog(
             onDismissRequest = { deleteTarget = null },
-            title = { Text("Delete playlist") },
-            text = { Text("Delete \"${target.name}\"? This cannot be undone.") },
+            title = { Text(stringResource(R.string.playlists_delete_title)) },
+            text = { Text(stringResource(R.string.playlists_delete_message, target.name)) },
             confirmButton = {
                 TextButton(onClick = {
                     viewModel.deletePlaylist(target.name)
                     deleteTarget = null
-                }) { Text("Delete", color = MaterialTheme.colorScheme.error) }
+                }) { Text(stringResource(R.string.common_delete), color = MaterialTheme.colorScheme.error) }
             },
             dismissButton = {
-                TextButton(onClick = { deleteTarget = null }) { Text("Cancel") }
+                TextButton(onClick = { deleteTarget = null }) { Text(stringResource(R.string.common_cancel)) }
             }
         )
     }
@@ -124,25 +126,23 @@ fun PlaylistsScreen(
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("Playlists") },
+                title = { Text(stringResource(R.string.playlists_title)) },
                 navigationIcon = {
                     IconButton(onClick = onBack) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
+                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = stringResource(R.string.common_back))
                     }
                 },
                 actions = {
                     IconButton(onClick = { viewModel.load() }) {
-                        Icon(Icons.Default.Refresh, contentDescription = "Refresh")
+                        Icon(Icons.Default.Refresh, contentDescription = null)
                     }
                 }
             )
         },
         floatingActionButton = {
-            // Column + Spacer: grows when the mini player is visible,
-            // pushing the FAB above it without touching Scaffold's own FAB logic.
             Column(horizontalAlignment = Alignment.End) {
                 FloatingActionButton(onClick = { createName = ""; showCreateDialog = true }) {
-                    Icon(Icons.Default.Add, contentDescription = "New playlist")
+                    Icon(Icons.Default.Add, contentDescription = stringResource(R.string.playlists_new_title))
                 }
                 Spacer(modifier = Modifier.height(fabBottomPadding))
             }
@@ -163,7 +163,7 @@ fun PlaylistsScreen(
                 is PlaylistsState.Ready -> {
                     if (s.playlists.isEmpty()) {
                         Text(
-                            "No playlists — tap + to create one",
+                            stringResource(R.string.playlists_empty),
                             modifier = Modifier.align(Alignment.Center),
                             color = MaterialTheme.colorScheme.textSecondary
                         )
@@ -221,7 +221,7 @@ private fun PlaylistRow(
                 overflow = TextOverflow.Ellipsis
             )
             Text(
-                "${playlist.songCount} songs",
+                stringResource(R.string.playlists_song_count, playlist.songCount),
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.textSecondary
             )
@@ -234,12 +234,12 @@ private fun PlaylistRow(
 
         DropdownMenu(expanded = showMenu, onDismissRequest = { showMenu = false }) {
             DropdownMenuItem(
-                text = { Text("Rename") },
+                text = { Text(stringResource(R.string.common_rename)) },
                 leadingIcon = { Icon(Icons.Default.Edit, contentDescription = null) },
                 onClick = { showMenu = false; onRename() }
             )
             DropdownMenuItem(
-                text = { Text("Delete", color = MaterialTheme.colorScheme.error) },
+                text = { Text(stringResource(R.string.common_delete), color = MaterialTheme.colorScheme.error) },
                 leadingIcon = {
                     Icon(
                         Icons.Default.Delete,

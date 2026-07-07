@@ -12,8 +12,10 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import com.tiritibambix.sharesonic.R
 import com.tiritibambix.sharesonic.data.api.models.EntryDto
 import com.tiritibambix.sharesonic.ui.player.PlayerViewModel
 import com.tiritibambix.sharesonic.ui.theme.textSecondary
@@ -55,12 +57,12 @@ fun PlaylistDetailScreen(
     if (showRenameDialog) {
         AlertDialog(
             onDismissRequest = { showRenameDialog = false },
-            title = { Text("Rename playlist") },
+            title = { Text(stringResource(R.string.playlists_rename_title)) },
             text = {
                 OutlinedTextField(
                     value = renameName,
                     onValueChange = { renameName = it },
-                    label = { Text("New name") },
+                    label = { Text(stringResource(R.string.playlists_new_name)) },
                     singleLine = true
                 )
             },
@@ -68,10 +70,10 @@ fun PlaylistDetailScreen(
                 TextButton(onClick = {
                     if (renameName.isNotBlank()) viewModel.rename(renameName.trim())
                     showRenameDialog = false
-                }) { Text("Rename") }
+                }) { Text(stringResource(R.string.common_rename)) }
             },
             dismissButton = {
-                TextButton(onClick = { showRenameDialog = false }) { Text("Cancel") }
+                TextButton(onClick = { showRenameDialog = false }) { Text(stringResource(R.string.common_cancel)) }
             }
         )
     }
@@ -82,18 +84,18 @@ fun PlaylistDetailScreen(
             onDismissRequest = {
                 showAddDialog = false; addQuery = ""; viewModel.clearAddSongsSearch()
             },
-            title = { Text("Add songs") },
+            title = { Text(stringResource(R.string.playlist_detail_add_songs)) },
             text = {
                 Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                     OutlinedTextField(
                         value = addQuery,
                         onValueChange = { addQuery = it; viewModel.searchSongsToAdd(it) },
-                        placeholder = { Text("Search songs…") },
+                        placeholder = { Text(stringResource(R.string.search_hint)) },
                         singleLine = true,
                         trailingIcon = {
                             if (addQuery.isNotEmpty()) {
                                 IconButton(onClick = { addQuery = ""; viewModel.clearAddSongsSearch() }) {
-                                    Icon(Icons.Default.Clear, contentDescription = "Clear")
+                                    Icon(Icons.Default.Clear, contentDescription = null)
                                 }
                             }
                         },
@@ -104,7 +106,7 @@ fun PlaylistDetailScreen(
                         when (val s = addSongsState) {
                             is AddSongsState.Idle ->
                                 Text(
-                                    "Type to search",
+                                    stringResource(R.string.search_empty),
                                     modifier = Modifier.align(Alignment.Center),
                                     color = MaterialTheme.colorScheme.textSecondary,
                                     style = MaterialTheme.typography.bodySmall
@@ -124,7 +126,7 @@ fun PlaylistDetailScreen(
                             is AddSongsState.Results -> {
                                 if (s.songs.isEmpty()) {
                                     Text(
-                                        "No songs found",
+                                        stringResource(R.string.playlist_detail_empty),
                                         modifier = Modifier.align(Alignment.Center),
                                         color = MaterialTheme.colorScheme.textSecondary,
                                         style = MaterialTheme.typography.bodySmall
@@ -150,7 +152,7 @@ fun PlaylistDetailScreen(
             dismissButton = {
                 TextButton(onClick = {
                     showAddDialog = false; addQuery = ""; viewModel.clearAddSongsSearch()
-                }) { Text("Close") }
+                }) { Text(stringResource(R.string.common_close)) }
             }
         )
     }
@@ -161,15 +163,15 @@ fun PlaylistDetailScreen(
                 title = { Text(playlistName, maxLines = 1, overflow = TextOverflow.Ellipsis) },
                 navigationIcon = {
                     IconButton(onClick = onBack) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
+                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = stringResource(R.string.common_back))
                     }
                 },
                 actions = {
                     IconButton(onClick = { renameName = playlistName; showRenameDialog = true }) {
-                        Icon(Icons.Default.Edit, contentDescription = "Rename")
+                        Icon(Icons.Default.Edit, contentDescription = stringResource(R.string.common_rename))
                     }
                     IconButton(onClick = { addQuery = ""; showAddDialog = true }) {
-                        Icon(Icons.Default.Add, contentDescription = "Add songs")
+                        Icon(Icons.Default.Add, contentDescription = stringResource(R.string.playlist_detail_add_songs))
                     }
                 }
             )
@@ -194,7 +196,7 @@ fun PlaylistDetailScreen(
                         containerColor = MaterialTheme.colorScheme.primary,
                         contentColor = MaterialTheme.colorScheme.onPrimary,
                     ) {
-                        Icon(Icons.Default.Shuffle, contentDescription = "Shuffle")
+                        Icon(Icons.Default.Shuffle, contentDescription = stringResource(R.string.playlist_detail_shuffle))
                     }
                     ExtendedFloatingActionButton(
                         onClick = {
@@ -202,7 +204,7 @@ fun PlaylistDetailScreen(
                             onOpenNowPlaying()
                         },
                         icon = { Icon(Icons.Default.PlayArrow, contentDescription = null) },
-                        text = { Text("Play all") },
+                        text = { Text(stringResource(R.string.playlist_detail_play_all)) },
                         containerColor = MaterialTheme.colorScheme.primary,
                         contentColor = MaterialTheme.colorScheme.onPrimary,
                     )
@@ -275,7 +277,7 @@ private fun SwipeToRemoveSongRow(
                 IconButton(onClick = onRemove, modifier = Modifier.size(40.dp).padding(end = 8.dp)) {
                     Icon(
                         Icons.Default.Close,
-                        contentDescription = "Remove from playlist",
+                        contentDescription = stringResource(R.string.playlist_detail_remove),
                         tint = MaterialTheme.colorScheme.error
                     )
                 }
@@ -295,7 +297,7 @@ private fun SwipeToRemoveSongRow(
                     modifier = Modifier.fillMaxSize().padding(horizontal = 16.dp),
                     contentAlignment = Alignment.CenterEnd
                 ) {
-                    Icon(Icons.Default.Delete, contentDescription = "Remove", tint = MaterialTheme.colorScheme.error)
+                    Icon(Icons.Default.Delete, contentDescription = stringResource(R.string.playlist_detail_remove), tint = MaterialTheme.colorScheme.error)
                 }
             }
         ) {
@@ -314,7 +316,7 @@ private fun SongRow(song: EntryDto, onClick: () -> Unit) {
         horizontalArrangement = Arrangement.spacedBy(12.dp)
     ) {
         IconButton(onClick = onClick, modifier = Modifier.size(40.dp)) {
-            Icon(Icons.Default.PlayArrow, contentDescription = "Play", tint = MaterialTheme.colorScheme.primary)
+            Icon(Icons.Default.PlayArrow, contentDescription = stringResource(R.string.player_play), tint = MaterialTheme.colorScheme.primary)
         }
         Column(modifier = Modifier.weight(1f)) {
             Text(
@@ -373,7 +375,7 @@ private fun AddSongRow(song: EntryDto, onAdd: () -> Unit) {
             }
         }
         IconButton(onClick = onAdd, modifier = Modifier.size(36.dp)) {
-            Icon(Icons.Default.Add, contentDescription = "Add", tint = MaterialTheme.colorScheme.primary)
+            Icon(Icons.Default.Add, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
         }
     }
 }

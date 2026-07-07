@@ -16,8 +16,10 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
+import com.tiritibambix.sharesonic.R
 import com.tiritibambix.sharesonic.ui.theme.textSecondary
 
 /**
@@ -41,15 +43,15 @@ fun ShareExpiryDialog(
 
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text("Create share link") },
+        title = { Text(stringResource(R.string.share_expiry_confirm)) },
         text = {
             Column {
                 Text(
-                    "Days until expiration",
+                    stringResource(R.string.share_expiry_title),
                     style = MaterialTheme.typography.bodyMedium
                 )
                 Text(
-                    "Leave empty for a link that never expires.",
+                    stringResource(R.string.share_expiry_hint),
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.textSecondary
                 )
@@ -59,7 +61,7 @@ fun ShareExpiryDialog(
                         // Digits only — keeps the field a clean day-count entry.
                         daysText = input.filter { it.isDigit() }
                     },
-                    placeholder = { Text("Permanent") },
+                    placeholder = { Text(stringResource(R.string.share_expiry_permanent)) },
                     singleLine = true,
                     isError = !isValid,
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
@@ -73,10 +75,10 @@ fun ShareExpiryDialog(
             TextButton(
                 onClick = { onConfirm(parsedDays) },
                 enabled = isValid
-            ) { Text("Create link") }
+            ) { Text(stringResource(R.string.share_expiry_confirm)) }
         },
         dismissButton = {
-            TextButton(onClick = onDismiss) { Text("Cancel") }
+            TextButton(onClick = onDismiss) { Text(stringResource(R.string.common_cancel)) }
         }
     )
 }

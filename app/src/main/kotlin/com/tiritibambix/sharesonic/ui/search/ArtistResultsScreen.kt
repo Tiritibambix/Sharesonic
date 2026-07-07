@@ -12,8 +12,10 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import com.tiritibambix.sharesonic.R
 import com.tiritibambix.sharesonic.data.api.models.EntryDto
 import com.tiritibambix.sharesonic.data.settings.ServerSettings
 import com.tiritibambix.sharesonic.ui.player.PlayerViewModel
@@ -55,7 +57,7 @@ fun ArtistResultsScreen(
                 title = { Text(artistName, maxLines = 1, overflow = TextOverflow.Ellipsis) },
                 navigationIcon = {
                     IconButton(onClick = onBack) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
+                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = stringResource(R.string.common_back))
                     }
                 }
             )
@@ -74,7 +76,7 @@ fun ArtistResultsScreen(
                         containerColor = MaterialTheme.colorScheme.primary,
                         contentColor = MaterialTheme.colorScheme.onPrimary,
                     ) {
-                        Icon(Icons.Default.Shuffle, contentDescription = "Shuffle")
+                        Icon(Icons.Default.Shuffle, contentDescription = stringResource(R.string.playlist_detail_shuffle))
                     }
                     ExtendedFloatingActionButton(
                         onClick = {
@@ -82,7 +84,7 @@ fun ArtistResultsScreen(
                             onOpenNowPlaying()
                         },
                         icon = { Icon(Icons.Default.PlayArrow, contentDescription = null) },
-                        text = { Text("Play all") },
+                        text = { Text(stringResource(R.string.playlist_detail_play_all)) },
                         containerColor = MaterialTheme.colorScheme.primary,
                         contentColor = MaterialTheme.colorScheme.onPrimary,
                     )
@@ -94,7 +96,7 @@ fun ArtistResultsScreen(
         Box(modifier = Modifier.padding(padding).fillMaxSize()) {
             if (songs.isEmpty()) {
                 Text(
-                    "No tracks found for $artistName",
+                    stringResource(R.string.search_no_results, artistName),
                     modifier = Modifier.align(Alignment.Center),
                     color = MaterialTheme.colorScheme.textSecondary
                 )

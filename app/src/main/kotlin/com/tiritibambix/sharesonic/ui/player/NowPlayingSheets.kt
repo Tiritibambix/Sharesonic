@@ -30,10 +30,12 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.tiritibambix.sharesonic.R
 import com.tiritibambix.sharesonic.data.Result
 import com.tiritibambix.sharesonic.data.api.models.EntryDto
 import com.tiritibambix.sharesonic.ui.theme.textSecondary
@@ -60,18 +62,31 @@ fun TrackInfoDialog(
     onDismiss: () -> Unit
 ) {
     val rows: List<Pair<String, String>> = buildList {
-        song.year?.let { add("Year" to it.toString()) }
-        song.track?.let { add("Track" to it.toString()) }
+        val yearLabel = stringResource(R.string.info_year)
+        val trackLabel = stringResource(R.string.info_track)
+        val genreLabel = stringResource(R.string.info_genre)
+        val bpmLabel = stringResource(R.string.info_bpm)
+        val keyLabel = stringResource(R.string.info_key)
+        val durationLabel = stringResource(R.string.info_duration)
+        val formatLabel = stringResource(R.string.info_format)
+        val bitrateLabel = stringResource(R.string.info_bitrate)
+        val sampleRateLabel = stringResource(R.string.info_sample_rate)
+        val channelsLabel = stringResource(R.string.info_channels)
+        val ratingLabel = stringResource(R.string.info_rating)
+        song.year?.let { add(yearLabel to it.toString()) }
+        song.track?.let { add(trackLabel to it.toString()) }
         song.genres?.filter { it.isNotBlank() }?.takeIf { it.isNotEmpty() }
-            ?.let { add("Genre" to it.joinToString(", ")) }
-        song.bpm?.takeIf { it > 0f }?.let { add("BPM" to formatBpm(it)) }
-        song.musicalKey?.takeIf { it.isNotBlank() }?.let { add("Key" to it) }
-        song.duration?.takeIf { it > 0 }?.let { add("Duration" to formatSeconds(it)) }
-        song.suffix?.takeIf { it.isNotBlank() }?.let { add("Format" to it.uppercase()) }
-        bitrateKbps?.let { add("Bitrate" to "$it kbps") }
-        sampleRateHz?.let { add("Sample rate" to formatSampleRate(it)) }
-        channels?.let { add("Channels" to formatChannels(it)) }
-        song.rating?.takeIf { it > 0 }?.let { add("Rating" to "${it / 2} / 5") }
+            ?.let { add(genreLabel to it.joinToString(", ")) }
+        song.bpm?.takeIf { it > 0f }?.let { add(bpmLabel to formatBpm(it)) }
+        song.musicalKey?.takeIf { it.isNotBlank() }?.let { add(keyLabel to it) }
+        song.duration?.takeIf { it > 0 }?.let { add(durationLabel to formatSeconds(it)) }
+        song.suffix?.takeIf { it.isNotBlank() }?.let { add(formatLabel to it.uppercase()) }
+        val kbpsFmt = bitrateKbps?.let { stringResource(R.string.player_kbps, it) }
+        val ratingFmt = song.rating?.takeIf { it > 0 }?.let { stringResource(R.string.info_rating_value, it / 2) }
+        kbpsFmt?.let { add(bitrateLabel to it) }
+        sampleRateHz?.let { add(sampleRateLabel to formatSampleRate(it)) }
+        channels?.let { add(channelsLabel to formatChannels(it)) }
+        ratingFmt?.let { add(ratingLabel to it) }
     }
 
     androidx.compose.material3.Surface(
@@ -141,7 +156,7 @@ fun TrackInfoDialog(
                         color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.12f),
                     )
                     Text(
-                        "PATH",
+                        stringResource(R.string.info_path),
                         style = MaterialTheme.typography.labelSmall,
                         color = MaterialTheme.colorScheme.textSecondary,
                         letterSpacing = 0.7.sp,
@@ -173,7 +188,7 @@ fun TrackInfoDialog(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.End,
                 ) {
-                    TextButton(onClick = onDismiss) { Text("Close") }
+                    TextButton(onClick = onDismiss) { Text(stringResource(R.string.common_close)) }
                 }
             }
         }
@@ -217,23 +232,25 @@ fun MoreActionsSheet(
     ModalBottomSheet(onDismissRequest = onDismiss) {
         Column(modifier = Modifier.padding(bottom = 16.dp)) {
             ListItem(
-                headlineContent = { Text("Sleep timer") },
+                headlineContent = { Text(stringResource(R.string.more_sleep_timer)) },
                 supportingContent = {
                     Text(
-                        if (sleepRemainingMs != null) "Stops in ${formatCountdown(sleepRemainingMs)}"
-                        else "Off"
+                        if (sleepRemainingMs != null)
+                            stringResource(R.string.more_sleep_stops_in, formatCountdown(sleepRemainingMs))
+                        else
+                            stringResource(R.string.more_sleep_off)
                     )
                 },
                 leadingContent = { Icon(Icons.Default.Bedtime, contentDescription = null) },
                 modifier = Modifier.clickable { onOpenSleepTimer() }
             )
             ListItem(
-                headlineContent = { Text("Lyrics") },
+                headlineContent = { Text(stringResource(R.string.more_lyrics)) },
                 leadingContent = { Icon(Icons.Default.Lyrics, contentDescription = null) },
                 modifier = Modifier.clickable { onOpenLyrics() }
             )
             ListItem(
-                headlineContent = { Text("Track info") },
+                headlineContent = { Text(stringResource(R.string.more_track_info)) },
                 leadingContent = { Icon(Icons.Default.Info, contentDescription = null) },
                 modifier = Modifier.clickable { onOpenInfo() }
             )
@@ -278,7 +295,7 @@ fun LyricsSheet(
                 is Result.Success -> {
                     if (r.data.isEmpty()) {
                         Text(
-                            "No lyrics found",
+                            stringResource(R.string.lyrics_none),
                             color = MaterialTheme.colorScheme.textSecondary
                         )
                     } else {
@@ -327,12 +344,12 @@ fun SleepTimerSheet(
                 .padding(bottom = 24.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp)
         ) {
-            Text("Sleep timer", style = MaterialTheme.typography.titleMedium)
+            Text(stringResource(R.string.sleep_title), style = MaterialTheme.typography.titleMedium)
             FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 listOf(15, 30, 45, 60, 90).forEach { minutes ->
                     AssistChip(
                         onClick = { onPick(minutes) },
-                        label = { Text("$minutes min") }
+                        label = { Text(stringResource(R.string.sleep_preset_min, minutes)) }
                     )
                 }
             }
@@ -344,7 +361,7 @@ fun SleepTimerSheet(
                 OutlinedTextField(
                     value = custom,
                     onValueChange = { s -> custom = s.filter { it.isDigit() }.take(3) },
-                    label = { Text("Custom (min)") },
+                    label = { Text(stringResource(R.string.sleep_custom_label)) },
                     singleLine = true,
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                     modifier = Modifier.weight(1f)
@@ -352,13 +369,13 @@ fun SleepTimerSheet(
                 Button(
                     onClick = { custom.toIntOrNull()?.takeIf { it > 0 }?.let { onPick(it) } },
                     enabled = custom.toIntOrNull()?.let { it > 0 } == true
-                ) { Text("Set") }
+                ) { Text(stringResource(R.string.common_set)) }
             }
             if (active) {
                 TextButton(
                     onClick = onCancel,
                     modifier = Modifier.fillMaxWidth()
-                ) { Text("Cancel timer") }
+                ) { Text(stringResource(R.string.sleep_cancel)) }
             }
         }
     }

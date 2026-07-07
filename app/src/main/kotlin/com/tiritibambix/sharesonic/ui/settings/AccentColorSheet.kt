@@ -41,10 +41,12 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.onSizeChanged
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.tiritibambix.sharesonic.R
 import com.tiritibambix.sharesonic.ui.theme.borderSoft
 import com.tiritibambix.sharesonic.ui.theme.borderStrong
 import com.tiritibambix.sharesonic.ui.theme.onAccent
@@ -157,7 +159,7 @@ fun AccentColorSheet(
                 .padding(bottom = 24.dp),
         ) {
             Text(
-                "Accent color",
+                stringResource(R.string.theme_accent_sheet_title),
                 style = MaterialTheme.typography.titleLarge,
                 fontWeight = FontWeight.SemiBold,
                 modifier = Modifier.padding(bottom = 16.dp),
@@ -187,7 +189,7 @@ fun AccentColorSheet(
             Spacer(Modifier.height(16.dp))
 
             Text(
-                "CUSTOM",
+                stringResource(R.string.theme_accent_custom).uppercase(),
                 color = MaterialTheme.colorScheme.textSecondary,
                 fontSize = 11.sp,
                 letterSpacing = 1.4.sp,

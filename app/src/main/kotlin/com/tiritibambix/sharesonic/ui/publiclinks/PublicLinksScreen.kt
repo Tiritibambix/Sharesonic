@@ -19,8 +19,10 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import com.tiritibambix.sharesonic.R
 import com.tiritibambix.sharesonic.data.api.models.VelvetShareListItem
 import com.tiritibambix.sharesonic.ui.theme.textSecondary
 import java.time.Instant
@@ -44,12 +46,10 @@ fun PublicLinksScreen(
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("Public Links") },
+                title = { Text(stringResource(R.string.links_title)) },
                 navigationIcon = {
-                    // Keep the hamburger glyph here too — reached via the drawer,
-                    // tapping it again exits this screen back to the browser.
                     IconButton(onClick = onBack) {
-                        Icon(Icons.Default.Menu, contentDescription = "Menu")
+                        Icon(Icons.Default.Menu, contentDescription = stringResource(R.string.common_menu))
                     }
                 }
             )
@@ -73,7 +73,7 @@ fun PublicLinksScreen(
                         verticalArrangement = Arrangement.spacedBy(12.dp)
                     ) {
                         Text(
-                            "Couldn't load public links",
+                            stringResource(R.string.links_title),
                             style = MaterialTheme.typography.titleMedium
                         )
                         Text(
@@ -81,7 +81,7 @@ fun PublicLinksScreen(
                             color = MaterialTheme.colorScheme.error,
                             style = MaterialTheme.typography.bodyMedium
                         )
-                        OutlinedButton(onClick = { viewModel.load() }) { Text("Retry") }
+                        OutlinedButton(onClick = { viewModel.load() }) { Text(stringResource(R.string.common_more)) }
                     }
                 }
                 is PublicLinksState.Ready -> {
@@ -100,13 +100,8 @@ fun PublicLinksScreen(
                                 modifier = Modifier.size(40.dp)
                             )
                             Text(
-                                "No public links yet",
+                                stringResource(R.string.links_empty),
                                 style = MaterialTheme.typography.titleMedium
-                            )
-                            Text(
-                                "Share a track or folder to create one.",
-                                color = MaterialTheme.colorScheme.textSecondary,
-                                style = MaterialTheme.typography.bodyMedium
                             )
                         }
                     } else {
@@ -134,18 +129,18 @@ fun PublicLinksScreen(
     pendingDelete?.let { link ->
         AlertDialog(
             onDismissRequest = { pendingDelete = null },
-            title = { Text("Revoke this link?") },
+            title = { Text(stringResource(R.string.links_revoke)) },
             text = {
-                Text("Anyone with the link will lose access immediately. This can't be undone.")
+                Text(stringResource(R.string.playlists_delete_message, link.playlistId))
             },
             confirmButton = {
                 TextButton(onClick = {
                     viewModel.delete(link.playlistId)
                     pendingDelete = null
-                }) { Text("Revoke") }
+                }) { Text(stringResource(R.string.links_revoke)) }
             },
             dismissButton = {
-                TextButton(onClick = { pendingDelete = null }) { Text("Cancel") }
+                TextButton(onClick = { pendingDelete = null }) { Text(stringResource(R.string.common_cancel)) }
             }
         )
     }
@@ -180,15 +175,15 @@ private fun PublicLinkRow(
             )
         }
         IconButton(onClick = onCopy) {
-            Icon(Icons.Default.ContentCopy, contentDescription = "Copy link")
+            Icon(Icons.Default.ContentCopy, contentDescription = stringResource(R.string.links_copy))
         }
         IconButton(onClick = onOpen) {
-            Icon(Icons.Default.OpenInNew, contentDescription = "Open link")
+            Icon(Icons.Default.OpenInNew, contentDescription = stringResource(R.string.links_open))
         }
         IconButton(onClick = onDelete) {
             Icon(
                 Icons.Default.Delete,
-                contentDescription = "Revoke link",
+                contentDescription = stringResource(R.string.links_revoke),
                 tint = MaterialTheme.colorScheme.error
             )
         }

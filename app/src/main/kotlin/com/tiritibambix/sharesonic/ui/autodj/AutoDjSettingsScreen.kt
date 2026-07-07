@@ -15,9 +15,11 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
+import com.tiritibambix.sharesonic.R
 import com.tiritibambix.sharesonic.ui.theme.textSecondary
 import kotlin.math.roundToInt
 
@@ -49,12 +51,12 @@ fun AutoDjSettingsContent(
 
         // ── BPM Continuity ────────────────────────────────────────────────
         item {
-            SectionHeader("BPM Continuity")
+            SectionHeader(stringResource(R.string.autodj_section_bpm))
         }
         item {
             SettingRow(
-                label = "Use BPM continuity",
-                description = "Prefer tracks with a similar tempo to the current song"
+                label = stringResource(R.string.autodj_use_bpm),
+                description = stringResource(R.string.autodj_use_bpm_desc)
             ) {
                 Switch(
                     checked = s.useBpm,
@@ -66,22 +68,22 @@ fun AutoDjSettingsContent(
             AnimatedVisibility(visible = s.useBpm) {
                 Column {
                     SliderSetting(
-                        label = "Tight range  ±${s.bpmTightRange} BPM",
+                        label = "${stringResource(R.string.autodj_bpm_tight)}  ±${s.bpmTightRange}",
                         value = s.bpmTightRange.toFloat(),
                         onValueChange = { viewModel.setBpmTightRange(it.roundToInt()) },
                         valueRange = 5f..30f,
                         steps = 4
                     )
                     SliderSetting(
-                        label = "Wide range  ±${s.bpmWideRange} BPM  (fallback)",
+                        label = "${stringResource(R.string.autodj_bpm_wide)}  ±${s.bpmWideRange}",
                         value = s.bpmWideRange.toFloat(),
                         onValueChange = { viewModel.setBpmWideRange(it.roundToInt()) },
                         valueRange = 10f..50f,
                         steps = 7
                     )
                     SettingRow(
-                        label = "Require BPM tag",
-                        description = "Skip tracks that have no BPM metadata"
+                        label = stringResource(R.string.autodj_require_bpm),
+                        description = stringResource(R.string.autodj_require_bpm_desc)
                     ) {
                         Switch(
                             checked = s.requireBpm,
@@ -94,11 +96,11 @@ fun AutoDjSettingsContent(
 
         // ── Harmonic Mixing ───────────────────────────────────────────────
         item { SectionDivider() }
-        item { SectionHeader("Harmonic Mixing (Camelot)") }
+        item { SectionHeader(stringResource(R.string.autodj_section_harmonic)) }
         item {
             SettingRow(
-                label = "Harmonic mixing",
-                description = "Prefer tracks whose musical key is compatible on the Camelot wheel"
+                label = stringResource(R.string.autodj_use_harmonic),
+                description = stringResource(R.string.autodj_use_harmonic_desc)
             ) {
                 Switch(
                     checked = s.useHarmonicMixing,
@@ -109,8 +111,8 @@ fun AutoDjSettingsContent(
         item {
             AnimatedVisibility(visible = s.useHarmonicMixing) {
                 SettingRow(
-                    label = "Require key tag",
-                    description = "Skip tracks that have no musical key metadata"
+                    label = stringResource(R.string.autodj_require_key),
+                    description = stringResource(R.string.autodj_require_key_desc)
                 ) {
                     Switch(
                         checked = s.requireKey,
@@ -122,11 +124,11 @@ fun AutoDjSettingsContent(
 
         // ── Similar Artists ───────────────────────────────────────────────
         item { SectionDivider() }
-        item { SectionHeader("Similar Artists (Last.fm)") }
+        item { SectionHeader(stringResource(R.string.autodj_section_artists)) }
         item {
             SettingRow(
-                label = "Similar artists",
-                description = "Fetch similar artists via Velvet's Last.fm integration and prefer their tracks"
+                label = stringResource(R.string.autodj_use_similar),
+                description = stringResource(R.string.autodj_use_similar_desc)
             ) {
                 Switch(
                     checked = s.useSimilarArtists,
@@ -136,8 +138,8 @@ fun AutoDjSettingsContent(
         }
         item {
             StepperSetting(
-                label = "Artist cooldown",
-                description = "Number of recently played artists to exclude",
+                label = stringResource(R.string.autodj_artist_cooldown),
+                description = stringResource(R.string.autodj_artist_cooldown_desc),
                 value = s.artistCooldown,
                 onDecrement = { viewModel.setArtistCooldown(s.artistCooldown - 1) },
                 onIncrement = { viewModel.setArtistCooldown(s.artistCooldown + 1) },
@@ -148,8 +150,11 @@ fun AutoDjSettingsContent(
 
         // ── Genre Filter ──────────────────────────────────────────────────
         item { SectionDivider() }
-        item { SectionHeader("Genre Filter") }
+        item { SectionHeader(stringResource(R.string.autodj_section_genre)) }
         item {
+            val offLabel = stringResource(R.string.autodj_filter_off)
+            val wlLabel = stringResource(R.string.autodj_filter_whitelist)
+            val blLabel = stringResource(R.string.autodj_filter_blacklist)
             Column(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -157,11 +162,11 @@ fun AutoDjSettingsContent(
                 verticalArrangement = Arrangement.spacedBy(8.dp)
             ) {
                 Text(
-                    "Filter mode",
+                    stringResource(R.string.autodj_filter_mode),
                     style = MaterialTheme.typography.bodyMedium
                 )
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    listOf("off" to "Off", "whitelist" to "Whitelist", "blacklist" to "Blacklist")
+                    listOf("off" to offLabel, "whitelist" to wlLabel, "blacklist" to blLabel)
                         .forEach { (mode, label) ->
                             FilterChip(
                                 selected = s.genreMode == mode,
@@ -186,11 +191,11 @@ fun AutoDjSettingsContent(
         // PlayerViewModel refetches when a fetched candidate is blocked; see
         // KeywordFilter.isBlocked for the exact matching rule.
         item { SectionDivider() }
-        item { SectionHeader("Keyword Filter") }
+        item { SectionHeader(stringResource(R.string.autodj_section_keyword)) }
         item {
             SettingRow(
-                label = "Enable keyword filter",
-                description = "Skip songs whose title, artist, album or filename contains any of these words"
+                label = stringResource(R.string.autodj_keyword_enable),
+                description = stringResource(R.string.autodj_keyword_desc)
             ) {
                 Switch(
                     checked = s.keywordFilterEnabled,
@@ -209,11 +214,11 @@ fun AutoDjSettingsContent(
 
         // ── Crossfade ─────────────────────────────────────────────────────
         item { SectionDivider() }
-        item { SectionHeader("Crossfade") }
+        item { SectionHeader(stringResource(R.string.autodj_section_crossfade)) }
         item {
             SliderSetting(
-                label = if (s.crossfadeDurationSec == 0) "Crossfade: Off"
-                        else "Crossfade: ${s.crossfadeDurationSec}s",
+                label = if (s.crossfadeDurationSec == 0) stringResource(R.string.autodj_crossfade_off)
+                        else stringResource(R.string.autodj_crossfade_value, s.crossfadeDurationSec),
                 value = s.crossfadeDurationSec.toFloat(),
                 onValueChange = { viewModel.setCrossfadeDuration(it.roundToInt()) },
                 // 0–12 in 1-second steps: 11 intermediate positions → 13 total
@@ -224,7 +229,7 @@ fun AutoDjSettingsContent(
 
         // ── Minimum Rating ────────────────────────────────────────────────
         item { SectionDivider() }
-        item { SectionHeader("Minimum Rating") }
+        item { SectionHeader(stringResource(R.string.autodj_section_min_rating)) }
         item {
             StarRatingPicker(
                 rating = s.minRating,
@@ -234,7 +239,7 @@ fun AutoDjSettingsContent(
 
         // ── Source Library ────────────────────────────────────────────────
         item { SectionDivider() }
-        item { SectionHeader("Source Library") }
+        item { SectionHeader(stringResource(R.string.autodj_section_source)) }
         item {
             SourceFoldersSelector(
                 vpaths = vpaths,
@@ -255,12 +260,10 @@ fun AutoDjSettingsScreen(
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("Auto-DJ") },
+                title = { Text(stringResource(R.string.autodj_title)) },
                 navigationIcon = {
-                    // Keep the hamburger glyph here too — reached via the drawer,
-                    // tapping it again exits this screen back to the browser.
                     IconButton(onClick = onBack) {
-                        Icon(Icons.Default.Menu, contentDescription = "Menu")
+                        Icon(Icons.Default.Menu, contentDescription = stringResource(R.string.common_menu))
                     }
                 }
             )
@@ -298,8 +301,8 @@ private fun StarRatingPicker(
         horizontalArrangement = Arrangement.SpaceBetween
     ) {
         Text(
-            text = if (rating == 0) "Any rating"
-                   else "$rating ${if (rating == 1) "star" else "stars"} minimum",
+            text = if (rating == 0) stringResource(R.string.autodj_min_rating_any)
+                   else stringResource(R.string.autodj_min_rating_value, rating),
             style = MaterialTheme.typography.bodyMedium,
             modifier = Modifier
                 .weight(1f)
@@ -317,7 +320,10 @@ private fun StarRatingPicker(
                     Icon(
                         imageVector = if (star <= rating) Icons.Filled.Star
                                       else Icons.Filled.StarBorder,
-                        contentDescription = "$star star",
+                        contentDescription = stringResource(
+                            if (star == 1) R.string.player_rating_star else R.string.player_rating_stars,
+                            star
+                        ),
                         tint = if (star <= rating) MaterialTheme.colorScheme.primary
                                else MaterialTheme.colorScheme.textSecondary.copy(alpha = 0.38f),
                         modifier = Modifier.size(22.dp)
@@ -333,7 +339,7 @@ private fun StarRatingPicker(
             ) {
                 Icon(
                     imageVector = Icons.Default.Close,
-                    contentDescription = "Reset to any rating",
+                    contentDescription = stringResource(R.string.autodj_clear_rating),
                     tint = if (rating != 0) MaterialTheme.colorScheme.textSecondary
                            else MaterialTheme.colorScheme.textSecondary.copy(alpha = 0.25f),
                     modifier = Modifier.size(20.dp)
@@ -427,7 +433,7 @@ private fun KeywordsEditor(
         verticalArrangement = Arrangement.spacedBy(4.dp)
     ) {
         Text(
-            "Keywords (comma-separated)",
+            stringResource(R.string.autodj_keywords_label),
             style = MaterialTheme.typography.bodyMedium
         )
         OutlinedTextField(
@@ -437,7 +443,7 @@ private fun KeywordsEditor(
                 onUpdate(v.split(",").map { it.trim() }.filter { it.isNotBlank() })
             },
             modifier = Modifier.fillMaxWidth(),
-            placeholder = { Text("remix, acapella, live…") },
+            placeholder = { Text(stringResource(R.string.autodj_keywords_placeholder)) },
             keyboardOptions = KeyboardOptions(imeAction = ImeAction.Done),
             singleLine = false,
             minLines = 2
@@ -462,7 +468,7 @@ private fun GenresEditor(
         verticalArrangement = Arrangement.spacedBy(4.dp)
     ) {
         Text(
-            "Genres (comma-separated)",
+            stringResource(R.string.autodj_genres_label),
             style = MaterialTheme.typography.bodyMedium
         )
         OutlinedTextField(
@@ -472,7 +478,7 @@ private fun GenresEditor(
                 onUpdate(v.split(",").map { it.trim() }.filter { it.isNotBlank() })
             },
             modifier = Modifier.fillMaxWidth(),
-            placeholder = { Text("Rock, Jazz, Classical…") },
+            placeholder = { Text(stringResource(R.string.autodj_genres_placeholder)) },
             keyboardOptions = KeyboardOptions(imeAction = ImeAction.Done),
             singleLine = false,
             minLines = 2

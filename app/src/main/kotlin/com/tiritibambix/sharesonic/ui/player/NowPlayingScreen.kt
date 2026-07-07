@@ -42,11 +42,13 @@ import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.layout.onSizeChanged
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.dp
 import coil.compose.AsyncImage
+import com.tiritibambix.sharesonic.R
 import com.tiritibambix.sharesonic.ui.share.ShareExpiryDialog
 import com.tiritibambix.sharesonic.ui.theme.textSecondary
 import com.tiritibambix.sharesonic.utils.LocalIsTV
@@ -113,7 +115,7 @@ fun NowPlayingScreen(
                                 }
                             ) {
                                 Text(
-                                    "Now Playing",
+                                    stringResource(R.string.player_now_playing),
                                     color = if (pagerState.currentPage == PAGE_NOW_PLAYING)
                                         MaterialTheme.colorScheme.primary
                                     else
@@ -128,7 +130,7 @@ fun NowPlayingScreen(
                                 }
                             ) {
                                 Text(
-                                    "Queue (${state.queueIndex + 1}/${state.queue.size})",
+                                    stringResource(R.string.player_queue_counter, state.queueIndex + 1, state.queue.size),
                                     color = if (pagerState.currentPage == PAGE_QUEUE)
                                         MaterialTheme.colorScheme.primary
                                     else
@@ -174,8 +176,10 @@ fun NowPlayingScreen(
                             }
                             Spacer(Modifier.width(8.dp))
                             Text(
-                                text = if (pagerState.currentPage == PAGE_NOW_PLAYING) "Now Playing"
-                                       else "Queue  (${state.queueIndex + 1}/${state.queue.size})",
+                                text = if (pagerState.currentPage == PAGE_NOW_PLAYING)
+                                    stringResource(R.string.player_now_playing)
+                                else
+                                    stringResource(R.string.player_queue_counter, state.queueIndex + 1, state.queue.size),
                                 style = MaterialTheme.typography.titleMedium
                             )
                         }
@@ -183,7 +187,7 @@ fun NowPlayingScreen(
                 },
                 navigationIcon = {
                     IconButton(onClick = onBack) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
+                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = stringResource(R.string.common_back))
                     }
                 },
                 actions = {
@@ -198,7 +202,7 @@ fun NowPlayingScreen(
                     ) {
                         Icon(
                             imageVector = Icons.Default.Headphones,
-                            contentDescription = if (state.autoDjEnabled) "Auto-DJ on" else "Auto-DJ off",
+                            contentDescription = stringResource(if (state.autoDjEnabled) R.string.player_autodj_on else R.string.player_autodj_off),
                             tint = if (state.autoDjEnabled)
                                        MaterialTheme.colorScheme.primary
                                    else
@@ -221,7 +225,7 @@ fun NowPlayingScreen(
                                 IconButton(onClick = { showShareQueueExpiryDialog = true }) {
                                     Icon(
                                         imageVector = Icons.Default.Share,
-                                        contentDescription = "Share queue",
+                                        contentDescription = stringResource(R.string.player_share_queue),
                                     )
                                 }
                             }
@@ -230,7 +234,7 @@ fun NowPlayingScreen(
                             IconButton(onClick = { showMoreSheet = true }) {
                                 Icon(
                                     imageVector = Icons.Default.MoreVert,
-                                    contentDescription = "More",
+                                    contentDescription = stringResource(R.string.player_more),
                                     tint = if (state.sleepRemainingMs != null)
                                                MaterialTheme.colorScheme.primary
                                            else
@@ -246,7 +250,7 @@ fun NowPlayingScreen(
         if (state.currentSong == null) {
             Box(modifier = Modifier.padding(padding).fillMaxSize()) {
                 Text(
-                    "Nothing playing",
+                    stringResource(R.string.player_nothing_playing),
                     modifier = Modifier.align(Alignment.Center),
                     color = MaterialTheme.colorScheme.textSecondary
                 )
@@ -472,7 +476,7 @@ private fun NowPlayingPage(
                     if (state.coverArtUrl != null) {
                         AsyncImage(
                             model = state.coverArtUrl,
-                            contentDescription = "Album art",
+                            contentDescription = stringResource(R.string.player_album_art),
                             contentScale = ContentScale.Crop,
                             modifier = Modifier.fillMaxSize()
                         )
@@ -583,7 +587,7 @@ private fun NowPlayingPage(
                 onClick = { viewModel.skipPrev() },
                 enabled = state.queueIndex > 0
             ) {
-                Icon(Icons.Default.SkipPrevious, contentDescription = "Previous",
+                Icon(Icons.Default.SkipPrevious, contentDescription = stringResource(R.string.player_previous),
                     modifier = Modifier.size(36.dp))
             }
             // Theme-accent halo behind the play/pause button — an explicit
@@ -632,7 +636,7 @@ private fun NowPlayingPage(
                 onClick = { viewModel.skipNext() },
                 enabled = state.queueIndex < state.queue.lastIndex
             ) {
-                Icon(Icons.Default.SkipNext, contentDescription = "Next",
+                Icon(Icons.Default.SkipNext, contentDescription = stringResource(R.string.player_next),
                     modifier = Modifier.size(36.dp))
             }
         }
@@ -740,7 +744,7 @@ private fun NowPlayingPage(
                         Icon(Icons.Default.Share, contentDescription = null,
                             modifier = Modifier.size(18.dp))
                         Spacer(Modifier.width(6.dp))
-                        Text("Share")
+                        Text(stringResource(R.string.player_share))
                     }
                 }
                 OutlinedButton(
@@ -750,7 +754,7 @@ private fun NowPlayingPage(
                     Icon(Icons.Default.QueueMusic, contentDescription = null,
                         modifier = Modifier.size(18.dp))
                     Spacer(Modifier.width(6.dp))
-                    Text("Playlist")
+                    Text(stringResource(R.string.player_playlist))
                 }
             }
 
@@ -773,7 +777,7 @@ private fun NowPlayingPage(
                         modifier = Modifier.weight(1f)
                     )
                     TextButton(onClick = { viewModel.clearPlaybackError() }) {
-                        Text("Dismiss", style = MaterialTheme.typography.labelSmall)
+                        Text(stringResource(R.string.common_dismiss), style = MaterialTheme.typography.labelSmall)
                     }
                 }
             }
@@ -781,7 +785,7 @@ private fun NowPlayingPage(
             // Hint: swipe for queue
             if (state.queue.size > 1) {
                 Text(
-                    "← Swipe for queue",
+                    stringResource(R.string.player_swipe_hint),
                     style = MaterialTheme.typography.labelSmall,
                     color = MaterialTheme.colorScheme.textSecondary.copy(alpha = 0.5f),
                     modifier = Modifier.fillMaxWidth(),
@@ -809,11 +813,11 @@ private fun NowPlayingPage(
     if (showPlaylistPicker) {
         AlertDialog(
             onDismissRequest = { showPlaylistPicker = false },
-            title = { Text("Add to playlist") },
+            title = { Text(stringResource(R.string.player_add_playlist_title)) },
             text = {
                 if (playlists.isEmpty()) {
                     Text(
-                        "No playlists yet.\nCreate one in the Playlists screen first.",
+                        stringResource(R.string.player_no_playlists),
                         color = MaterialTheme.colorScheme.textSecondary
                     )
                 } else {
@@ -831,7 +835,7 @@ private fun NowPlayingPage(
                                 modifier = Modifier.fillMaxWidth()
                             ) {
                                 Text(
-                                    "${playlist.name}  (${playlist.songCount})",
+                                    stringResource(R.string.player_playlist_entry, playlist.name, playlist.songCount),
                                     modifier = Modifier.fillMaxWidth()
                                 )
                             }
@@ -841,7 +845,7 @@ private fun NowPlayingPage(
             },
             confirmButton = {},
             dismissButton = {
-                TextButton(onClick = { showPlaylistPicker = false }) { Text("Cancel") }
+                TextButton(onClick = { showPlaylistPicker = false }) { Text(stringResource(R.string.common_cancel)) }
             }
         )
     }
@@ -870,7 +874,10 @@ private fun RatingStars(
             ) {
                 Icon(
                     imageVector = if (star <= rating) Icons.Filled.Star else Icons.Filled.StarBorder,
-                    contentDescription = "$star ${if (star == 1) "star" else "stars"}",
+                    contentDescription = stringResource(
+                        if (star == 1) R.string.player_rating_star else R.string.player_rating_stars,
+                        star
+                    ),
                     tint = if (star <= rating) MaterialTheme.colorScheme.primary
                            else MaterialTheme.colorScheme.textSecondary.copy(alpha = 0.4f),
                     modifier = Modifier.size(22.dp)
@@ -886,7 +893,7 @@ private fun RatingStars(
         ) {
             Icon(
                 imageVector = Icons.Default.Close,
-                contentDescription = "Clear rating",
+                contentDescription = stringResource(R.string.player_clear_rating),
                 tint = if (rating != 0) MaterialTheme.colorScheme.textSecondary
                        else MaterialTheme.colorScheme.textSecondary.copy(alpha = 0.25f),
                 modifier = Modifier.size(18.dp)
@@ -985,7 +992,7 @@ private fun QueuePage(state: PlayerState, viewModel: PlayerViewModel, isTV: Bool
     if (state.queue.isEmpty()) {
         Box(modifier = Modifier.fillMaxSize()) {
             Text(
-                "Queue is empty",
+                stringResource(R.string.queue_empty),
                 modifier = Modifier.align(Alignment.Center),
                 color = MaterialTheme.colorScheme.textSecondary
             )
@@ -1039,7 +1046,7 @@ private fun QueuePage(state: PlayerState, viewModel: PlayerViewModel, isTV: Bool
                         ) {
                             Icon(
                                 Icons.Default.Delete,
-                                contentDescription = "Remove from queue",
+                                contentDescription = stringResource(R.string.queue_remove),
                                 tint = MaterialTheme.colorScheme.error
                             )
                         }
@@ -1127,7 +1134,7 @@ private fun QueueSongRow(
             IconButton(onClick = onRemove, modifier = Modifier.size(36.dp)) {
                 Icon(
                     Icons.Default.Close,
-                    contentDescription = "Remove from queue",
+                    contentDescription = stringResource(R.string.queue_remove),
                     tint = MaterialTheme.colorScheme.error
                 )
             }
@@ -1249,7 +1256,7 @@ fun MiniPlayerBar(
                 ) {
                     Icon(
                         Icons.Default.SkipPrevious,
-                        contentDescription = "Previous",
+                        contentDescription = stringResource(R.string.player_previous),
                         tint = if (state.queueIndex > 0)
                             MaterialTheme.colorScheme.textSecondary
                         else
@@ -1263,7 +1270,7 @@ fun MiniPlayerBar(
                     Icon(
                         imageVector = if (state.isPlaying) Icons.Default.Pause
                                       else Icons.Default.PlayArrow,
-                        contentDescription = if (state.isPlaying) "Pause" else "Play"
+                        contentDescription = stringResource(if (state.isPlaying) R.string.player_pause else R.string.player_play)
                     )
                 }
                 IconButton(
@@ -1272,7 +1279,7 @@ fun MiniPlayerBar(
                 ) {
                     Icon(
                         Icons.Default.SkipNext,
-                        contentDescription = "Next",
+                        contentDescription = stringResource(R.string.player_next),
                         tint = if (state.queueIndex < state.queue.lastIndex)
                             MaterialTheme.colorScheme.textSecondary
                         else
@@ -1286,7 +1293,7 @@ fun MiniPlayerBar(
                 ) {
                     Icon(
                         imageVector = Icons.Default.Headphones,
-                        contentDescription = if (state.autoDjEnabled) "Auto-DJ on" else "Auto-DJ off",
+                        contentDescription = stringResource(if (state.autoDjEnabled) R.string.player_autodj_on else R.string.player_autodj_off),
                         tint = if (state.autoDjEnabled)
                                    MaterialTheme.colorScheme.primary
                                else

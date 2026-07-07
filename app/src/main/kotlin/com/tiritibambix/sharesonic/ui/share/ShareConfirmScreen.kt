@@ -14,8 +14,10 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
+import com.tiritibambix.sharesonic.R
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -28,10 +30,10 @@ fun ShareConfirmScreen(
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("Share link") },
+                title = { Text(stringResource(R.string.share_confirm_title)) },
                 navigationIcon = {
                     IconButton(onClick = onBack) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
+                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = stringResource(R.string.common_back))
                     }
                 }
             )
@@ -46,7 +48,7 @@ fun ShareConfirmScreen(
             verticalArrangement = Arrangement.spacedBy(24.dp, Alignment.CenterVertically)
         ) {
             Text(
-                "Your share link is ready",
+                stringResource(R.string.share_confirm_title),
                 style = MaterialTheme.typography.titleLarge
             )
 
@@ -73,7 +75,7 @@ fun ShareConfirmScreen(
                 ) {
                     Icon(Icons.Default.ContentCopy, contentDescription = null)
                     Spacer(Modifier.width(8.dp))
-                    Text("Copy")
+                    Text(stringResource(R.string.share_copy))
                 }
 
                 Button(
@@ -82,7 +84,7 @@ fun ShareConfirmScreen(
                 ) {
                     Icon(Icons.Default.Share, contentDescription = null)
                     Spacer(Modifier.width(8.dp))
-                    Text("Send")
+                    Text(stringResource(R.string.share_send))
                 }
             }
         }

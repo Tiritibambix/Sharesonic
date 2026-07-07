@@ -19,8 +19,10 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.ViewModel
+import com.tiritibambix.sharesonic.R
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
 import com.tiritibambix.sharesonic.data.settings.SettingsRepository
@@ -86,10 +88,10 @@ fun EqSettingsScreen(
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("Equalizer") },
+                title = { Text(stringResource(R.string.eq_title)) },
                 navigationIcon = {
                     IconButton(onClick = onBack) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
+                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = stringResource(R.string.common_back))
                     }
                 }
             )
@@ -101,7 +103,7 @@ fun EqSettingsScreen(
                 contentAlignment = Alignment.Center
             ) {
                 Text(
-                    "Equalizer not available on this device.",
+                    stringResource(R.string.eq_unavailable),
                     color = MaterialTheme.colorScheme.textSecondary
                 )
             }
@@ -124,10 +126,10 @@ fun EqSettingsScreen(
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                Text("Enabled", style = MaterialTheme.typography.titleMedium)
+                Text(stringResource(R.string.eq_enable), style = MaterialTheme.typography.titleMedium)
                 Switch(checked = enabled, onCheckedChange = viewModel::setEnabled)
             }
-            TextButton(onClick = viewModel::reset) { Text("Reset to flat") }
+            TextButton(onClick = viewModel::reset) { Text(stringResource(R.string.eq_reset_flat)) }
             Spacer(Modifier.height(8.dp))
 
             viewModel.centerFreqsHz.forEachIndexed { index, freq ->
