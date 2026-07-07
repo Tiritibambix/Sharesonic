@@ -199,6 +199,11 @@ fun FolderBrowserScreen(
         modifier = Modifier.blur(contentBlur),
         topBar = {
             TopAppBar(
+                expandedHeight = 48.dp,
+                colors = TopAppBarDefaults.topAppBarColors(
+                    containerColor = MaterialTheme.colorScheme.surface.copy(alpha = 0.85f),
+                    scrolledContainerColor = MaterialTheme.colorScheme.surface.copy(alpha = 0.95f),
+                ),
                 title = {
                     // The nav route passes "Library" (a stable identifier used as an
                     // is-root check below) for the root folder; localize only that
