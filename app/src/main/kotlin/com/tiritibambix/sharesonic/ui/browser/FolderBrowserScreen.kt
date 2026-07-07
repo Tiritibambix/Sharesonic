@@ -199,53 +199,47 @@ fun FolderBrowserScreen(
         modifier = Modifier.blur(contentBlur),
         topBar = {
             TopAppBar(
-                expandedHeight = 48.dp,
+                expandedHeight = 40.dp,
                 colors = TopAppBarDefaults.topAppBarColors(
                     containerColor = MaterialTheme.colorScheme.surface.copy(alpha = 0.85f),
                     scrolledContainerColor = MaterialTheme.colorScheme.surface.copy(alpha = 0.95f),
                 ),
                 title = {
-                    // The nav route passes "Library" (a stable identifier used as an
-                    // is-root check below) for the root folder; localize only that
-                    // display case, leave real folder names untouched.
                     val displayName = if (folderName == "Library") stringResource(R.string.browser_library) else folderName
-                    Text(displayName, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                    Text(displayName, maxLines = 1, overflow = TextOverflow.Ellipsis, style = MaterialTheme.typography.titleSmall)
                 },
                 navigationIcon = {
-                    IconButton(onClick = { drawerScope.launch { drawerState.open() } }) {
-                        Icon(Icons.Default.Menu, contentDescription = stringResource(R.string.common_menu))
+                    IconButton(
+                        onClick = { drawerScope.launch { drawerState.open() } },
+                        modifier = Modifier.size(36.dp)
+                    ) {
+                        Icon(Icons.Default.Menu, contentDescription = stringResource(R.string.common_menu), modifier = Modifier.size(20.dp))
                     }
                 },
                 actions = {
-                    // Jump straight to the library root — spares the user 15
-                    // Back presses when they're deep in nested folders. Hidden
-                    // at the root itself (nothing to go back to).
                     if (folderName != "Library") {
-                        IconButton(onClick = onGoRoot) {
-                            Icon(Icons.Default.Home, contentDescription = stringResource(R.string.browser_home))
+                        IconButton(onClick = onGoRoot, modifier = Modifier.size(36.dp)) {
+                            Icon(Icons.Default.Home, contentDescription = stringResource(R.string.browser_home), modifier = Modifier.size(20.dp))
                         }
                     }
-                    // TV: the bottom-end FAB column isn't reachable via D-pad, so
-                    // Play-in-order/Shuffle are exposed here instead, alongside the
-                    // already-reachable Search/Playlists icons.
                     if (isTV) {
                         if (entries.isNotEmpty() && entries.none { it.isDir }) {
-                            IconButton(onClick = ::playInOrder) {
-                                Icon(Icons.Default.PlayArrow, contentDescription = stringResource(R.string.browser_play_all))
+                            IconButton(onClick = ::playInOrder, modifier = Modifier.size(36.dp)) {
+                                Icon(Icons.Default.PlayArrow, contentDescription = stringResource(R.string.browser_play_all), modifier = Modifier.size(20.dp))
                             }
                         }
-                        IconButton(onClick = ::triggerShuffle) {
+                        IconButton(onClick = ::triggerShuffle, modifier = Modifier.size(36.dp)) {
                             if (shuffleLoading)
-                                CircularProgressIndicator(modifier = Modifier.size(20.dp), strokeWidth = 2.dp)
+                                CircularProgressIndicator(modifier = Modifier.size(16.dp), strokeWidth = 2.dp)
                             else
-                                Icon(Icons.Default.Shuffle, contentDescription = stringResource(R.string.browser_shuffle))
+                                Icon(Icons.Default.Shuffle, contentDescription = stringResource(R.string.browser_shuffle), modifier = Modifier.size(20.dp))
                         }
                     }
-                    IconButton(onClick = onOpenSearch) {
-                        Icon(Icons.Default.Search, contentDescription = stringResource(R.string.browser_search))
+                    IconButton(onClick = onOpenSearch, modifier = Modifier.size(36.dp)) {
+                        Icon(Icons.Default.Search, contentDescription = stringResource(R.string.browser_search), modifier = Modifier.size(20.dp))
                     }
-                    IconButton(onClick = onOpenPlaylists) {
-                        Icon(Icons.Default.QueueMusic, contentDescription = stringResource(R.string.browser_playlists))
+                    IconButton(onClick = onOpenPlaylists, modifier = Modifier.size(36.dp)) {
+                        Icon(Icons.Default.QueueMusic, contentDescription = stringResource(R.string.browser_playlists), modifier = Modifier.size(20.dp))
                     }
                 }
             )

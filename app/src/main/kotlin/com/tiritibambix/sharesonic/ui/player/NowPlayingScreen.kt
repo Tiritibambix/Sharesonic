@@ -102,15 +102,13 @@ fun NowPlayingScreen(
         modifier = Modifier.blur(contentBlur),
         topBar = {
             TopAppBar(
-                expandedHeight = 48.dp,
+                expandedHeight = 40.dp,
                 colors = TopAppBarDefaults.topAppBarColors(
                     containerColor = MaterialTheme.colorScheme.surface.copy(alpha = 0.85f),
                     scrolledContainerColor = MaterialTheme.colorScheme.surface.copy(alpha = 0.95f),
                 ),
                 title = {
                     if (isTV) {
-                        // TV: explicit tab buttons — D-pad can focus and select them,
-                        // replacing the swipe gesture that doesn't work without touch.
                         Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
                             TextButton(
                                 onClick = {
@@ -121,6 +119,7 @@ fun NowPlayingScreen(
                             ) {
                                 Text(
                                     stringResource(R.string.player_now_playing),
+                                    style = MaterialTheme.typography.titleSmall,
                                     color = if (pagerState.currentPage == PAGE_NOW_PLAYING)
                                         MaterialTheme.colorScheme.primary
                                     else
@@ -136,6 +135,7 @@ fun NowPlayingScreen(
                             ) {
                                 Text(
                                     stringResource(R.string.player_queue_counter, state.queueIndex + 1, state.queue.size),
+                                    style = MaterialTheme.typography.titleSmall,
                                     color = if (pagerState.currentPage == PAGE_QUEUE)
                                         MaterialTheme.colorScheme.primary
                                     else
@@ -144,16 +144,11 @@ fun NowPlayingScreen(
                             }
                         }
                     } else {
-                        // Phone: tapping the dot indicator + label toggles the pager
-                        // between Now Playing and Queue. This is the discoverable way
-                        // back to the player from a scrolled-full queue where the
-                        // right-swipe gesture is caught by SwipeToDismissBox on the
-                        // row and never reaches the pager.
                         Row(
-                            horizontalArrangement = Arrangement.spacedBy(6.dp),
+                            horizontalArrangement = Arrangement.spacedBy(5.dp),
                             verticalAlignment = Alignment.CenterVertically,
                             modifier = Modifier
-                                .clip(RoundedCornerShape(20.dp))
+                                .clip(RoundedCornerShape(16.dp))
                                 .clickable {
                                     coroutineScope.launch {
                                         pagerState.animateScrollToPage(
@@ -164,12 +159,12 @@ fun NowPlayingScreen(
                                         )
                                     }
                                 }
-                                .padding(horizontal = 6.dp, vertical = 4.dp)
+                                .padding(horizontal = 4.dp, vertical = 2.dp)
                         ) {
                             repeat(2) { i ->
                                 Box(
                                     modifier = Modifier
-                                        .size(if (pagerState.currentPage == i) 8.dp else 6.dp)
+                                        .size(if (pagerState.currentPage == i) 7.dp else 5.dp)
                                         .clip(CircleShape)
                                         .background(
                                             if (pagerState.currentPage == i)
@@ -179,35 +174,35 @@ fun NowPlayingScreen(
                                         )
                                 )
                             }
-                            Spacer(Modifier.width(8.dp))
+                            Spacer(Modifier.width(6.dp))
                             Text(
                                 text = if (pagerState.currentPage == PAGE_NOW_PLAYING)
                                     stringResource(R.string.player_now_playing)
                                 else
                                     stringResource(R.string.player_queue_counter, state.queueIndex + 1, state.queue.size),
-                                style = MaterialTheme.typography.titleMedium
+                                style = MaterialTheme.typography.titleSmall
                             )
                         }
                     }
                 },
                 navigationIcon = {
-                    IconButton(onClick = onBack) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = stringResource(R.string.common_back))
+                    IconButton(
+                        onClick = onBack,
+                        modifier = Modifier.size(36.dp)
+                    ) {
+                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = stringResource(R.string.common_back), modifier = Modifier.size(20.dp))
                     }
                 },
                 actions = {
-                    // Slot 1 (LEFT): Auto-DJ — always. Kept at a fixed slot so
-                    // the headphones glyph doesn't hop position when swapping
-                    // between Now Playing and Queue.
-                    // Slot 2 (RIGHT): page-dependent — MoreVert on Now Playing,
-                    // Share on Queue. These two share the slot.
                     IconToggleButton(
                         checked = state.autoDjEnabled,
-                        onCheckedChange = { viewModel.toggleAutoDj() }
+                        onCheckedChange = { viewModel.toggleAutoDj() },
+                        modifier = Modifier.size(36.dp)
                     ) {
                         Icon(
                             imageVector = Icons.Default.Headphones,
                             contentDescription = stringResource(if (state.autoDjEnabled) R.string.player_autodj_on else R.string.player_autodj_off),
+                            modifier = Modifier.size(20.dp),
                             tint = if (state.autoDjEnabled)
                                        MaterialTheme.colorScheme.primary
                                    else
@@ -218,28 +213,36 @@ fun NowPlayingScreen(
                         pagerState.currentPage == PAGE_QUEUE && state.queue.isNotEmpty() -> {
                             if (state.shareLoading) {
                                 Box(
-                                    modifier = Modifier.size(48.dp),
+                                    modifier = Modifier.size(36.dp),
                                     contentAlignment = Alignment.Center,
                                 ) {
                                     CircularProgressIndicator(
-                                        modifier = Modifier.size(20.dp),
+                                        modifier = Modifier.size(16.dp),
                                         strokeWidth = 2.dp,
                                     )
                                 }
                             } else {
-                                IconButton(onClick = { showShareQueueExpiryDialog = true }) {
+                                IconButton(
+                                    onClick = { showShareQueueExpiryDialog = true },
+                                    modifier = Modifier.size(36.dp)
+                                ) {
                                     Icon(
                                         imageVector = Icons.Default.Share,
                                         contentDescription = stringResource(R.string.player_share_queue),
+                                        modifier = Modifier.size(20.dp),
                                     )
                                 }
                             }
                         }
                         pagerState.currentPage == PAGE_NOW_PLAYING && state.currentSong != null -> {
-                            IconButton(onClick = { showMoreSheet = true }) {
+                            IconButton(
+                                onClick = { showMoreSheet = true },
+                                modifier = Modifier.size(36.dp)
+                            ) {
                                 Icon(
                                     imageVector = Icons.Default.MoreVert,
                                     contentDescription = stringResource(R.string.player_more),
+                                    modifier = Modifier.size(20.dp),
                                     tint = if (state.sleepRemainingMs != null)
                                                MaterialTheme.colorScheme.primary
                                            else
