@@ -70,16 +70,16 @@ Sharesonic is built for the other scenario: the large, chaotic, lovingly disorga
 <div align="center">
   <table>
     <tr>
-      <td align="center"><img src="docs/screenshots/1-Menu.png" width="160"/><br/>Menu</td>
-      <td align="center"><img src="docs/screenshots/2-Library.png" width="160"/><br/>Library</td>
-      <td align="center"><img src="docs/screenshots/3-Album.png" width="160"/><br/>Album</td>
-      <td align="center"><img src="docs/screenshots/4-PublicShare.png" width="160"/><br/>Public Share</td>
+      <td align="center"><img src="docs/screenshots/1-Now Playing.jpg" width="160"/><br/>Now Playing</td>
+      <td align="center"><img src="docs/screenshots/2-Folder Browser.jpg" width="160"/><br/>Folder Browser</td>
+      <td align="center"><img src="docs/screenshots/3-Navigation drawer.jpg" width="160"/><br/>Navigation Drawer</td>
+      <td align="center"><img src="docs/screenshots/4-Queue.jpg" width="160"/><br/>Queue</td>
     </tr>
     <tr>
-      <td align="center"><img src="docs/screenshots/5-Player.png" width="160"/><br/>Player</td>
-      <td align="center"><img src="docs/screenshots/6-OptionsOnFolder.png" width="160"/><br/>Options on Folder</td>
-      <td align="center"><img src="docs/screenshots/7-Queue.png" width="160"/><br/>Queue</td>
-      <td></td>
+      <td align="center"><img src="docs/screenshots/5-Context menu (long press).jpg" width="160"/><br/>Context Menu</td>
+      <td align="center"><img src="docs/screenshots/6-Playlist picker (swipe-to-add).jpg" width="160"/><br/>Playlist Picker</td>
+      <td align="center"><img src="docs/screenshots/7-Search.jpg" width="160"/><br/>Search</td>
+      <td align="center"><img src="docs/screenshots/8-Auto-DJ settings.jpg" width="160"/><br/>Auto-DJ Settings</td>
     </tr>
   </table>
 </div>
