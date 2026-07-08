@@ -365,6 +365,19 @@ class PlayerViewModel(
         }
     }
 
+    /** Create a new playlist, add the current track to it, then refresh the cached list. */
+    fun createPlaylistAndAddCurrentSong(playlistName: String) {
+        val song = _state.value.currentSong ?: return
+        viewModelScope.launch {
+            val settings = settings()
+            val token = settings.jwtToken.ifEmpty { return@launch }
+            val velvet = VelvetRepository(VelvetClient.build(settings.serverUrl))
+            velvet.createPlaylist(token, playlistName)
+            velvet.addSongToPlaylist(token, song.id, playlistName)
+            loadPlaylists(forceRefresh = true)
+        }
+    }
+
     fun jumpTo(index: Int) {
         val q = _state.value
         if (index !in q.queue.indices) return

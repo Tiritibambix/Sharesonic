@@ -54,10 +54,15 @@ fun ArtistResultsScreen(
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text(artistName, maxLines = 1, overflow = TextOverflow.Ellipsis) },
+                expandedHeight = 40.dp,
+                colors = TopAppBarDefaults.topAppBarColors(
+                    containerColor = MaterialTheme.colorScheme.surface.copy(alpha = 0.85f),
+                    scrolledContainerColor = MaterialTheme.colorScheme.surface.copy(alpha = 0.95f),
+                ),
+                title = { Text(artistName, maxLines = 1, overflow = TextOverflow.Ellipsis, style = MaterialTheme.typography.titleSmall) },
                 navigationIcon = {
-                    IconButton(onClick = onBack) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = stringResource(R.string.common_back))
+                    IconButton(onClick = onBack, modifier = Modifier.size(36.dp)) {
+                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = stringResource(R.string.common_back), modifier = Modifier.size(20.dp))
                     }
                 }
             )
@@ -68,7 +73,7 @@ fun ArtistResultsScreen(
                     horizontalAlignment = Alignment.End,
                     verticalArrangement = Arrangement.spacedBy(12.dp)
                 ) {
-                    SmallFloatingActionButton(
+                    FloatingActionButton(
                         onClick = {
                             playerViewModel.playQueue(songs.shuffled())
                             onOpenNowPlaying()
@@ -78,16 +83,16 @@ fun ArtistResultsScreen(
                     ) {
                         Icon(Icons.Default.Shuffle, contentDescription = stringResource(R.string.playlist_detail_shuffle))
                     }
-                    ExtendedFloatingActionButton(
+                    FloatingActionButton(
                         onClick = {
                             playerViewModel.playQueue(songs)
                             onOpenNowPlaying()
                         },
-                        icon = { Icon(Icons.Default.PlayArrow, contentDescription = null) },
-                        text = { Text(stringResource(R.string.playlist_detail_play_all)) },
                         containerColor = MaterialTheme.colorScheme.primary,
                         contentColor = MaterialTheme.colorScheme.onPrimary,
-                    )
+                    ) {
+                        Icon(Icons.Default.PlayArrow, contentDescription = stringResource(R.string.playlist_detail_play_all))
+                    }
                     Spacer(modifier = Modifier.height(fabBottomPadding))
                 }
             }

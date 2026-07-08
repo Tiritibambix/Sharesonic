@@ -9,8 +9,6 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.gestures.rememberTransformableState
 import androidx.compose.foundation.gestures.transformable
-import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
@@ -49,7 +47,8 @@ import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.dp
 import coil.compose.AsyncImage
 import com.tiritibambix.sharesonic.R
-import com.tiritibambix.sharesonic.ui.share.ShareExpiryDialog
+import com.tiritibambix.sharesonic.ui.components.FrostedPlaylistPicker
+import com.tiritibambix.sharesonic.ui.components.FrostedShareExpiryDialog
 import com.tiritibambix.sharesonic.ui.theme.textSecondary
 import com.tiritibambix.sharesonic.utils.LocalIsTV
 import kotlin.random.Random
@@ -74,6 +73,12 @@ fun NowPlayingScreen(
     var showMoreSheet by remember { mutableStateOf(false) }
     var showSleepSheet by remember { mutableStateOf(false) }
     var showLyricsSheet by remember { mutableStateOf(false) }
+    // Current-song share + add-to-playlist overlays. Hoisted to this level (out
+    // of NowPlayingPage) so the frosted-glass blur can be applied to the whole
+    // Scaffold behind them, exactly like the track-info dialog.
+    var showShareExpiryDialog by remember { mutableStateOf(false) }
+    var showPlaylistPicker by remember { mutableStateOf(false) }
+    val playlists by viewModel.playlists.collectAsState()
     // Full-screen zoomable cover viewer, opened by tapping the artwork on the
     // Now Playing page. Shares the same frosted-glass backdrop as the track-info
     // dialog (blur + black scrim), so the two overlays feel visually related.
@@ -92,9 +97,29 @@ fun NowPlayingScreen(
     // OVER this blurred layer as a solid theme-coloured surface — so what looks
     // frosted is the *background*, not the modal.
     val contentBlur by androidx.compose.animation.core.animateDpAsState(
-        targetValue = if (showFileInfoDialog || showCoverZoom) 18.dp else 0.dp,
+        targetValue = if (
+            showFileInfoDialog || showCoverZoom || showShareExpiryDialog ||
+            showPlaylistPicker || showShareQueueExpiryDialog
+        ) 18.dp else 0.dp,
         animationSpec = androidx.compose.animation.core.tween(200),
         label = "info-blur",
+    )
+
+    // Queue list state hoisted here so the top bar can react to it: on the queue
+    // page, once the list scrolls under the (translucent) bar, the text bleeding
+    // through hurts readability — so we fade the bar to a near-opaque surface
+    // while scrolled, and keep it translucent on Now Playing (where the ambient
+    // gradient is meant to bleed through) and at the top of an unscrolled queue.
+    val queueListState = rememberLazyListState()
+    val queueScrolled by remember {
+        derivedStateOf {
+            queueListState.firstVisibleItemIndex > 0 || queueListState.firstVisibleItemScrollOffset > 0
+        }
+    }
+    val topBarAlpha by androidx.compose.animation.core.animateFloatAsState(
+        targetValue = if (pagerState.currentPage == PAGE_QUEUE && queueScrolled) 0.92f else 0.35f,
+        animationSpec = androidx.compose.animation.core.tween(200),
+        label = "topBarAlpha",
     )
 
     Box(modifier = Modifier.fillMaxSize()) {
@@ -105,8 +130,8 @@ fun NowPlayingScreen(
             TopAppBar(
                 expandedHeight = 40.dp,
                 colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = MaterialTheme.colorScheme.surface.copy(alpha = 0.35f),
-                    scrolledContainerColor = MaterialTheme.colorScheme.surface.copy(alpha = 0.5f),
+                    containerColor = MaterialTheme.colorScheme.surface.copy(alpha = topBarAlpha),
+                    scrolledContainerColor = MaterialTheme.colorScheme.surface.copy(alpha = topBarAlpha),
                 ),
                 title = {
                     if (isTV) {
@@ -277,9 +302,11 @@ fun NowPlayingScreen(
                     state = state,
                     viewModel = viewModel,
                     onCoverTap = { showCoverZoom = true },
+                    onShare = { showShareExpiryDialog = true },
+                    onAddToPlaylist = { showPlaylistPicker = true; viewModel.loadPlaylists() },
                     topPadding = topPadding,
                 )
-                PAGE_QUEUE       -> QueuePage(state, viewModel, isTV, topPadding = topPadding)
+                PAGE_QUEUE       -> QueuePage(state, viewModel, isTV, listState = queueListState, topPadding = topPadding)
             }
         }
     }
@@ -345,6 +372,49 @@ fun NowPlayingScreen(
             onDismiss = { showCoverZoom = false }
         )
     }
+
+    // ── Current-song share — frosted-glass, matches the folder browser ──
+    if (showShareExpiryDialog) {
+        FrostedShareExpiryDialog(
+            onConfirm = { expiryDays ->
+                showShareExpiryDialog = false
+                viewModel.shareCurrentSong(expiryDays)
+            },
+            onDismiss = { showShareExpiryDialog = false }
+        )
+    }
+
+    // ── Share queue — frosted-glass ──
+    if (showShareQueueExpiryDialog) {
+        FrostedShareExpiryDialog(
+            onConfirm = { expiryDays ->
+                showShareQueueExpiryDialog = false
+                viewModel.shareQueue(expiryDays)
+            },
+            onDismiss = { showShareQueueExpiryDialog = false }
+        )
+    }
+
+    // ── Add current song to playlist — frosted-glass, with inline create ──
+    if (showPlaylistPicker) {
+        val song = state.currentSong
+        FrostedPlaylistPicker(
+            title = stringResource(R.string.player_add_playlist_title),
+            subtitle = song?.let { s ->
+                s.displayName + (s.artist?.takeIf { it.isNotBlank() }?.let { "  ·  $it" } ?: "")
+            },
+            playlists = playlists,
+            onPick = { name ->
+                viewModel.addCurrentSongToPlaylist(name)
+                showPlaylistPicker = false
+            },
+            onCreate = { name ->
+                viewModel.createPlaylistAndAddCurrentSong(name)
+                showPlaylistPicker = false
+            },
+            onDismiss = { showPlaylistPicker = false }
+        )
+    }
     } // outer Box wrapping the Scaffold + blur + overlay
 
     // ── More actions sheet (sleep timer + lyrics + track info) ──
@@ -379,16 +449,6 @@ fun NowPlayingScreen(
         )
     }
 
-    // ── Share queue — ask for expiry before creating the link (Velvet style) ──
-    if (showShareQueueExpiryDialog) {
-        ShareExpiryDialog(
-            onConfirm = { expiryDays ->
-                showShareQueueExpiryDialog = false
-                viewModel.shareQueue(expiryDays)
-            },
-            onDismiss = { showShareQueueExpiryDialog = false }
-        )
-    }
 }
 
 // ── Page 0: Now Playing ───────────────────────────────────────────────────────
@@ -398,12 +458,10 @@ private fun NowPlayingPage(
     state: PlayerState,
     viewModel: PlayerViewModel,
     onCoverTap: () -> Unit,
+    onShare: () -> Unit,
+    onAddToPlaylist: () -> Unit,
     topPadding: androidx.compose.ui.unit.Dp = 0.dp,
 ) {
-    var showPlaylistPicker by remember { mutableStateOf(false) }
-    var showShareExpiryDialog by remember { mutableStateOf(false) }
-    val playlists by viewModel.playlists.collectAsState()
-
     val base = MaterialTheme.colorScheme.background
     // Album-art halo — OKLCH radial glow anchored top-centre (mStream parity),
     // seeded from the cover's vibrant swatch. The brush is built at draw time
@@ -749,7 +807,7 @@ private fun NowPlayingPage(
                     }
                 } else {
                     OutlinedButton(
-                        onClick = { showShareExpiryDialog = true },
+                        onClick = onShare,
                         modifier = Modifier.weight(1f)
                     ) {
                         Icon(Icons.Default.Share, contentDescription = null,
@@ -759,7 +817,7 @@ private fun NowPlayingPage(
                     }
                 }
                 OutlinedButton(
-                    onClick = { showPlaylistPicker = true; viewModel.loadPlaylists() },
+                    onClick = onAddToPlaylist,
                     modifier = Modifier.weight(1f)
                 ) {
                     Icon(Icons.Default.QueueMusic, contentDescription = null,
@@ -808,58 +866,6 @@ private fun NowPlayingPage(
         Spacer(Modifier.height(8.dp))
         }  // Column (page content)
     }      // Box (ambient wrapper)
-
-    // ── Share — ask for expiry before creating the link (Velvet style) ──
-    if (showShareExpiryDialog) {
-        ShareExpiryDialog(
-            onConfirm = { expiryDays ->
-                showShareExpiryDialog = false
-                viewModel.shareCurrentSong(expiryDays)
-            },
-            onDismiss = { showShareExpiryDialog = false }
-        )
-    }
-
-    // ── Add-to-playlist dialog ─────────────────────────────────────────────────
-    if (showPlaylistPicker) {
-        AlertDialog(
-            onDismissRequest = { showPlaylistPicker = false },
-            title = { Text(stringResource(R.string.player_add_playlist_title)) },
-            text = {
-                if (playlists.isEmpty()) {
-                    Text(
-                        stringResource(R.string.player_no_playlists),
-                        color = MaterialTheme.colorScheme.textSecondary
-                    )
-                } else {
-                    Column(
-                        modifier = Modifier
-                            .heightIn(max = 320.dp)
-                            .verticalScroll(rememberScrollState())
-                    ) {
-                        playlists.forEach { playlist ->
-                            TextButton(
-                                onClick = {
-                                    viewModel.addCurrentSongToPlaylist(playlist.name)
-                                    showPlaylistPicker = false
-                                },
-                                modifier = Modifier.fillMaxWidth()
-                            ) {
-                                Text(
-                                    stringResource(R.string.player_playlist_entry, playlist.name, playlist.songCount),
-                                    modifier = Modifier.fillMaxWidth()
-                                )
-                            }
-                        }
-                    }
-                }
-            },
-            confirmButton = {},
-            dismissButton = {
-                TextButton(onClick = { showPlaylistPicker = false }) { Text(stringResource(R.string.common_cancel)) }
-            }
-        )
-    }
 }
 
 /**
@@ -999,7 +1005,13 @@ private fun CoverZoomOverlay(url: String, onDismiss: () -> Unit) {
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-private fun QueuePage(state: PlayerState, viewModel: PlayerViewModel, isTV: Boolean, topPadding: androidx.compose.ui.unit.Dp = 0.dp) {
+private fun QueuePage(
+    state: PlayerState,
+    viewModel: PlayerViewModel,
+    isTV: Boolean,
+    listState: androidx.compose.foundation.lazy.LazyListState = rememberLazyListState(),
+    topPadding: androidx.compose.ui.unit.Dp = 0.dp,
+) {
     if (state.queue.isEmpty()) {
         Box(modifier = Modifier.fillMaxSize()) {
             Text(
@@ -1011,7 +1023,6 @@ private fun QueuePage(state: PlayerState, viewModel: PlayerViewModel, isTV: Bool
         return
     }
 
-    val listState = rememberLazyListState()
     LaunchedEffect(state.queueIndex) {
         listState.animateScrollToItem(state.queueIndex)
     }
