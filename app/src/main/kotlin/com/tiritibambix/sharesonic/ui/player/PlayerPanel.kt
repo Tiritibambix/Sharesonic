@@ -4,6 +4,7 @@ import androidx.activity.compose.BackHandler
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.AnimationVector1D
 import androidx.compose.animation.core.tween
+import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.gestures.detectVerticalDragGestures
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
@@ -11,6 +12,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.offset
+import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
@@ -78,6 +80,7 @@ fun rememberPlayerPanelState(): PlayerPanelState {
  * @param visible whether the panel should appear at all (typically = there is
  *   a current song). Folds away entirely when false.
  */
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
 fun PlayerPanel(
     state: PlayerPanelState,
@@ -92,6 +95,13 @@ fun PlayerPanel(
     modifier: Modifier = Modifier,
 ) {
     if (!visible) return
+
+    // The Now Playing ⇆ Queue pager lives here (not inside NowPlayingScreen) so the
+    // single BackHandler below can be page-aware: from the Queue page, Back steps
+    // back to Now Playing; from Now Playing, it collapses the whole panel. Page 0 =
+    // Now Playing, page 1 = Queue.
+    val pagerState = rememberPagerState(initialPage = 0) { 2 }
+    val panelScope = rememberCoroutineScope()
 
     BoxWithConstraints(modifier = modifier.fillMaxSize()) {
         val density = LocalDensity.current
@@ -142,6 +152,7 @@ fun PlayerPanel(
                 viewModel = viewModel,
                 onBack = { state.collapse() },
                 onShareCreated = onShareCreated,
+                pagerState = pagerState,
             )
         }
 
@@ -182,5 +193,13 @@ fun PlayerPanel(
         }
     }
 
-    BackHandler(enabled = state.isExpanded) { state.collapse() }
+    // Hierarchical back: on the Queue page, step back to Now Playing first;
+    // only collapse the whole panel once already on Now Playing.
+    BackHandler(enabled = state.isExpanded) {
+        if (pagerState.currentPage != 0) {
+            panelScope.launch { pagerState.animateScrollToPage(0) }
+        } else {
+            state.collapse()
+        }
+    }
 }

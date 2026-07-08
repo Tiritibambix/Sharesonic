@@ -354,9 +354,15 @@ class PlayerViewModel(
         }
     }
 
-    /** Append the currently playing track to [playlistName]. Fire-and-forget. */
-    fun addCurrentSongToPlaylist(playlistName: String) {
-        val song = _state.value.currentSong ?: return
+    /**
+     * Append [song] to [playlistName]. Fire-and-forget. Used both by the Now
+     * Playing "Add to playlist" button (with the current song) and the queue's
+     * swipe-right gesture (with an arbitrary queued song). Subsonic numeric-ID
+     * songs (search results) are skipped — they can't be added to a native
+     * playlist, which keys on filepath.
+     */
+    fun addSongToPlaylist(song: EntryDto, playlistName: String) {
+        if (song.id.isSubsonicNumericId()) return
         viewModelScope.launch {
             val settings = settings()
             val token = settings.jwtToken.ifEmpty { return@launch }
@@ -365,9 +371,9 @@ class PlayerViewModel(
         }
     }
 
-    /** Create a new playlist, add the current track to it, then refresh the cached list. */
-    fun createPlaylistAndAddCurrentSong(playlistName: String) {
-        val song = _state.value.currentSong ?: return
+    /** Create a new playlist, add [song] to it, then refresh the cached list. */
+    fun createPlaylistAndAddSong(song: EntryDto, playlistName: String) {
+        if (song.id.isSubsonicNumericId()) return
         viewModelScope.launch {
             val settings = settings()
             val token = settings.jwtToken.ifEmpty { return@launch }

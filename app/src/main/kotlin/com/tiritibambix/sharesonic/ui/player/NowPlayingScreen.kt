@@ -15,7 +15,6 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.pager.HorizontalPager
-import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
@@ -47,6 +46,7 @@ import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.dp
 import coil.compose.AsyncImage
 import com.tiritibambix.sharesonic.R
+import com.tiritibambix.sharesonic.data.api.models.EntryDto
 import com.tiritibambix.sharesonic.ui.components.FrostedPlaylistPicker
 import com.tiritibambix.sharesonic.ui.components.FrostedShareExpiryDialog
 import com.tiritibambix.sharesonic.ui.components.FrostedTextPromptDialog
@@ -63,12 +63,14 @@ private const val PAGE_QUEUE = 1
 fun NowPlayingScreen(
     viewModel: PlayerViewModel,
     onBack: () -> Unit,
-    onShareCreated: (url: String) -> Unit
+    onShareCreated: (url: String) -> Unit,
+    // Hoisted to PlayerPanel so its single BackHandler can be page-aware
+    // (Queue → Now Playing → collapse). See PlayerPanel.kt.
+    pagerState: androidx.compose.foundation.pager.PagerState,
 ) {
     val isTV = LocalIsTV.current
     val coroutineScope = rememberCoroutineScope()
     val state by viewModel.state.collectAsState()
-    val pagerState = rememberPagerState(initialPage = PAGE_NOW_PLAYING) { 2 }
     var showShareQueueExpiryDialog by remember { mutableStateOf(false) }
     var showFileInfoDialog by remember { mutableStateOf(false) }
     var showMoreSheet by remember { mutableStateOf(false) }
@@ -78,7 +80,9 @@ fun NowPlayingScreen(
     // of NowPlayingPage) so the frosted-glass blur can be applied to the whole
     // Scaffold behind them, exactly like the track-info dialog.
     var showShareExpiryDialog by remember { mutableStateOf(false) }
-    var showPlaylistPicker by remember { mutableStateOf(false) }
+    // Song whose "add to playlist" picker is open — set by the Now Playing button
+    // (current song) OR by a queue row's swipe-right (that queued song). Null = closed.
+    var playlistTargetSong by remember { mutableStateOf<EntryDto?>(null) }
     var showSaveQueueDialog by remember { mutableStateOf(false) }
     val playlists by viewModel.playlists.collectAsState()
     // Full-screen zoomable cover viewer, opened by tapping the artwork on the
@@ -101,7 +105,7 @@ fun NowPlayingScreen(
     val contentBlur by androidx.compose.animation.core.animateDpAsState(
         targetValue = if (
             showFileInfoDialog || showCoverZoom || showShareExpiryDialog ||
-            showPlaylistPicker || showShareQueueExpiryDialog || showSaveQueueDialog
+            playlistTargetSong != null || showShareQueueExpiryDialog || showSaveQueueDialog
         ) 18.dp else 0.dp,
         animationSpec = androidx.compose.animation.core.tween(200),
         label = "info-blur",
@@ -215,7 +219,13 @@ fun NowPlayingScreen(
                 },
                 navigationIcon = {
                     IconButton(
-                        onClick = onBack,
+                        // Hierarchical back: from the Queue page, step back to Now
+                        // Playing first; from Now Playing, collapse the whole panel.
+                        onClick = {
+                            if (pagerState.currentPage == PAGE_QUEUE)
+                                coroutineScope.launch { pagerState.animateScrollToPage(PAGE_NOW_PLAYING) }
+                            else onBack()
+                        },
                         modifier = Modifier.size(36.dp)
                     ) {
                         Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = stringResource(R.string.common_back), modifier = Modifier.size(20.dp))
@@ -316,10 +326,15 @@ fun NowPlayingScreen(
                     viewModel = viewModel,
                     onCoverTap = { showCoverZoom = true },
                     onShare = { showShareExpiryDialog = true },
-                    onAddToPlaylist = { showPlaylistPicker = true; viewModel.loadPlaylists() },
+                    onAddToPlaylist = { playlistTargetSong = state.currentSong; viewModel.loadPlaylists() },
                     topPadding = topPadding,
                 )
-                PAGE_QUEUE       -> QueuePage(state, viewModel, isTV, listState = queueListState, topPadding = topPadding)
+                PAGE_QUEUE       -> QueuePage(
+                    state, viewModel, isTV,
+                    listState = queueListState,
+                    onAddToPlaylist = { song -> playlistTargetSong = song; viewModel.loadPlaylists() },
+                    topPadding = topPadding,
+                )
             }
         }
     }
@@ -408,24 +423,24 @@ fun NowPlayingScreen(
         )
     }
 
-    // ── Add current song to playlist — frosted-glass, with inline create ──
-    if (showPlaylistPicker) {
-        val song = state.currentSong
+    // ── Add a song to a playlist — frosted-glass, with inline create. Shared by
+    // the Now Playing button (current song) and the queue swipe-right (any queued
+    // song); the target is whatever set playlistTargetSong. ──
+    playlistTargetSong?.let { target ->
         FrostedPlaylistPicker(
             title = stringResource(R.string.player_add_playlist_title),
-            subtitle = song?.let { s ->
-                s.displayName + (s.artist?.takeIf { it.isNotBlank() }?.let { "  ·  $it" } ?: "")
-            },
+            subtitle = target.displayName +
+                (target.artist?.takeIf { it.isNotBlank() }?.let { "  ·  $it" } ?: ""),
             playlists = playlists,
             onPick = { name ->
-                viewModel.addCurrentSongToPlaylist(name)
-                showPlaylistPicker = false
+                viewModel.addSongToPlaylist(target, name)
+                playlistTargetSong = null
             },
             onCreate = { name ->
-                viewModel.createPlaylistAndAddCurrentSong(name)
-                showPlaylistPicker = false
+                viewModel.createPlaylistAndAddSong(target, name)
+                playlistTargetSong = null
             },
-            onDismiss = { showPlaylistPicker = false }
+            onDismiss = { playlistTargetSong = null }
         )
     }
 
@@ -1038,6 +1053,7 @@ private fun QueuePage(
     viewModel: PlayerViewModel,
     isTV: Boolean,
     listState: androidx.compose.foundation.lazy.LazyListState = rememberLazyListState(),
+    onAddToPlaylist: (EntryDto) -> Unit = {},
     topPadding: androidx.compose.ui.unit.Dp = 0.dp,
 ) {
     if (state.queue.isEmpty()) {
@@ -1063,47 +1079,82 @@ private fun QueuePage(
         itemsIndexed(state.queue, key = { _, song -> song.id }) { index, song ->
             val isCurrent = index == state.queueIndex
 
-            if (isCurrent) {
-                // Currently playing track — no remove action
-                QueueSongRow(index, song, isCurrent, onClick = { viewModel.jumpTo(index) }, onRemove = null)
-            } else if (isTV) {
-                // TV: swipe not available — show an always-visible ✕ button instead
+            if (isTV) {
+                // TV: no swipe — ✕ button for removal (never on the current track)
                 QueueSongRow(
                     index, song, isCurrent,
                     onClick  = { viewModel.jumpTo(index) },
-                    onRemove = { viewModel.removeFromQueue(index) }
+                    onRemove = if (isCurrent) null else ({ viewModel.removeFromQueue(index) })
                 )
             } else {
-                // Phone: swipe left (EndToStart) → remove from queue
+                // Phone: swipe right (StartToEnd) → add to playlist (every row,
+                // including the current track); swipe left (EndToStart) → remove
+                // from queue (disabled on the current track). StartToEnd bounces
+                // back (returns false) — it's only a trigger, like the browser.
                 val dismissState = rememberSwipeToDismissBoxState(
                     confirmValueChange = { value ->
-                        if (value == SwipeToDismissBoxValue.EndToStart) {
-                            viewModel.removeFromQueue(index)
-                            true
-                        } else false
+                        when (value) {
+                            SwipeToDismissBoxValue.StartToEnd -> { onAddToPlaylist(song); false }
+                            SwipeToDismissBoxValue.EndToStart ->
+                                if (!isCurrent) { viewModel.removeFromQueue(index); true } else false
+                            else -> false
+                        }
                     }
                 )
                 SwipeToDismissBox(
                     state = dismissState,
-                    enableDismissFromStartToEnd = false,
-                    enableDismissFromEndToStart = true,
+                    enableDismissFromStartToEnd = true,
+                    enableDismissFromEndToStart = !isCurrent,
                     backgroundContent = {
-                        Box(
-                            modifier = Modifier
-                                .fillMaxSize()
-                                .background(MaterialTheme.colorScheme.errorContainer)
-                                .padding(end = 16.dp),
-                            contentAlignment = Alignment.CenterEnd
-                        ) {
-                            Icon(
-                                Icons.Default.Delete,
-                                contentDescription = stringResource(R.string.queue_remove),
-                                tint = MaterialTheme.colorScheme.error
-                            )
+                        val isEndToStart = dismissState.targetValue == SwipeToDismissBoxValue.EndToStart
+                        if (isEndToStart) {
+                            // Left side reveal: remove from queue
+                            Box(
+                                modifier = Modifier
+                                    .fillMaxSize()
+                                    .background(MaterialTheme.colorScheme.errorContainer)
+                                    .padding(end = 16.dp),
+                                contentAlignment = Alignment.CenterEnd
+                            ) {
+                                Icon(
+                                    Icons.Default.Delete,
+                                    contentDescription = stringResource(R.string.queue_remove),
+                                    tint = MaterialTheme.colorScheme.error
+                                )
+                            }
+                        } else {
+                            // Right side reveal: add to playlist
+                            Box(
+                                modifier = Modifier
+                                    .fillMaxSize()
+                                    .background(MaterialTheme.colorScheme.primaryContainer)
+                                    .padding(start = 16.dp),
+                                contentAlignment = Alignment.CenterStart
+                            ) {
+                                Row(
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                                ) {
+                                    Icon(
+                                        Icons.Default.QueueMusic,
+                                        contentDescription = null,
+                                        tint = MaterialTheme.colorScheme.onPrimaryContainer
+                                    )
+                                    Text(
+                                        stringResource(R.string.browser_add_to_playlist),
+                                        color = MaterialTheme.colorScheme.onPrimaryContainer,
+                                        style = MaterialTheme.typography.labelLarge
+                                    )
+                                }
+                            }
                         }
                     }
                 ) {
-                    QueueSongRow(index, song, isCurrent, onClick = { viewModel.jumpTo(index) }, onRemove = null)
+                    // Opaque surface under the row so the swipe reveal never bleeds
+                    // through at rest (the current row's own bg is semi-transparent).
+                    Surface(color = MaterialTheme.colorScheme.surface) {
+                        QueueSongRow(index, song, isCurrent, onClick = { viewModel.jumpTo(index) }, onRemove = null)
+                    }
                 }
             }
             HorizontalDivider(thickness = 0.5.dp)
