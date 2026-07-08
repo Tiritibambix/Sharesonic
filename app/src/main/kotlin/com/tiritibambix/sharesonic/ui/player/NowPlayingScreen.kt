@@ -318,6 +318,10 @@ fun NowPlayingScreen(
 
         HorizontalPager(
             state = pagerState,
+            // TV: disable touch-swipe between pages; navigation is via the
+            // TextButton tabs in the TopAppBar (D-pad reachable). Without this,
+            // the pager intercepts D-pad left/right and fights with focus traversal.
+            userScrollEnabled = !isTV,
             modifier = Modifier.fillMaxSize()
         ) { page ->
             when (page) {
@@ -327,6 +331,7 @@ fun NowPlayingScreen(
                     onCoverTap = { showCoverZoom = true },
                     onShare = { showShareExpiryDialog = true },
                     onAddToPlaylist = { playlistTargetSong = state.currentSong; viewModel.loadPlaylists() },
+                    onMoreActions = { showMoreSheet = true },
                     topPadding = topPadding,
                 )
                 PAGE_QUEUE       -> QueuePage(
@@ -503,8 +508,11 @@ private fun NowPlayingPage(
     onCoverTap: () -> Unit,
     onShare: () -> Unit,
     onAddToPlaylist: () -> Unit,
+    /** TV only: opens the MoreActionsSheet that's inaccessible from the TopAppBar via D-pad. */
+    onMoreActions: () -> Unit = {},
     topPadding: androidx.compose.ui.unit.Dp = 0.dp,
 ) {
+    val isTV = LocalIsTV.current
     val base = MaterialTheme.colorScheme.background
     // Album-art halo — OKLCH radial glow anchored top-centre (mStream parity),
     // seeded from the cover's vibrant swatch. The brush is built at draw time
@@ -832,6 +840,45 @@ private fun NowPlayingPage(
         }
 
         Spacer(Modifier.height(12.dp))
+
+        // ── TV: Auto-DJ toggle + More button — visible inside the page so they're
+        // reachable via D-pad without navigating up to the TopAppBar ──────────────
+        if (isTV) {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 28.dp),
+                horizontalArrangement = Arrangement.spacedBy(10.dp)
+            ) {
+                OutlinedButton(
+                    onClick = { viewModel.toggleAutoDj() },
+                    modifier = Modifier.weight(1f)
+                ) {
+                    Icon(
+                        Icons.Default.Headphones,
+                        contentDescription = null,
+                        modifier = Modifier.size(18.dp),
+                        tint = if (state.autoDjEnabled) MaterialTheme.colorScheme.primary
+                               else MaterialTheme.colorScheme.textSecondary
+                    )
+                    Spacer(Modifier.width(6.dp))
+                    Text(
+                        stringResource(if (state.autoDjEnabled) R.string.player_autodj_on else R.string.player_autodj_off),
+                        color = if (state.autoDjEnabled) MaterialTheme.colorScheme.primary
+                                else MaterialTheme.colorScheme.onSurface
+                    )
+                }
+                OutlinedButton(
+                    onClick = onMoreActions,
+                    modifier = Modifier.weight(1f)
+                ) {
+                    Icon(Icons.Default.MoreVert, contentDescription = null, modifier = Modifier.size(18.dp))
+                    Spacer(Modifier.width(6.dp))
+                    Text(stringResource(R.string.player_more))
+                }
+            }
+            Spacer(Modifier.height(8.dp))
+        }
 
         // ── Actions: Share / Add to playlist — own breathing room from the controls ──
         Column(

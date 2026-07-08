@@ -158,6 +158,12 @@ fun FolderBrowserScreen(
     val drawerState = rememberDrawerState(initialValue = DrawerValue.Closed)
     val drawerScope = rememberCoroutineScope()
     fun closeDrawer() = drawerScope.launch { drawerState.close() }
+    // TV: ModalNavigationDrawer captures focus on its drawerContent slot when open
+    // (even when that slot is empty), making our AnimatedVisibility overlay
+    // unreachable via D-pad. Use a plain Boolean instead so the phone drawer
+    // state and the TV overlay state never interfere.
+    var showTVDrawer by remember { mutableStateOf(false) }
+    val drawerOpen = if (isTV) showTVDrawer else drawerState.isOpen
 
     // Frosted-glass cue: blur the browser behind the drawer while it's open, and
     // size the sheet to ~80% of the screen width so a blurred sliver of the browser
@@ -166,7 +172,7 @@ fun FolderBrowserScreen(
     val contentBlur by animateDpAsState(
         targetValue = when {
             showPlaylistPicker || showContextMenu || shareExpiryTarget != null -> 18.dp
-            drawerState.isOpen -> 14.dp
+            drawerOpen -> 14.dp
             else -> 0.dp
         },
         label = "contentBlur"
@@ -214,7 +220,10 @@ fun FolderBrowserScreen(
                 },
                 navigationIcon = {
                     IconButton(
-                        onClick = { drawerScope.launch { drawerState.open() } },
+                        onClick = {
+                            if (isTV) showTVDrawer = true
+                            else drawerScope.launch { drawerState.open() }
+                        },
                         modifier = Modifier.size(36.dp)
                     ) {
                         Icon(Icons.Default.Menu, contentDescription = stringResource(R.string.common_menu), modifier = Modifier.size(20.dp))
@@ -498,14 +507,14 @@ fun FolderBrowserScreen(
     // closeDrawer() work identically on both platforms.
     if (isTV) {
         AnimatedVisibility(
-            visible = drawerState.isOpen,
+            visible = showTVDrawer,
             enter = slideInHorizontally { -it } + fadeIn(animationSpec = tween(200)),
             exit  = slideOutHorizontally { -it } + fadeOut(animationSpec = tween(200))
         ) {
             Row(Modifier.fillMaxSize()) {
                 ModalDrawerSheet(Modifier.width(320.dp)) {
                     DrawerMenuItems(
-                        onClose = { closeDrawer() },
+                        onClose = { showTVDrawer = false },
                         onOpenServerSettings = onOpenServerSettings,
                         onOpenAutoDjSettings = onOpenAutoDjSettings,
                         onOpenThemeSettings = onOpenThemeSettings,
@@ -520,7 +529,7 @@ fun FolderBrowserScreen(
                         .weight(1f)
                         .fillMaxHeight()
                         .background(MaterialTheme.colorScheme.scrim.copy(alpha = 0.32f))
-                        .clickable { closeDrawer() }
+                        .clickable { showTVDrawer = false }
                 )
             }
         }

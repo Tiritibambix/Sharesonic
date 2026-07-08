@@ -33,6 +33,7 @@ import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import com.tiritibambix.sharesonic.utils.LocalIsTV
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlin.math.roundToInt
 
@@ -109,11 +110,13 @@ fun PlayerPanel(
     val isTV = LocalIsTV.current
     val miniFocusRequester = remember { FocusRequester() }
 
-    // On TV, move focus to the mini player whenever it becomes visible (new song
-    // starts or player expands then collapses). OK key on the focused mini bar
-    // expands the panel to the full Now Playing screen.
-    LaunchedEffect(visible) {
+    // On TV, move focus to the mini player whenever it becomes the active surface:
+    // — when a new song starts playing (visible: false → true)
+    // — when Now Playing collapses back to mini (isExpanded: true → false)
+    // A 150 ms delay lets the animation settle before requesting focus.
+    LaunchedEffect(visible, state.isExpanded) {
         if (isTV && visible && !state.isExpanded) {
+            delay(150)
             runCatching { miniFocusRequester.requestFocus() }
         }
     }
