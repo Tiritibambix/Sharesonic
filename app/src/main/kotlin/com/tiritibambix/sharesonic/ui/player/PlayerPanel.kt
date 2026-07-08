@@ -17,17 +17,21 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.Stable
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
+import com.tiritibambix.sharesonic.utils.LocalIsTV
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.launch
 import kotlin.math.roundToInt
@@ -102,6 +106,17 @@ fun PlayerPanel(
     // Now Playing, page 1 = Queue.
     val pagerState = rememberPagerState(initialPage = 0) { 2 }
     val panelScope = rememberCoroutineScope()
+    val isTV = LocalIsTV.current
+    val miniFocusRequester = remember { FocusRequester() }
+
+    // On TV, move focus to the mini player whenever it becomes visible (new song
+    // starts or player expands then collapses). OK key on the focused mini bar
+    // expands the panel to the full Now Playing screen.
+    LaunchedEffect(visible) {
+        if (isTV && visible && !state.isExpanded) {
+            runCatching { miniFocusRequester.requestFocus() }
+        }
+    }
 
     BoxWithConstraints(modifier = modifier.fillMaxSize()) {
         val density = LocalDensity.current
@@ -168,6 +183,7 @@ fun PlayerPanel(
                     .height(PLAYER_PANEL_COLLAPSED_HEIGHT_DP.dp)
                     .align(Alignment.BottomStart)
                     .graphicsLayer { alpha = miniAlpha }
+                    .then(if (isTV) Modifier.focusRequester(miniFocusRequester) else Modifier)
                     .pointerInput(dragExtentPx) {
                         detectVerticalDragGestures(
                             onDragEnd = { snapToNearest() },

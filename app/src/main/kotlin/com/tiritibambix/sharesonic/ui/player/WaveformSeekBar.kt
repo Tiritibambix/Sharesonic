@@ -1,6 +1,7 @@
 package com.tiritibambix.sharesonic.ui.player
 
 import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.focusable
 import androidx.compose.foundation.gestures.detectHorizontalDragGestures
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.runtime.Composable
@@ -13,8 +14,14 @@ import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.input.key.Key
+import androidx.compose.ui.input.key.KeyEventType
+import androidx.compose.ui.input.key.key
+import androidx.compose.ui.input.key.onKeyEvent
+import androidx.compose.ui.input.key.type
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.unit.dp
+import com.tiritibambix.sharesonic.utils.LocalIsTV
 import kotlin.random.Random
 
 /**
@@ -51,9 +58,25 @@ fun WaveformSeekBar(
 
     var dragFraction by remember { mutableStateOf<Float?>(null) }
     val shown = (dragFraction ?: fraction).coerceIn(0f, 1f)
+    val isTV = LocalIsTV.current
 
     Canvas(
         modifier = modifier
+            // TV: D-pad left/right to seek ±5 % (~3 s on a 1 min track)
+            .then(
+                if (isTV) Modifier
+                    .focusable()
+                    .onKeyEvent { event ->
+                        if (event.type == KeyEventType.KeyDown) {
+                            when (event.key) {
+                                Key.DirectionLeft  -> { onSeek((fraction - 0.05f).coerceIn(0f, 1f)); true }
+                                Key.DirectionRight -> { onSeek((fraction + 0.05f).coerceIn(0f, 1f)); true }
+                                else -> false
+                            }
+                        } else false
+                    }
+                else Modifier
+            )
             .pointerInput(seedKey) {
                 detectTapGestures { pos ->
                     onSeek((pos.x / size.width).coerceIn(0f, 1f))

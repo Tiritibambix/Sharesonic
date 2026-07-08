@@ -19,6 +19,7 @@ import androidx.compose.ui.unit.dp
 import com.tiritibambix.sharesonic.R
 import com.tiritibambix.sharesonic.data.api.models.NativePlaylist
 import com.tiritibambix.sharesonic.ui.theme.textSecondary
+import com.tiritibambix.sharesonic.utils.LocalIsTV
 
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalFoundationApi::class)
 @Composable
@@ -198,6 +199,7 @@ private fun PlaylistRow(
     onDelete: () -> Unit
 ) {
     var showMenu by remember { mutableStateOf(false) }
+    val isTV = LocalIsTV.current
 
     Row(
         modifier = Modifier
@@ -231,6 +233,20 @@ private fun PlaylistRow(
             contentDescription = null,
             tint = MaterialTheme.colorScheme.textSecondary
         )
+
+        // TV: ⋮ button replaces long-press to access Rename / Delete
+        if (isTV) {
+            IconButton(
+                onClick = { showMenu = true },
+                modifier = Modifier.size(36.dp)
+            ) {
+                Icon(
+                    Icons.Default.MoreVert,
+                    contentDescription = stringResource(R.string.common_more),
+                    modifier = Modifier.size(20.dp)
+                )
+            }
+        }
 
         DropdownMenu(expanded = showMenu, onDismissRequest = { showMenu = false }) {
             DropdownMenuItem(

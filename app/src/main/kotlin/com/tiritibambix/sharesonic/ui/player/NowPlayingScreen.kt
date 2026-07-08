@@ -1080,11 +1080,12 @@ private fun QueuePage(
             val isCurrent = index == state.queueIndex
 
             if (isTV) {
-                // TV: no swipe — ✕ button for removal (never on the current track)
+                // TV: no swipe — PlaylistAdd for all rows, ✕ for non-current rows
                 QueueSongRow(
                     index, song, isCurrent,
-                    onClick  = { viewModel.jumpTo(index) },
-                    onRemove = if (isCurrent) null else ({ viewModel.removeFromQueue(index) })
+                    onClick         = { viewModel.jumpTo(index) },
+                    onAddToPlaylist = { onAddToPlaylist(song) },
+                    onRemove        = if (isCurrent) null else ({ viewModel.removeFromQueue(index) })
                 )
             } else {
                 // Phone: swipe right (StartToEnd) → add to playlist (every row,
@@ -1168,6 +1169,8 @@ private fun QueueSongRow(
     song: com.tiritibambix.sharesonic.data.api.models.EntryDto,
     isCurrent: Boolean,
     onClick: () -> Unit,
+    /** On TV, passed for all rows so a PlaylistAdd button is always visible. */
+    onAddToPlaylist: (() -> Unit)? = null,
     /** On TV, passed for non-current rows so a ✕ button is always visible. */
     onRemove: (() -> Unit)?
 ) {
@@ -1231,7 +1234,19 @@ private fun QueueSongRow(
             )
         }
 
-        // TV: always-visible remove button (replaces swipe gesture)
+        // TV: always-visible add-to-playlist button (replaces swipe-right gesture)
+        if (onAddToPlaylist != null) {
+            IconButton(onClick = onAddToPlaylist, modifier = Modifier.size(36.dp)) {
+                Icon(
+                    Icons.Default.PlaylistAdd,
+                    contentDescription = stringResource(R.string.browser_add_to_playlist),
+                    tint = MaterialTheme.colorScheme.primary,
+                    modifier = Modifier.size(20.dp)
+                )
+            }
+        }
+
+        // TV: always-visible remove button (replaces swipe-left gesture)
         if (onRemove != null) {
             IconButton(onClick = onRemove, modifier = Modifier.size(36.dp)) {
                 Icon(
