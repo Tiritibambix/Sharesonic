@@ -50,7 +50,7 @@ android {
 
     // APK file naming:
     //  • release builds (tags) → "sharesonic-v<versionName>.apk", versionName from the tag.
-    //  • every other build      → "sharesonic-artifact+<run>.apk", where <run> is the CI run
+    //  • every other build      → "sharesonic-artifact-<run>.apk", where <run> is the CI run
     //    number (passed as -PartifactRun) or "local" for local builds. This keeps each debug
     //    artifact distinct — otherwise, since debug builds never receive a -PversionName, they
     //    all fell back to the 0.1.0 literal and were forever named "sharesonic-v0.1.0.apk".
@@ -61,7 +61,7 @@ android {
             (this as com.android.build.gradle.internal.api.BaseVariantOutputImpl)
                 .outputFileName =
                     if (isRelease) "sharesonic-v${versionName}.apk"
-                    else "sharesonic-artifact+${artifactRun}.apk"
+                    else "sharesonic-artifact-${artifactRun}.apk"
         }
     }
 }

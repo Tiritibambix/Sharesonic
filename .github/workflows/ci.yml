@@ -43,7 +43,7 @@ jobs:
         if: github.ref_type != 'tag'
         uses: actions/upload-artifact@v4
         with:
-          name: sharesonic-artifact+${{ github.run_number }}
+          name: sharesonic-artifact-${{ github.run_number }}
           path: app/build/outputs/apk/debug/*.apk
 
       - name: Decode keystore
