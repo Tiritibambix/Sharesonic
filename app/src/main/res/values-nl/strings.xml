@@ -141,6 +141,8 @@
     <string name="player_clear_rating">Beoordeling wissen</string>
     <string name="player_share_queue">Wachtrij delen</string>
     <string name="player_share_queue_empty">Niets deelbaars in de wachtrij</string>
+    <string name="player_save_queue_playlist">Wachtrij opslaan als afspeellijst</string>
+    <string name="player_save_queue_playlist_hint">Een nieuwe afspeellijst met alle nummers in de wachtrij.</string>
     <string name="player_kbps">%1$d kbps</string>
     <string name="player_khz_int">%1$d kHz</string>
     <string name="player_khz_dec">%1$s kHz</string>

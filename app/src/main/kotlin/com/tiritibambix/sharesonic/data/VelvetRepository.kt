@@ -453,6 +453,18 @@ class VelvetRepository(private val api: VelvetApiService) {
         Result.Success(Unit)
     } catch (e: Exception) { Result.Error(e.message ?: "Network error") }
 
+    /**
+     * Create a new playlist [name] and set its songs to [filepaths] in a single
+     * bulk save — used by "Save queue as playlist". Far cheaper than N add-song
+     * calls (each of which also re-syncs the playlist meta). The empty create
+     * first ensures the row exists before `save` overwrites its song list.
+     */
+    suspend fun createPlaylistWithSongs(token: String, name: String, filepaths: List<String>): Result<Unit> = try {
+        api.createPlaylist(token, NativePlaylistNewRequest(name))
+        api.savePlaylist(token, NativePlaylistSaveRequest(title = name, songs = filepaths))
+        Result.Success(Unit)
+    } catch (e: Exception) { Result.Error(e.message ?: "Network error") }
+
     /** Delete a playlist by name. Fire-and-forget. */
     suspend fun deletePlaylist(token: String, name: String) {
         try { api.deletePlaylist(token, NativePlaylistDeleteRequest(name)) } catch (_: Exception) {}

@@ -150,6 +150,8 @@
     <string name="player_clear_rating">Clear rating</string>
     <string name="player_share_queue">Share queue</string>
     <string name="player_share_queue_empty">Nothing shareable in the queue</string>
+    <string name="player_save_queue_playlist">Save queue as playlist</string>
+    <string name="player_save_queue_playlist_hint">A new playlist with every track currently queued.</string>
     <string name="player_kbps">%1$d kbps</string>
     <string name="player_khz_int">%1$d kHz</string>
     <string name="player_khz_dec">%1$s kHz</string>

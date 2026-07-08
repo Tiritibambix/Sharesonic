@@ -49,6 +49,7 @@ import coil.compose.AsyncImage
 import com.tiritibambix.sharesonic.R
 import com.tiritibambix.sharesonic.ui.components.FrostedPlaylistPicker
 import com.tiritibambix.sharesonic.ui.components.FrostedShareExpiryDialog
+import com.tiritibambix.sharesonic.ui.components.FrostedTextPromptDialog
 import com.tiritibambix.sharesonic.ui.theme.textSecondary
 import com.tiritibambix.sharesonic.utils.LocalIsTV
 import kotlin.random.Random
@@ -78,6 +79,7 @@ fun NowPlayingScreen(
     // Scaffold behind them, exactly like the track-info dialog.
     var showShareExpiryDialog by remember { mutableStateOf(false) }
     var showPlaylistPicker by remember { mutableStateOf(false) }
+    var showSaveQueueDialog by remember { mutableStateOf(false) }
     val playlists by viewModel.playlists.collectAsState()
     // Full-screen zoomable cover viewer, opened by tapping the artwork on the
     // Now Playing page. Shares the same frosted-glass backdrop as the track-info
@@ -99,7 +101,7 @@ fun NowPlayingScreen(
     val contentBlur by androidx.compose.animation.core.animateDpAsState(
         targetValue = if (
             showFileInfoDialog || showCoverZoom || showShareExpiryDialog ||
-            showPlaylistPicker || showShareQueueExpiryDialog
+            showPlaylistPicker || showShareQueueExpiryDialog || showSaveQueueDialog
         ) 18.dp else 0.dp,
         animationSpec = androidx.compose.animation.core.tween(200),
         label = "info-blur",
@@ -237,6 +239,17 @@ fun NowPlayingScreen(
                     }
                     when {
                         pagerState.currentPage == PAGE_QUEUE && state.queue.isNotEmpty() -> {
+                            // Save the whole queue as a new playlist (frosted name prompt)
+                            IconButton(
+                                onClick = { showSaveQueueDialog = true },
+                                modifier = Modifier.size(36.dp)
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.PlaylistAdd,
+                                    contentDescription = stringResource(R.string.player_save_queue_playlist),
+                                    modifier = Modifier.size(20.dp),
+                                )
+                            }
                             if (state.shareLoading) {
                                 Box(
                                     modifier = Modifier.size(36.dp),
@@ -413,6 +426,21 @@ fun NowPlayingScreen(
                 showPlaylistPicker = false
             },
             onDismiss = { showPlaylistPicker = false }
+        )
+    }
+
+    // ── Save queue as playlist — frosted-glass name prompt ──
+    if (showSaveQueueDialog) {
+        FrostedTextPromptDialog(
+            title = stringResource(R.string.player_save_queue_playlist),
+            subtitle = stringResource(R.string.player_save_queue_playlist_hint),
+            label = stringResource(R.string.playlists_name_label),
+            confirmLabel = stringResource(R.string.common_save),
+            onConfirm = { name ->
+                showSaveQueueDialog = false
+                viewModel.saveQueueAsPlaylist(name)
+            },
+            onDismiss = { showSaveQueueDialog = false }
         )
     }
     } // outer Box wrapping the Scaffold + blur + overlay

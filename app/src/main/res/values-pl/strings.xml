@@ -141,6 +141,8 @@
     <string name="player_clear_rating">Wyczyść ocenę</string>
     <string name="player_share_queue">Udostępnij kolejkę</string>
     <string name="player_share_queue_empty">Brak elementów do udostępnienia</string>
+    <string name="player_save_queue_playlist">Zapisz kolejkę jako playlistę</string>
+    <string name="player_save_queue_playlist_hint">Nowa playlista ze wszystkimi utworami z kolejki.</string>
     <string name="player_kbps">%1$d kbps</string>
     <string name="player_khz_int">%1$d kHz</string>
     <string name="player_khz_dec">%1$s kHz</string>

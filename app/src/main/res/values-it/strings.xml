@@ -141,6 +141,8 @@
     <string name="player_clear_rating">Cancella voto</string>
     <string name="player_share_queue">Condividi coda</string>
     <string name="player_share_queue_empty">Niente da condividere nella coda</string>
+    <string name="player_save_queue_playlist">Salva coda come playlist</string>
+    <string name="player_save_queue_playlist_hint">Una nuova playlist con tutti i brani in coda.</string>
     <string name="player_kbps">%1$d kbps</string>
     <string name="player_khz_int">%1$d kHz</string>
     <string name="player_khz_dec">%1$s kHz</string>

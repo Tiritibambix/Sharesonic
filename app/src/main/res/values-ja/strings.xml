@@ -141,6 +141,8 @@
     <string name="player_clear_rating">評価をクリア</string>
     <string name="player_share_queue">キューを共有</string>
     <string name="player_share_queue_empty">キューに共有できるものがありません</string>
+    <string name="player_save_queue_playlist">キューをプレイリストとして保存</string>
+    <string name="player_save_queue_playlist_hint">現在キューにあるすべての曲で新しいプレイリストを作成します。</string>
     <string name="player_kbps">%1$d kbps</string>
     <string name="player_khz_int">%1$d kHz</string>
     <string name="player_khz_dec">%1$s kHz</string>

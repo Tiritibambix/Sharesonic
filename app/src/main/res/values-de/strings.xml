@@ -141,6 +141,8 @@
     <string name="player_clear_rating">Bewertung löschen</string>
     <string name="player_share_queue">Warteschlange teilen</string>
     <string name="player_share_queue_empty">Nichts Teilbares in der Warteschlange</string>
+    <string name="player_save_queue_playlist">Warteschlange als Playlist speichern</string>
+    <string name="player_save_queue_playlist_hint">Eine neue Playlist mit allen Titeln der aktuellen Warteschlange.</string>
     <string name="player_kbps">%1$d kbps</string>
     <string name="player_khz_int">%1$d kHz</string>
     <string name="player_khz_dec">%1$s kHz</string>

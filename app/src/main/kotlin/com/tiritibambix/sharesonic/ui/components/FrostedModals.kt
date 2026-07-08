@@ -257,3 +257,56 @@ fun FrostedShareExpiryDialog(
         }
     }
 }
+
+/**
+ * Generic frosted-glass single-line text prompt (title + optional hint + one
+ * field + Cancel/Confirm). Used for "Save queue as playlist" and reusable for
+ * any other name-entry flow, so those all match the share / picker modals.
+ */
+@Composable
+fun FrostedTextPromptDialog(
+    title: String,
+    label: String,
+    confirmLabel: String,
+    subtitle: String? = null,
+    initialValue: String = "",
+    onConfirm: (text: String) -> Unit,
+    onDismiss: () -> Unit,
+) {
+    var text by remember { mutableStateOf(initialValue) }
+
+    FrostedOverlay(onDismiss = onDismiss) {
+        FrostedCard {
+            Text(
+                title,
+                style = MaterialTheme.typography.titleLarge,
+                fontWeight = FontWeight.SemiBold,
+            )
+            subtitle?.takeIf { it.isNotBlank() }?.let {
+                Text(
+                    it,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.textSecondary,
+                )
+            }
+            OutlinedTextField(
+                value = text,
+                onValueChange = { text = it },
+                label = { Text(label) },
+                singleLine = true,
+                shape = RoundedCornerShape(12.dp),
+                modifier = Modifier.fillMaxWidth(),
+            )
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.End,
+            ) {
+                TextButton(onClick = onDismiss) { Text(stringResource(R.string.common_cancel)) }
+                TextButton(
+                    onClick = { if (text.isNotBlank()) onConfirm(text.trim()) },
+                    enabled = text.isNotBlank(),
+                ) { Text(confirmLabel) }
+            }
+        }
+    }
+}

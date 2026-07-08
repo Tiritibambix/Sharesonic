@@ -651,6 +651,24 @@ class PlayerViewModel(
     }
 
     /**
+     * Save every native (filepath-identified) song in the current queue as a new
+     * playlist named [name], in a single bulk save. Subsonic numeric-ID songs
+     * (search results) are skipped since the native playlist endpoint keys on
+     * filepath. Refreshes the cached playlist list on success. Fire-and-forget.
+     */
+    fun saveQueueAsPlaylist(name: String) {
+        val filepaths = _state.value.queue.map { it.id }.filterNot { it.isSubsonicNumericId() }
+        if (filepaths.isEmpty() || name.isBlank()) return
+        viewModelScope.launch {
+            val settings = settings()
+            val token = ensureToken(settings) ?: return@launch
+            val velvet = VelvetRepository(VelvetClient.build(settings.serverUrl))
+            velvet.createPlaylistWithSongs(token, name.trim(), filepaths)
+            loadPlaylists(forceRefresh = true)
+        }
+    }
+
+    /**
      * Rate the currently playing track — Now Playing screen only (mini player has no room).
      * Sharesonic shows 0–5 stars; Velvet's native scale is 0–10 (half-star precision),
      * so [stars] is doubled before being sent. Tapping the already-set star clears the rating.

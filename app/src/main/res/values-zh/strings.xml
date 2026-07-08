@@ -141,6 +141,8 @@
     <string name="player_clear_rating">清除评分</string>
     <string name="player_share_queue">分享队列</string>
     <string name="player_share_queue_empty">队列中没有可分享的内容</string>
+    <string name="player_save_queue_playlist">将队列保存为播放列表</string>
+    <string name="player_save_queue_playlist_hint">用当前队列中的所有曲目创建新播放列表。</string>
     <string name="player_kbps">%1$d kbps</string>
     <string name="player_khz_int">%1$d kHz</string>
     <string name="player_khz_dec">%1$s kHz</string>

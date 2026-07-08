@@ -141,6 +141,8 @@
     <string name="player_clear_rating">Borrar calificación</string>
     <string name="player_share_queue">Compartir cola</string>
     <string name="player_share_queue_empty">Nada para compartir en la cola</string>
+    <string name="player_save_queue_playlist">Guardar cola como lista</string>
+    <string name="player_save_queue_playlist_hint">Una nueva lista con todas las canciones en cola.</string>
     <string name="player_kbps">%1$d kbps</string>
     <string name="player_khz_int">%1$d kHz</string>
     <string name="player_khz_dec">%1$s kHz</string>

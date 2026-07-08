@@ -141,6 +141,8 @@
     <string name="player_clear_rating">Очистить оценку</string>
     <string name="player_share_queue">Поделиться очередью</string>
     <string name="player_share_queue_empty">Нечего расшаривать в очереди</string>
+    <string name="player_save_queue_playlist">Сохранить очередь как плейлист</string>
+    <string name="player_save_queue_playlist_hint">Новый плейлист со всеми треками из очереди.</string>
     <string name="player_kbps">%1$d кбит/с</string>
     <string name="player_khz_int">%1$d кГц</string>
     <string name="player_khz_dec">%1$s кГц</string>

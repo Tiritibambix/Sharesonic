@@ -150,6 +150,8 @@
     <string name="player_clear_rating">Effacer la note</string>
     <string name="player_share_queue">Partager la file</string>
     <string name="player_share_queue_empty">Rien à partager dans la file</string>
+    <string name="player_save_queue_playlist">Enregistrer la file comme playlist</string>
+    <string name="player_save_queue_playlist_hint">Une nouvelle playlist avec tous les titres de la file d\'attente.</string>
     <string name="player_kbps">%1$d kbps</string>
     <string name="player_khz_int">%1$d kHz</string>
     <string name="player_khz_dec">%1$s kHz</string>

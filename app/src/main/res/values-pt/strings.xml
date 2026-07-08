@@ -141,6 +141,8 @@
     <string name="player_clear_rating">Limpar avaliação</string>
     <string name="player_share_queue">Partilhar fila</string>
     <string name="player_share_queue_empty">Nada a partilhar na fila</string>
+    <string name="player_save_queue_playlist">Guardar fila como playlist</string>
+    <string name="player_save_queue_playlist_hint">Uma nova playlist com todas as faixas na fila.</string>
     <string name="player_kbps">%1$d kbps</string>
     <string name="player_khz_int">%1$d kHz</string>
     <string name="player_khz_dec">%1$s kHz</string>
