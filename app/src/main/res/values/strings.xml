@@ -221,6 +221,8 @@
     <string name="playlist_detail_shuffle">Shuffle</string>
     <string name="playlist_detail_add_songs">Add songs</string>
     <string name="playlist_detail_remove">Remove</string>
+    <string name="playlist_detail_move_up">Move up</string>
+    <string name="playlist_detail_move_down">Move down</string>
 
     <!-- ── Share confirm ──────────────────────────────────────────────── -->
     <string name="share_confirm_title">Public link</string>

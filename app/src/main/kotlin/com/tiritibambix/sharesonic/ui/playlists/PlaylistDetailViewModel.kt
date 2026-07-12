@@ -55,6 +55,9 @@ class PlaylistDetailViewModel(
     val addSongsState: StateFlow<AddSongsState> = _addSongsState
 
     private var searchJob: Job? = null
+    // Debounces the server-side save while the user is still dragging. Cancelled
+    // and rescheduled on every reorderMove(); commits after the pause.
+    private var reorderCommitJob: Job? = null
 
     init { load() }
 
@@ -101,6 +104,43 @@ class PlaylistDetailViewModel(
             val token = settings.jwtToken.ifEmpty { return@launch }
             val repo = VelvetRepository(VelvetClient.build(settings.serverUrl))
             repo.addSongToPlaylist(token, filepath, playlistName)
+            load()
+        }
+    }
+
+    /**
+     * Move an entry from index [from] to index [to] in the current Ready state.
+     * Updates local state immediately (optimistic — the user sees the row jump
+     * under their finger) and schedules a debounced save. Call [commitReorder]
+     * on drag-end to flush immediately when the user releases; otherwise the
+     * debounce fires by itself if they let go without triggering that path.
+     */
+    fun moveEntry(from: Int, to: Int) {
+        val current = _state.value as? PlaylistDetailState.Ready ?: return
+        if (from == to || from !in current.entries.indices || to !in current.entries.indices) return
+        val reordered = current.entries.toMutableList().apply { add(to, removeAt(from)) }
+        _state.update { current.copy(entries = reordered) }
+    }
+
+    /**
+     * Persist the current local ordering to the server. Called on drag-end
+     * (immediate) — the intermediate [moveEntry] calls only mutate local state.
+     * A debounce fallback commits 800 ms after the last [moveEntry] in case
+     * drag-end never fires (e.g. the user swipes off-screen).
+     */
+    fun commitReorder(immediate: Boolean = true) {
+        reorderCommitJob?.cancel()
+        reorderCommitJob = viewModelScope.launch {
+            if (!immediate) delay(800)
+            val ordered = (_state.value as? PlaylistDetailState.Ready)?.entries?.map { it.dto.id }
+                ?: return@launch
+            val settings = settingsRepo.settings.first()
+            if (!settings.isConfigured) return@launch
+            val token = settings.jwtToken.ifEmpty { return@launch }
+            val repo = VelvetRepository(VelvetClient.build(settings.serverUrl))
+            repo.reorderPlaylist(token, playlistName, ordered)
+            // Refresh so entryIds line up with the server's post-save row IDs
+            // (savePlaylist re-inserts rows → their DB entry IDs change).
             load()
         }
     }

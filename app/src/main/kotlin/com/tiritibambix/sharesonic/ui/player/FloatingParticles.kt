@@ -77,10 +77,14 @@ fun FloatingParticles(
             val alpha = (p.baseAlpha * twinkle).coerceIn(0f, 1f)
             val rPx = p.radius * size.minDimension
             drawCircle(
+                // 4-stop gradient: a hotter core reads as a real "spark" rather
+                // than mist, while the outer bleed stays gentle so overlapping
+                // text remains legible.
                 brush = Brush.radialGradient(
                     colors = listOf(
+                        color.copy(alpha = (alpha * 1.15f).coerceAtMost(1f)),
                         color.copy(alpha = alpha),
-                        color.copy(alpha = alpha * 0.50f),
+                        color.copy(alpha = alpha * 0.35f),
                         Color.Transparent,
                     ),
                     center = Offset(cx, cy),
@@ -115,7 +119,10 @@ private data class Particle(
                 0.09f + r.nextFloat() * 0.07f       // large: 9-16 % of min edge
             else
                 0.02f + r.nextFloat() * 0.04f       // small: 2-6 %
-            val baseAlpha = 0.30f + r.nextFloat() * 0.35f
+            // Range widened from 0.30-0.65 to 0.42-0.80 — the previous ceiling
+            // was too dim to feel like "fireflies"; the new ceiling stays below
+            // solid so text overlapping a bright particle remains legible.
+            val baseAlpha = 0.42f + r.nextFloat() * 0.38f
             // Motion frequencies: very slow (0.05-0.18 rad/s ≈ 35-125 s per cycle).
             val omegaX = 0.05f + r.nextFloat() * 0.13f
             val omegaY = 0.05f + r.nextFloat() * 0.13f

@@ -4,6 +4,7 @@ import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
@@ -266,7 +267,9 @@ fun PlaylistDetailScreen(
                             modifier = Modifier.fillMaxSize(),
                             contentPadding = PaddingValues(bottom = listBottomPadding)
                         ) {
-                            items(s.entries, key = { it.entryId }) { entry ->
+                            itemsIndexed(s.entries, key = { _, e -> e.entryId }) { index, entry ->
+                                val isFirst = index == 0
+                                val isLast = index == s.entries.lastIndex
                                 SwipeToRemoveSongRow(
                                     entry = entry,
                                     isTV = isTV,
@@ -274,7 +277,19 @@ fun PlaylistDetailScreen(
                                         playerViewModel.playSong(entry.dto)
                                         onOpenNowPlaying()
                                     },
-                                    onRemove = { viewModel.removeSong(entry.entryId) }
+                                    onRemove = { viewModel.removeSong(entry.entryId) },
+                                    onMoveUp = if (isFirst) null else {
+                                        {
+                                            viewModel.moveEntry(index, index - 1)
+                                            viewModel.commitReorder()
+                                        }
+                                    },
+                                    onMoveDown = if (isLast) null else {
+                                        {
+                                            viewModel.moveEntry(index, index + 1)
+                                            viewModel.commitReorder()
+                                        }
+                                    }
                                 )
                                 HorizontalDivider(thickness = 0.5.dp)
                             }
@@ -292,17 +307,25 @@ private fun SwipeToRemoveSongRow(
     entry: PlaylistEntry,
     isTV: Boolean,
     onPlay: () -> Unit,
-    onRemove: () -> Unit
+    onRemove: () -> Unit,
+    /** null when this row can't move further in that direction (list edge). */
+    onMoveUp: (() -> Unit)?,
+    onMoveDown: (() -> Unit)?,
 ) {
     if (isTV) {
-        // TV: no swipe — show a visible ✕ button at the end of each row
+        // TV: no swipe — show visible ↑ ↓ ✕ buttons at the end of each row
         Surface(color = MaterialTheme.colorScheme.surface) {
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Box(modifier = Modifier.weight(1f)) {
-                    SongRow(song = entry.dto, onClick = onPlay)
+                    SongRow(
+                        song = entry.dto,
+                        onClick = onPlay,
+                        onMoveUp = onMoveUp,
+                        onMoveDown = onMoveDown,
+                    )
                 }
                 IconButton(onClick = onRemove, modifier = Modifier.size(40.dp).padding(end = 8.dp)) {
                     Icon(
@@ -332,14 +355,24 @@ private fun SwipeToRemoveSongRow(
             }
         ) {
             Surface(color = MaterialTheme.colorScheme.surface) {
-                SongRow(song = entry.dto, onClick = onPlay)
+                SongRow(
+                    song = entry.dto,
+                    onClick = onPlay,
+                    onMoveUp = onMoveUp,
+                    onMoveDown = onMoveDown,
+                )
             }
         }
     }
 }
 
 @Composable
-private fun SongRow(song: EntryDto, onClick: () -> Unit) {
+private fun SongRow(
+    song: EntryDto,
+    onClick: () -> Unit,
+    onMoveUp: (() -> Unit)? = null,
+    onMoveDown: (() -> Unit)? = null,
+) {
     Row(
         modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 10.dp),
         verticalAlignment = Alignment.CenterVertically,
@@ -376,6 +409,43 @@ private fun SongRow(song: EntryDto, onClick: () -> Unit) {
                 style = MaterialTheme.typography.labelSmall,
                 color = MaterialTheme.colorScheme.textSecondary
             )
+        }
+        // Reorder control — compact vertical arrow pair. Callers pass null for
+        // the direction that's blocked (first row → onMoveUp null, last row →
+        // onMoveDown null); the disabled arrow renders greyed but not hidden,
+        // so the row's right edge stays visually stable across the list.
+        if (onMoveUp != null || onMoveDown != null) {
+            Column(
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.spacedBy((-6).dp)
+            ) {
+                IconButton(
+                    onClick = { onMoveUp?.invoke() },
+                    enabled = onMoveUp != null,
+                    modifier = Modifier.size(28.dp),
+                ) {
+                    Icon(
+                        Icons.Default.KeyboardArrowUp,
+                        contentDescription = stringResource(R.string.playlist_detail_move_up),
+                        modifier = Modifier.size(20.dp),
+                        tint = if (onMoveUp != null) MaterialTheme.colorScheme.textSecondary
+                               else MaterialTheme.colorScheme.textSecondary.copy(alpha = 0.3f)
+                    )
+                }
+                IconButton(
+                    onClick = { onMoveDown?.invoke() },
+                    enabled = onMoveDown != null,
+                    modifier = Modifier.size(28.dp),
+                ) {
+                    Icon(
+                        Icons.Default.KeyboardArrowDown,
+                        contentDescription = stringResource(R.string.playlist_detail_move_down),
+                        modifier = Modifier.size(20.dp),
+                        tint = if (onMoveDown != null) MaterialTheme.colorScheme.textSecondary
+                               else MaterialTheme.colorScheme.textSecondary.copy(alpha = 0.3f)
+                    )
+                }
+            }
         }
     }
 }

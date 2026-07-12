@@ -787,7 +787,10 @@ private fun EntryRow(
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(12.dp)
     ) {
-        // Thumbnail: cover art if available, icon fallback
+        // Thumbnail: real cover art if available. Files without artwork use the
+        // ambient-tinted placeholder so each song still gets a distinctive tile.
+        // Folders keep their explicit Folder icon — a directory isn't "missing
+        // artwork", the icon is intentional and the primary tint signals type.
         if (coverArtUrl != null) {
             AsyncImage(
                 model = coverArtUrl,
@@ -797,22 +800,25 @@ private fun EntryRow(
                     .size(48.dp)
                     .clip(RoundedCornerShape(4.dp))
             )
-        } else {
+        } else if (entry.isDir) {
             Surface(
                 modifier = Modifier.size(48.dp),
                 shape = RoundedCornerShape(4.dp),
                 color = MaterialTheme.colorScheme.surfaceVariant
             ) {
                 Icon(
-                    imageVector = if (entry.isDir) Icons.Default.Folder else Icons.Default.MusicNote,
+                    imageVector = Icons.Default.Folder,
                     contentDescription = null,
                     modifier = Modifier.padding(12.dp),
-                    tint = if (entry.isDir)
-                        MaterialTheme.colorScheme.primary
-                    else
-                        MaterialTheme.colorScheme.textSecondary
+                    tint = MaterialTheme.colorScheme.primary
                 )
             }
+        } else {
+            com.tiritibambix.sharesonic.ui.player.NoArtworkThumb(
+                seedKey = entry.id,
+                modifier = Modifier.size(48.dp),
+                shape = RoundedCornerShape(4.dp),
+            )
         }
 
         Column(modifier = Modifier.weight(1f)) {

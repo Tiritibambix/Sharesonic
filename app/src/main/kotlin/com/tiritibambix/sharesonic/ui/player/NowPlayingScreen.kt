@@ -521,7 +521,12 @@ private fun NowPlayingPage(
     // in the top-left corner or dead-centre (invisible / wrong). Building with
     // `size` in hand lets us point the halo at (width/2, 0) with a radius of
     // 1.25 × the shortest side, which is what mStream's ambientGradient does.
-    val ambientSeed = rememberAmbientColor(state.coverArtUrl, vibrant = true)
+    // When the real artwork exists we use its extracted vibrant seed; when it
+    // doesn't (or comes back grayscale — chroma below CHROMA_FLOOR), fall back
+    // to a synthetic per-song seed so the halo + particles + placeholder tile
+    // all share one tint instead of the page reading as "no art detected".
+    val artSeed = rememberAmbientColor(state.coverArtUrl, vibrant = true)
+    val ambientSeed = artSeed ?: state.currentSong?.id?.let { syntheticSeed(it) }
     Box(modifier = Modifier.fillMaxSize()) {
         Crossfade(
             targetState = ambientSeed,
@@ -603,17 +608,11 @@ private fun NowPlayingPage(
                             modifier = Modifier.fillMaxSize()
                         )
                     } else {
-                        Surface(
+                        NoArtworkThumb(
+                            seedKey = state.currentSong!!.id,
                             modifier = Modifier.fillMaxSize(),
-                            color = MaterialTheme.colorScheme.primaryContainer
-                        ) {
-                            Icon(
-                                Icons.Default.MusicNote,
-                                contentDescription = null,
-                                modifier = Modifier.padding(72.dp),
-                                tint = MaterialTheme.colorScheme.onPrimaryContainer
-                            )
-                        }
+                            shape = RoundedCornerShape(12.dp),
+                        )
                     }
                 }
             }
@@ -1377,18 +1376,11 @@ fun MiniPlayerBar(
                             .clip(RoundedCornerShape(4.dp))
                     )
                 } else {
-                    Surface(
+                    NoArtworkThumb(
+                        seedKey = song.id,
                         modifier = Modifier.size(46.dp),
                         shape = RoundedCornerShape(4.dp),
-                        color = MaterialTheme.colorScheme.primaryContainer
-                    ) {
-                        Icon(
-                            Icons.Default.MusicNote,
-                            contentDescription = null,
-                            modifier = Modifier.padding(11.dp),
-                            tint = MaterialTheme.colorScheme.onPrimaryContainer
-                        )
-                    }
+                    )
                 }
 
                 // Track info

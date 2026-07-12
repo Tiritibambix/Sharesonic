@@ -501,6 +501,18 @@ class VelvetRepository(private val api: VelvetApiService) {
     }
 
     /**
+     * Replace the playlist's entire song list with [filepaths] in the given
+     * order. Used by drag-to-reorder in PlaylistDetailScreen: rebuilding the
+     * list locally then calling savePlaylist is atomic on the server side, so
+     * a failed reorder doesn't leave the playlist in a half-mutated state.
+     * Fire-and-forget on the error path (matches the other playlist mutators).
+     */
+    suspend fun reorderPlaylist(token: String, playlistName: String, filepaths: List<String>): Result<Unit> = try {
+        api.savePlaylist(token, NativePlaylistSaveRequest(title = playlistName, songs = filepaths))
+        Result.Success(Unit)
+    } catch (e: Exception) { Result.Error(e.message ?: "Network error") }
+
+    /**
      * Re-save the playlist so the server updates its stored [songCount] and [totalDuration].
      * Velvet's `add-song` / `remove-song` endpoints mutate `playlist_songs` but do NOT
      * update the denormalized metadata in the `playlists` table — only `save` does.
