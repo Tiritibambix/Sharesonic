@@ -1,6 +1,9 @@
 package com.tiritibambix.sharesonic.ui.search
 
+import androidx.compose.foundation.ExperimentalFoundationApi
+import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -27,11 +30,14 @@ import com.tiritibambix.sharesonic.data.api.models.SearchResult3
 import com.tiritibambix.sharesonic.data.api.models.TopLevelDir
 import com.tiritibambix.sharesonic.data.settings.ServerSettings
 import com.tiritibambix.sharesonic.ui.common.AlbumCardGrid
+import com.tiritibambix.sharesonic.ui.components.FrostedPlaylistPicker
+import com.tiritibambix.sharesonic.ui.components.FrostedSongContextMenu
 import com.tiritibambix.sharesonic.ui.player.PlayerViewModel
 import androidx.compose.ui.res.stringResource
 import com.tiritibambix.sharesonic.R
 import com.tiritibambix.sharesonic.ui.theme.textSecondary
 import com.tiritibambix.sharesonic.ui.theme.textTertiary
+import com.tiritibambix.sharesonic.utils.LocalIsTV
 import kotlinx.coroutines.launch
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -49,6 +55,17 @@ fun SearchScreen(
     val query by viewModel.query.collectAsState()
     val searchState by viewModel.searchState.collectAsState()
     val focusRequester = remember { FocusRequester() }
+
+    // Hoisted overlays — a song row's "⋮" (TV) or swipe (phone) surfaces the
+    // context menu; picking "Add to playlist" then hands off to the frosted
+    // picker. Uses PlayerViewModel's playlists cache and add methods, matching
+    // Now Playing's flow — so the same modals appear across every screen.
+    var contextEntry by remember { mutableStateOf<EntryDto?>(null) }
+    var playlistTarget by remember { mutableStateOf<EntryDto?>(null) }
+    val playlists by playerViewModel.playlists.collectAsState()
+    LaunchedEffect(playlistTarget) {
+        if (playlistTarget != null) playerViewModel.loadPlaylists()
+    }
 
     // Auto-focus the search field on entry. During the very first composition pass
     // the BasicTextField's focus target may not be attached to this FocusRequester
@@ -113,12 +130,46 @@ fun SearchScreen(
                             playerViewModel = playerViewModel,
                             onOpenFolder = onOpenFolder,
                             onOpenArtistResults = onOpenArtistResults,
-                            onOpenNowPlaying = onOpenNowPlaying
+                            onOpenNowPlaying = onOpenNowPlaying,
+                            onShowContextMenu = { contextEntry = it }
                         )
                     }
                 }
             }
         }
+    }
+
+    // ── Song context menu (long-press on phone, "⋮" on TV) ─────────────────
+    contextEntry?.let { entry ->
+        FrostedSongContextMenu(
+            song = entry,
+            onPlay = {
+                playerViewModel.playSong(entry)
+                onOpenNowPlaying()
+            },
+            onAddToQueue = { playerViewModel.addToQueue(entry) },
+            onAddToPlaylist = { playlistTarget = entry },
+            onDismiss = { contextEntry = null }
+        )
+    }
+
+    // ── Playlist picker — mirrors the Now Playing / FolderBrowser flow ────
+    playlistTarget?.let { target ->
+        FrostedPlaylistPicker(
+            title = stringResource(R.string.player_add_playlist_title),
+            subtitle = target.displayName +
+                (target.artist?.takeIf { it.isNotBlank() }?.let { "  ·  $it" } ?: ""),
+            playlists = playlists,
+            onPick = { name ->
+                playerViewModel.addSongToPlaylist(target, name)
+                playlistTarget = null
+            },
+            onCreate = { name ->
+                playerViewModel.createPlaylistAndAddSong(target, name)
+                playlistTarget = null
+            },
+            onDismiss = { playlistTarget = null }
+        )
     }
 }
 
@@ -193,6 +244,7 @@ private fun SearchField(
     }
 }
 
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
 private fun SearchResults(
     result: SearchResult3,
@@ -201,8 +253,10 @@ private fun SearchResults(
     playerViewModel: PlayerViewModel,
     onOpenFolder: (id: String, name: String) -> Unit,
     onOpenArtistResults: (artistName: String) -> Unit,
-    onOpenNowPlaying: () -> Unit
+    onOpenNowPlaying: () -> Unit,
+    onShowContextMenu: (EntryDto) -> Unit,
 ) {
+    val isTV = LocalIsTV.current
     val coroutineScope = rememberCoroutineScope()
     val totalCount = result.folder.size + result.song.size + result.album.size + result.artist.size
     if (totalCount == 0) {
@@ -280,18 +334,108 @@ private fun SearchResults(
         }
 
         // ── Songs ────────────────────────────────────────────────────────
+        // Phone: swipe right → add to playlist, swipe left → add to queue
+        //       (mirrors FolderBrowser). Long-press → context menu.
+        // TV:    ⋮ button → context menu with Play / Add to queue / Add to playlist.
         if (result.song.isNotEmpty()) {
             item { SectionHeader(stringResource(R.string.search_section_songs)) }
             itemsIndexed(result.song, key = { idx, _ -> "song_$idx" }) { _, song ->
-                EntryRow(
-                    entry = song,
-                    coverArtUrl = song.coverArt?.let { nativeCoverArtUrl(settings, it) },
-                    isAlbum = false,
-                    onClick = {
-                        playerViewModel.playSong(song)
-                        onOpenNowPlaying()
+                val play = {
+                    playerViewModel.playSong(song)
+                    onOpenNowPlaying()
+                }
+                if (isTV) {
+                    Surface(color = MaterialTheme.colorScheme.surface) {
+                        EntryRow(
+                            entry = song,
+                            coverArtUrl = song.coverArt?.let { nativeCoverArtUrl(settings, it) },
+                            isAlbum = false,
+                            onClick = play,
+                            onLongClick = { onShowContextMenu(song) },
+                            onShowMenu = { onShowContextMenu(song) }
+                        )
                     }
-                )
+                } else {
+                    val dismissState = rememberSwipeToDismissBoxState(
+                        confirmValueChange = { value ->
+                            when (value) {
+                                SwipeToDismissBoxValue.StartToEnd -> onShowContextMenu(song)
+                                SwipeToDismissBoxValue.EndToStart -> playerViewModel.addToQueue(song)
+                                else -> {}
+                            }
+                            false // bounce back — trigger only
+                        }
+                    )
+                    SwipeToDismissBox(
+                        state = dismissState,
+                        enableDismissFromStartToEnd = true,
+                        enableDismissFromEndToStart = true,
+                        backgroundContent = {
+                            val isEndToStart = dismissState.targetValue ==
+                                SwipeToDismissBoxValue.EndToStart
+                            if (isEndToStart) {
+                                Box(
+                                    modifier = Modifier
+                                        .fillMaxSize()
+                                        .background(MaterialTheme.colorScheme.tertiaryContainer)
+                                        .padding(end = 16.dp),
+                                    contentAlignment = Alignment.CenterEnd
+                                ) {
+                                    Row(
+                                        verticalAlignment = Alignment.CenterVertically,
+                                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                                    ) {
+                                        Text(
+                                            stringResource(R.string.browser_add_to_queue),
+                                            color = MaterialTheme.colorScheme.onTertiaryContainer,
+                                            style = MaterialTheme.typography.labelLarge
+                                        )
+                                        Icon(
+                                            Icons.Default.AddToQueue,
+                                            contentDescription = null,
+                                            tint = MaterialTheme.colorScheme.onTertiaryContainer
+                                        )
+                                    }
+                                }
+                            } else {
+                                Box(
+                                    modifier = Modifier
+                                        .fillMaxSize()
+                                        .background(MaterialTheme.colorScheme.primaryContainer)
+                                        .padding(start = 16.dp),
+                                    contentAlignment = Alignment.CenterStart
+                                ) {
+                                    Row(
+                                        verticalAlignment = Alignment.CenterVertically,
+                                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                                    ) {
+                                        Icon(
+                                            Icons.Default.QueueMusic,
+                                            contentDescription = null,
+                                            tint = MaterialTheme.colorScheme.onPrimaryContainer
+                                        )
+                                        Text(
+                                            stringResource(R.string.browser_add_to_playlist),
+                                            color = MaterialTheme.colorScheme.onPrimaryContainer,
+                                            style = MaterialTheme.typography.labelLarge
+                                        )
+                                    }
+                                }
+                            }
+                        }
+                    ) {
+                        Surface(color = MaterialTheme.colorScheme.surface) {
+                            EntryRow(
+                                entry = song,
+                                coverArtUrl = song.coverArt?.let { nativeCoverArtUrl(settings, it) },
+                                isAlbum = false,
+                                onClick = play,
+                                onLongClick = { onShowContextMenu(song) },
+                                onShowMenu = null
+                            )
+                        }
+                    }
+                }
                 HorizontalDivider(thickness = 0.5.dp)
             }
         }
@@ -360,17 +504,28 @@ private fun ArtistRow(artist: TopLevelDir, onClick: () -> Unit) {
     }
 }
 
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
 internal fun EntryRow(
     entry: EntryDto,
     coverArtUrl: String?,
     isAlbum: Boolean,
-    onClick: () -> Unit
+    onClick: () -> Unit,
+    onLongClick: (() -> Unit)? = null,
+    /** On TV, tapping this shows the context menu (replaces swipe / long-press). */
+    onShowMenu: (() -> Unit)? = null,
 ) {
-    Row(
-        modifier = Modifier
+    val rowModifier = if (onLongClick != null) {
+        Modifier
+            .fillMaxWidth()
+            .combinedClickable(onClick = onClick, onLongClick = onLongClick)
+    } else {
+        Modifier
             .fillMaxWidth()
             .clickable(onClick = onClick)
+    }
+    Row(
+        modifier = rowModifier
             .padding(horizontal = 12.dp, vertical = 8.dp),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(12.dp)
@@ -424,6 +579,17 @@ internal fun EntryRow(
                     formatDuration(it),
                     style = MaterialTheme.typography.labelSmall,
                     color = MaterialTheme.colorScheme.textTertiary
+                )
+            }
+        }
+        // TV: "⋮" button opens the context menu — replaces swipe / long-press.
+        if (onShowMenu != null) {
+            IconButton(onClick = onShowMenu, modifier = Modifier.size(36.dp)) {
+                Icon(
+                    Icons.Default.MoreVert,
+                    contentDescription = stringResource(R.string.common_more),
+                    tint = MaterialTheme.colorScheme.textSecondary,
+                    modifier = Modifier.size(20.dp)
                 )
             }
         }

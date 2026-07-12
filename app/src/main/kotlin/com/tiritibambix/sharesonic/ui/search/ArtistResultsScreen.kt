@@ -1,12 +1,16 @@
 package com.tiritibambix.sharesonic.ui.search
 
 import androidx.compose.animation.core.animateDpAsState
+import androidx.compose.foundation.ExperimentalFoundationApi
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.filled.AddToQueue
 import androidx.compose.material.icons.filled.PlayArrow
+import androidx.compose.material.icons.filled.QueueMusic
 import androidx.compose.material.icons.filled.Shuffle
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -18,6 +22,8 @@ import androidx.compose.ui.unit.dp
 import com.tiritibambix.sharesonic.R
 import com.tiritibambix.sharesonic.data.api.models.EntryDto
 import com.tiritibambix.sharesonic.data.settings.ServerSettings
+import com.tiritibambix.sharesonic.ui.components.FrostedPlaylistPicker
+import com.tiritibambix.sharesonic.ui.components.FrostedSongContextMenu
 import com.tiritibambix.sharesonic.ui.player.PlayerViewModel
 import com.tiritibambix.sharesonic.ui.theme.textSecondary
 import com.tiritibambix.sharesonic.utils.LocalIsTV
@@ -31,7 +37,7 @@ import com.tiritibambix.sharesonic.utils.LocalIsTV
  * [SearchViewModel.fetchArtistSongsRaw], with Play all / Shuffle FABs just like
  * a real folder.
  */
-@OptIn(ExperimentalMaterial3Api::class)
+@OptIn(ExperimentalMaterial3Api::class, ExperimentalFoundationApi::class)
 @Composable
 fun ArtistResultsScreen(
     artistName: String,
@@ -44,6 +50,15 @@ fun ArtistResultsScreen(
     val playerState by playerViewModel.state.collectAsState()
     val isTV = LocalIsTV.current
     val miniPlayerVisible = playerState.currentSong != null
+
+    // Same context-menu + playlist-picker pattern as SearchScreen — reuses
+    // PlayerViewModel's cached playlists and add methods.
+    var contextEntry by remember { mutableStateOf<EntryDto?>(null) }
+    var playlistTarget by remember { mutableStateOf<EntryDto?>(null) }
+    val playlists by playerViewModel.playlists.collectAsState()
+    LaunchedEffect(playlistTarget) {
+        if (playlistTarget != null) playerViewModel.loadPlaylists()
+    }
     val fabBottomPadding by animateDpAsState(
         targetValue = if (miniPlayerVisible) 68.dp else 0.dp,
         label = "fabBottomPadding"
@@ -137,19 +152,139 @@ fun ArtistResultsScreen(
                     contentPadding = PaddingValues(bottom = listBottomPadding)
                 ) {
                     itemsIndexed(songs, key = { idx, _ -> "artistresult_$idx" }) { _, song ->
-                        EntryRow(
-                            entry = song,
-                            coverArtUrl = song.coverArt?.let { nativeCoverArtUrl(settings, it) },
-                            isAlbum = false,
-                            onClick = {
-                                playerViewModel.playSong(song)
-                                onOpenNowPlaying()
+                        val play = {
+                            playerViewModel.playSong(song)
+                            onOpenNowPlaying()
+                        }
+                        if (isTV) {
+                            Surface(color = MaterialTheme.colorScheme.surface) {
+                                EntryRow(
+                                    entry = song,
+                                    coverArtUrl = song.coverArt?.let { nativeCoverArtUrl(settings, it) },
+                                    isAlbum = false,
+                                    onClick = play,
+                                    onLongClick = { contextEntry = song },
+                                    onShowMenu = { contextEntry = song }
+                                )
                             }
-                        )
+                        } else {
+                            val dismissState = rememberSwipeToDismissBoxState(
+                                confirmValueChange = { value ->
+                                    when (value) {
+                                        SwipeToDismissBoxValue.StartToEnd -> { contextEntry = song }
+                                        SwipeToDismissBoxValue.EndToStart -> playerViewModel.addToQueue(song)
+                                        else -> {}
+                                    }
+                                    false
+                                }
+                            )
+                            SwipeToDismissBox(
+                                state = dismissState,
+                                enableDismissFromStartToEnd = true,
+                                enableDismissFromEndToStart = true,
+                                backgroundContent = {
+                                    val isEndToStart = dismissState.targetValue ==
+                                        SwipeToDismissBoxValue.EndToStart
+                                    if (isEndToStart) {
+                                        Box(
+                                            modifier = Modifier
+                                                .fillMaxSize()
+                                                .background(MaterialTheme.colorScheme.tertiaryContainer)
+                                                .padding(end = 16.dp),
+                                            contentAlignment = Alignment.CenterEnd
+                                        ) {
+                                            Row(
+                                                verticalAlignment = Alignment.CenterVertically,
+                                                horizontalArrangement = Arrangement.spacedBy(8.dp)
+                                            ) {
+                                                Text(
+                                                    stringResource(R.string.browser_add_to_queue),
+                                                    color = MaterialTheme.colorScheme.onTertiaryContainer,
+                                                    style = MaterialTheme.typography.labelLarge
+                                                )
+                                                Icon(
+                                                    Icons.Default.AddToQueue,
+                                                    contentDescription = null,
+                                                    tint = MaterialTheme.colorScheme.onTertiaryContainer
+                                                )
+                                            }
+                                        }
+                                    } else {
+                                        Box(
+                                            modifier = Modifier
+                                                .fillMaxSize()
+                                                .background(MaterialTheme.colorScheme.primaryContainer)
+                                                .padding(start = 16.dp),
+                                            contentAlignment = Alignment.CenterStart
+                                        ) {
+                                            Row(
+                                                verticalAlignment = Alignment.CenterVertically,
+                                                horizontalArrangement = Arrangement.spacedBy(8.dp)
+                                            ) {
+                                                Icon(
+                                                    Icons.Default.QueueMusic,
+                                                    contentDescription = null,
+                                                    tint = MaterialTheme.colorScheme.onPrimaryContainer
+                                                )
+                                                Text(
+                                                    stringResource(R.string.browser_add_to_playlist),
+                                                    color = MaterialTheme.colorScheme.onPrimaryContainer,
+                                                    style = MaterialTheme.typography.labelLarge
+                                                )
+                                            }
+                                        }
+                                    }
+                                }
+                            ) {
+                                Surface(color = MaterialTheme.colorScheme.surface) {
+                                    EntryRow(
+                                        entry = song,
+                                        coverArtUrl = song.coverArt?.let { nativeCoverArtUrl(settings, it) },
+                                        isAlbum = false,
+                                        onClick = play,
+                                        onLongClick = { contextEntry = song },
+                                        onShowMenu = null
+                                    )
+                                }
+                            }
+                        }
                         HorizontalDivider(thickness = 0.5.dp)
                     }
                 }
             }
         }
+    }
+
+    // ── Song context menu (long-press on phone, "⋮" on TV) ─────────────────
+    contextEntry?.let { entry ->
+        FrostedSongContextMenu(
+            song = entry,
+            onPlay = {
+                playerViewModel.playSong(entry)
+                onOpenNowPlaying()
+            },
+            onAddToQueue = { playerViewModel.addToQueue(entry) },
+            onAddToPlaylist = { playlistTarget = entry },
+            onDismiss = { contextEntry = null }
+        )
+    }
+
+    // ── Playlist picker — same as SearchScreen / Now Playing / FolderBrowser ─
+    playlistTarget?.let { target ->
+        FrostedPlaylistPicker(
+            title = stringResource(R.string.player_add_playlist_title),
+            subtitle = target.displayName +
+                (target.artist?.takeIf { it.isNotBlank() }?.let { "  ·  $it" } ?: ""),
+            playlists = playlists,
+            onPick = { name ->
+                playerViewModel.addSongToPlaylist(target, name)
+                playlistTarget = null
+            },
+            onCreate = { name ->
+                playerViewModel.createPlaylistAndAddSong(target, name)
+                playlistTarget = null
+            },
+            onDismiss = { playlistTarget = null }
+        )
     }
 }

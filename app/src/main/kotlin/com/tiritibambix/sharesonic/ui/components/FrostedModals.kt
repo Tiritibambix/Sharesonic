@@ -13,6 +13,8 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Check
+import androidx.compose.material.icons.filled.PlayArrow
+import androidx.compose.material.icons.filled.PlaylistAdd
 import androidx.compose.material.icons.filled.QueueMusic
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -20,12 +22,14 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.tiritibambix.sharesonic.R
+import com.tiritibambix.sharesonic.data.api.models.EntryDto
 import com.tiritibambix.sharesonic.data.api.models.NativePlaylist
 import com.tiritibambix.sharesonic.ui.theme.textSecondary
 
@@ -207,6 +211,78 @@ fun FrostedPlaylistPicker(
                 )
             }
         }
+    }
+}
+
+/**
+ * Frosted-glass context menu for a song track — Play / Add to queue / Add to
+ * playlist. Same visual family as [FrostedPlaylistPicker] and mirrors the
+ * long-press menu wired up inline in FolderBrowserScreen. Shared here so
+ * SearchScreen / ArtistResultsScreen don't have to reimplement the block.
+ */
+@Composable
+fun FrostedSongContextMenu(
+    song: EntryDto,
+    onPlay: () -> Unit,
+    onAddToQueue: () -> Unit,
+    onAddToPlaylist: () -> Unit,
+    onDismiss: () -> Unit,
+) {
+    FrostedOverlay(onDismiss = onDismiss) {
+        FrostedCard {
+            Text(
+                song.displayName,
+                style = MaterialTheme.typography.titleMedium,
+                fontWeight = FontWeight.SemiBold,
+                maxLines = 2,
+                overflow = TextOverflow.Ellipsis,
+            )
+            song.artist?.takeIf { it.isNotBlank() }?.let {
+                Text(
+                    it,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.textSecondary,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                )
+            }
+            HorizontalDivider(color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.12f))
+            ContextRow(
+                icon = Icons.Default.PlayArrow,
+                label = stringResource(R.string.player_play),
+                onClick = { onDismiss(); onPlay() },
+            )
+            ContextRow(
+                icon = Icons.Default.PlaylistAdd,
+                label = stringResource(R.string.browser_add_to_queue),
+                onClick = { onDismiss(); onAddToQueue() },
+            )
+            ContextRow(
+                icon = Icons.Default.QueueMusic,
+                label = stringResource(R.string.browser_add_to_playlist),
+                onClick = { onDismiss(); onAddToPlaylist() },
+            )
+        }
+    }
+}
+
+@Composable
+private fun ContextRow(
+    icon: ImageVector,
+    label: String,
+    onClick: () -> Unit,
+) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(androidx.compose.foundation.shape.RoundedCornerShape(10.dp))
+            .clickable(onClick = onClick)
+            .padding(vertical = 12.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(16.dp),
+    ) {
+        Icon(icon, contentDescription = null, tint = MaterialTheme.colorScheme.textSecondary, modifier = Modifier.size(22.dp))
+        Text(label, style = MaterialTheme.typography.bodyLarge)
     }
 }
 
