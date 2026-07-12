@@ -36,7 +36,10 @@ fun NoArtworkThumb(
     modifier: Modifier = Modifier,
     shape: Shape,
 ) {
-    val barTint = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.30f)
+    // Bars carry the theme accent so the placeholder still feels part of the
+    // app's colour palette (echoes the play/pause halo and the seek bar); alpha
+    // keeps them from screaming over the frosted backdrop.
+    val barTint = MaterialTheme.colorScheme.primary.copy(alpha = 0.65f)
     // Same generator as WaveformSeekBar (0.20-1.00 range, deterministic per
     // hashCode). Cached in remember so the FloatArray isn't reallocated on
     // recomposition.
@@ -47,7 +50,11 @@ fun NoArtworkThumb(
     Box(
         modifier = modifier
             .clip(shape)
-            .background(MaterialTheme.colorScheme.surfaceVariant),
+            // Partially transparent tile — on Now Playing, the ambient halo and
+            // the drifting fireflies show through the placeholder instead of
+            // being masked by an opaque block. On the mini bar and folder rows,
+            // it just blends with the surrounding surface (no visible change).
+            .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.35f)),
         contentAlignment = Alignment.Center,
     ) {
         // 72 % of the tile leaves a visible margin so the waveform reads as a
