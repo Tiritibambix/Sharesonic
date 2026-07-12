@@ -1,5 +1,6 @@
 package com.tiritibambix.sharesonic.ui.components
 
+import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -43,6 +44,10 @@ fun FrostedOverlay(
     onDismiss: () -> Unit,
     content: @Composable () -> Unit,
 ) {
+    // Back closes THIS modal first — without this, on TV the Back key would
+    // bubble to a parent (e.g. PlayerPanel) and collapse the whole surface
+    // behind an open picker instead of dismissing the picker itself.
+    BackHandler(onBack = onDismiss)
     Box(
         modifier = Modifier
             .fillMaxSize()

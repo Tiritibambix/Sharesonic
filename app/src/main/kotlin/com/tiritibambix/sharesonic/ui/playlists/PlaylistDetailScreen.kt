@@ -46,6 +46,7 @@ fun PlaylistDetailScreen(
     )
 
     val playlistName = (state as? PlaylistDetailState.Ready)?.name ?: initialName
+    val isTV = LocalIsTV.current
 
     var showRenameDialog by remember { mutableStateOf(false) }
     var renameName by remember { mutableStateOf("") }
@@ -173,6 +174,32 @@ fun PlaylistDetailScreen(
                     }
                 },
                 actions = {
+                    // TV: FABs aren't reliably D-pad reachable from a full-screen
+                    // LazyColumn — move Play All + Shuffle into the TopAppBar so
+                    // they sit alongside Rename / Add and are traversed naturally.
+                    if (isTV) {
+                        val entries = (state as? PlaylistDetailState.Ready)?.entries
+                        if (!entries.isNullOrEmpty()) {
+                            IconButton(
+                                onClick = {
+                                    playerViewModel.playQueue(entries.map { it.dto })
+                                    onOpenNowPlaying()
+                                },
+                                modifier = Modifier.size(36.dp)
+                            ) {
+                                Icon(Icons.Default.PlayArrow, contentDescription = stringResource(R.string.playlist_detail_play_all), modifier = Modifier.size(20.dp))
+                            }
+                            IconButton(
+                                onClick = {
+                                    playerViewModel.playQueue(entries.map { it.dto }.shuffled())
+                                    onOpenNowPlaying()
+                                },
+                                modifier = Modifier.size(36.dp)
+                            ) {
+                                Icon(Icons.Default.Shuffle, contentDescription = stringResource(R.string.playlist_detail_shuffle), modifier = Modifier.size(20.dp))
+                            }
+                        }
+                    }
                     IconButton(onClick = { renameName = playlistName; showRenameDialog = true }, modifier = Modifier.size(36.dp)) {
                         Icon(Icons.Default.Edit, contentDescription = stringResource(R.string.common_rename), modifier = Modifier.size(20.dp))
                     }
@@ -183,33 +210,36 @@ fun PlaylistDetailScreen(
             )
         },
         floatingActionButton = {
-            val entries = (state as? PlaylistDetailState.Ready)?.entries
-            if (!entries.isNullOrEmpty()) {
-                Column(
-                    horizontalAlignment = Alignment.End,
-                    verticalArrangement = Arrangement.spacedBy(12.dp)
-                ) {
-                    FloatingActionButton(
-                        onClick = {
-                            playerViewModel.playQueue(entries.map { it.dto }.shuffled())
-                            onOpenNowPlaying()
-                        },
-                        containerColor = MaterialTheme.colorScheme.primary,
-                        contentColor = MaterialTheme.colorScheme.onPrimary,
+            // Phone only — see the TV branch in TopAppBar.actions above.
+            if (!isTV) {
+                val entries = (state as? PlaylistDetailState.Ready)?.entries
+                if (!entries.isNullOrEmpty()) {
+                    Column(
+                        horizontalAlignment = Alignment.End,
+                        verticalArrangement = Arrangement.spacedBy(12.dp)
                     ) {
-                        Icon(Icons.Default.Shuffle, contentDescription = stringResource(R.string.playlist_detail_shuffle))
+                        FloatingActionButton(
+                            onClick = {
+                                playerViewModel.playQueue(entries.map { it.dto }.shuffled())
+                                onOpenNowPlaying()
+                            },
+                            containerColor = MaterialTheme.colorScheme.primary,
+                            contentColor = MaterialTheme.colorScheme.onPrimary,
+                        ) {
+                            Icon(Icons.Default.Shuffle, contentDescription = stringResource(R.string.playlist_detail_shuffle))
+                        }
+                        FloatingActionButton(
+                            onClick = {
+                                playerViewModel.playQueue(entries.map { it.dto })
+                                onOpenNowPlaying()
+                            },
+                            containerColor = MaterialTheme.colorScheme.primary,
+                            contentColor = MaterialTheme.colorScheme.onPrimary,
+                        ) {
+                            Icon(Icons.Default.PlayArrow, contentDescription = stringResource(R.string.playlist_detail_play_all))
+                        }
+                        Spacer(modifier = Modifier.height(fabBottomPadding))
                     }
-                    FloatingActionButton(
-                        onClick = {
-                            playerViewModel.playQueue(entries.map { it.dto })
-                            onOpenNowPlaying()
-                        },
-                        containerColor = MaterialTheme.colorScheme.primary,
-                        contentColor = MaterialTheme.colorScheme.onPrimary,
-                    ) {
-                        Icon(Icons.Default.PlayArrow, contentDescription = stringResource(R.string.playlist_detail_play_all))
-                    }
-                    Spacer(modifier = Modifier.height(fabBottomPadding))
                 }
             }
         }
@@ -232,7 +262,6 @@ fun PlaylistDetailScreen(
                             color = MaterialTheme.colorScheme.textSecondary
                         )
                     } else {
-                        val isTV = LocalIsTV.current
                         LazyColumn(
                             modifier = Modifier.fillMaxSize(),
                             contentPadding = PaddingValues(bottom = listBottomPadding)

@@ -586,10 +586,12 @@ private fun NowPlayingPage(
                         // artwork exists). indication = null keeps it silent over
                         // the album art. clickable doesn't consume drag events, so
                         // the HorizontalPager swipe to the Queue page still works.
+                        // TV: disable — pinch/pan aren't available on a remote so
+                        // the zoom overlay would be a dead end (only Back exits).
                         .clickable(
                             interactionSource = remember { androidx.compose.foundation.interaction.MutableInteractionSource() },
                             indication = null,
-                            enabled = state.coverArtUrl != null,
+                            enabled = state.coverArtUrl != null && !isTV,
                             onClick = onCoverTap
                         )
                 ) {

@@ -3,6 +3,7 @@ package com.tiritibambix.sharesonic.ui.settings
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.focusable
 import androidx.compose.foundation.gestures.detectHorizontalDragGestures
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.Arrangement
@@ -39,6 +40,11 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.input.key.Key
+import androidx.compose.ui.input.key.KeyEventType
+import androidx.compose.ui.input.key.key
+import androidx.compose.ui.input.key.onKeyEvent
+import androidx.compose.ui.input.key.type
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.res.stringResource
@@ -51,6 +57,7 @@ import com.tiritibambix.sharesonic.ui.theme.borderSoft
 import com.tiritibambix.sharesonic.ui.theme.borderStrong
 import com.tiritibambix.sharesonic.ui.theme.onAccent
 import com.tiritibambix.sharesonic.ui.theme.textSecondary
+import com.tiritibambix.sharesonic.utils.LocalIsTV
 
 /** Curated presets — subset the user asked for, plus the current Velvet primary. */
 private val AccentPresets = listOf(
@@ -293,6 +300,7 @@ private fun GradientBar(
 ) {
     val h = 26.dp
     var boxSize by remember { mutableStateOf(IntSize.Zero) }
+    val isTV = LocalIsTV.current
     Box(
         modifier = Modifier
             .fillMaxWidth()
@@ -301,6 +309,23 @@ private fun GradientBar(
             .clip(RoundedCornerShape(percent = 50))
             .background(Brush.horizontalGradient(colors))
             .border(1.dp, MaterialTheme.colorScheme.borderSoft, RoundedCornerShape(percent = 50))
+            // TV: focusable + D-pad left/right nudges the value by 4 % per press
+            // (25 presses to sweep the whole bar — comfortable on a remote).
+            // Commits (onEnd) on each press so previews and DataStore stay in sync.
+            .then(
+                if (isTV) Modifier
+                    .focusable()
+                    .onKeyEvent { event ->
+                        if (event.type == KeyEventType.KeyDown) {
+                            when (event.key) {
+                                Key.DirectionLeft  -> { onChanged((t - 0.04f).coerceIn(0f, 1f)); onEnd(); true }
+                                Key.DirectionRight -> { onChanged((t + 0.04f).coerceIn(0f, 1f)); onEnd(); true }
+                                else -> false
+                            }
+                        } else false
+                    }
+                else Modifier
+            )
             .pointerInput(boxSize) {
                 if (boxSize.width == 0) return@pointerInput
                 detectTapGestures(onTap = { pos ->

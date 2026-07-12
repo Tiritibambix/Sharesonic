@@ -20,6 +20,7 @@ import com.tiritibambix.sharesonic.data.api.models.EntryDto
 import com.tiritibambix.sharesonic.data.settings.ServerSettings
 import com.tiritibambix.sharesonic.ui.player.PlayerViewModel
 import com.tiritibambix.sharesonic.ui.theme.textSecondary
+import com.tiritibambix.sharesonic.utils.LocalIsTV
 
 /**
  * Standalone "folder-like" results page for an artist whose tag-derived name has
@@ -41,6 +42,7 @@ fun ArtistResultsScreen(
     onOpenNowPlaying: () -> Unit
 ) {
     val playerState by playerViewModel.state.collectAsState()
+    val isTV = LocalIsTV.current
     val miniPlayerVisible = playerState.currentSong != null
     val fabBottomPadding by animateDpAsState(
         targetValue = if (miniPlayerVisible) 68.dp else 0.dp,
@@ -64,11 +66,35 @@ fun ArtistResultsScreen(
                     IconButton(onClick = onBack, modifier = Modifier.size(36.dp)) {
                         Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = stringResource(R.string.common_back), modifier = Modifier.size(20.dp))
                     }
+                },
+                actions = {
+                    // TV: FABs aren't reliably D-pad reachable — expose Play All /
+                    // Shuffle in the TopAppBar so the remote can trigger them.
+                    if (isTV && songs.isNotEmpty()) {
+                        IconButton(
+                            onClick = {
+                                playerViewModel.playQueue(songs)
+                                onOpenNowPlaying()
+                            },
+                            modifier = Modifier.size(36.dp)
+                        ) {
+                            Icon(Icons.Default.PlayArrow, contentDescription = stringResource(R.string.playlist_detail_play_all), modifier = Modifier.size(20.dp))
+                        }
+                        IconButton(
+                            onClick = {
+                                playerViewModel.playQueue(songs.shuffled())
+                                onOpenNowPlaying()
+                            },
+                            modifier = Modifier.size(36.dp)
+                        ) {
+                            Icon(Icons.Default.Shuffle, contentDescription = stringResource(R.string.playlist_detail_shuffle), modifier = Modifier.size(20.dp))
+                        }
+                    }
                 }
             )
         },
         floatingActionButton = {
-            if (songs.isNotEmpty()) {
+            if (!isTV && songs.isNotEmpty()) {
                 Column(
                     horizontalAlignment = Alignment.End,
                     verticalArrangement = Arrangement.spacedBy(12.dp)
