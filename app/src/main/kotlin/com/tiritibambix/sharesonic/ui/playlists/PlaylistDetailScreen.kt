@@ -1,10 +1,12 @@
 package com.tiritibambix.sharesonic.ui.playlists
 
 import androidx.compose.animation.core.animateDpAsState
+import androidx.compose.foundation.gestures.detectDragGesturesAfterLongPress
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
@@ -13,9 +15,14 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
+import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.zIndex
 import com.tiritibambix.sharesonic.R
 import com.tiritibambix.sharesonic.data.api.models.EntryDto
 import com.tiritibambix.sharesonic.ui.player.PlayerViewModel
@@ -263,34 +270,93 @@ fun PlaylistDetailScreen(
                             color = MaterialTheme.colorScheme.textSecondary
                         )
                     } else {
+                        // Drag-to-reorder state (phone only). The dragged row
+                        // lifts to a higher z-index and translates by the drag
+                        // delta while its underlying index in the ViewModel is
+                        // updated whenever the drag centre crosses a neighbour.
+                        val listState = rememberLazyListState()
+                        var draggedKey by remember { mutableStateOf<Int?>(null) }
+                        var dragOffsetY by remember { mutableFloatStateOf(0f) }
+                        val haptic = LocalHapticFeedback.current
+
                         LazyColumn(
+                            state = listState,
                             modifier = Modifier.fillMaxSize(),
                             contentPadding = PaddingValues(bottom = listBottomPadding)
                         ) {
                             itemsIndexed(s.entries, key = { _, e -> e.entryId }) { index, entry ->
                                 val isFirst = index == 0
                                 val isLast = index == s.entries.lastIndex
-                                SwipeToRemoveSongRow(
-                                    entry = entry,
-                                    isTV = isTV,
-                                    onPlay = {
-                                        playerViewModel.playSong(entry.dto)
-                                        onOpenNowPlaying()
-                                    },
-                                    onRemove = { viewModel.removeSong(entry.entryId) },
-                                    onMoveUp = if (isFirst) null else {
-                                        {
-                                            viewModel.moveEntry(index, index - 1)
-                                            viewModel.commitReorder()
+                                val isDragged = draggedKey == entry.entryId
+                                Box(
+                                    modifier = Modifier
+                                        .zIndex(if (isDragged) 1f else 0f)
+                                        .graphicsLayer {
+                                            translationY = if (isDragged) dragOffsetY else 0f
                                         }
-                                    },
-                                    onMoveDown = if (isLast) null else {
-                                        {
-                                            viewModel.moveEntry(index, index + 1)
-                                            viewModel.commitReorder()
+                                ) {
+                                    SwipeToRemoveSongRow(
+                                        entry = entry,
+                                        isTV = isTV,
+                                        onPlay = {
+                                            playerViewModel.playSong(entry.dto)
+                                            onOpenNowPlaying()
+                                        },
+                                        onRemove = { viewModel.removeSong(entry.entryId) },
+                                        // TV keeps the compact ↑/↓ arrow pair — no drag on a remote.
+                                        onMoveUp = if (!isTV || isFirst) null else {
+                                            {
+                                                viewModel.moveEntry(index, index - 1)
+                                                viewModel.commitReorder()
+                                            }
+                                        },
+                                        onMoveDown = if (!isTV || isLast) null else {
+                                            {
+                                                viewModel.moveEntry(index, index + 1)
+                                                viewModel.commitReorder()
+                                            }
+                                        },
+                                        // Phone shows a drag handle whose pointerInput drives the
+                                        // reorder. TV hides it.
+                                        dragHandleModifier = if (isTV) null else Modifier.pointerInput(entry.entryId) {
+                                            detectDragGesturesAfterLongPress(
+                                                onDragStart = {
+                                                    draggedKey = entry.entryId
+                                                    dragOffsetY = 0f
+                                                    haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                                                },
+                                                onDrag = { change, dragAmount ->
+                                                    change.consume()
+                                                    dragOffsetY += dragAmount.y
+                                                    val info = listState.layoutInfo.visibleItemsInfo
+                                                    val current = info.find { it.key == entry.entryId }
+                                                        ?: return@detectDragGesturesAfterLongPress
+                                                    val currentCenter = current.offset + current.size / 2f + dragOffsetY
+                                                    val target = info.find {
+                                                        it.key != entry.entryId &&
+                                                            currentCenter.toInt() in it.offset..(it.offset + it.size)
+                                                    }
+                                                    if (target != null) {
+                                                        viewModel.moveEntry(current.index, target.index)
+                                                        // Compensate the visual jump so the dragged
+                                                        // row follows the finger smoothly across the
+                                                        // swap instead of snapping.
+                                                        dragOffsetY -= (target.offset - current.offset).toFloat()
+                                                    }
+                                                },
+                                                onDragEnd = {
+                                                    draggedKey = null
+                                                    dragOffsetY = 0f
+                                                    viewModel.commitReorder()
+                                                },
+                                                onDragCancel = {
+                                                    draggedKey = null
+                                                    dragOffsetY = 0f
+                                                }
+                                            )
                                         }
-                                    }
-                                )
+                                    )
+                                }
                                 HorizontalDivider(thickness = 0.5.dp)
                             }
                         }
@@ -311,6 +377,8 @@ private fun SwipeToRemoveSongRow(
     /** null when this row can't move further in that direction (list edge). */
     onMoveUp: (() -> Unit)?,
     onMoveDown: (() -> Unit)?,
+    /** Phone drag handle carrier — passed to SongRow's DragHandle icon. Null on TV. */
+    dragHandleModifier: Modifier? = null,
 ) {
     if (isTV) {
         // TV: no swipe — show visible ↑ ↓ ✕ buttons at the end of each row
@@ -325,6 +393,7 @@ private fun SwipeToRemoveSongRow(
                         onClick = onPlay,
                         onMoveUp = onMoveUp,
                         onMoveDown = onMoveDown,
+                        dragHandleModifier = null,
                     )
                 }
                 IconButton(onClick = onRemove, modifier = Modifier.size(40.dp).padding(end = 8.dp)) {
@@ -360,6 +429,7 @@ private fun SwipeToRemoveSongRow(
                     onClick = onPlay,
                     onMoveUp = onMoveUp,
                     onMoveDown = onMoveDown,
+                    dragHandleModifier = dragHandleModifier,
                 )
             }
         }
@@ -372,6 +442,10 @@ private fun SongRow(
     onClick: () -> Unit,
     onMoveUp: (() -> Unit)? = null,
     onMoveDown: (() -> Unit)? = null,
+    /** Phone drag handle carrier — the caller wires it to `pointerInput` with
+     *  `detectDragGesturesAfterLongPress`. Non-null ⇒ the drag handle icon is
+     *  shown at the row's right edge. */
+    dragHandleModifier: Modifier? = null,
 ) {
     Row(
         modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 10.dp),
@@ -445,6 +519,24 @@ private fun SongRow(
                                else MaterialTheme.colorScheme.textSecondary.copy(alpha = 0.3f)
                     )
                 }
+            }
+        }
+        // Phone drag handle. Long-press then drag to reorder — the caller wires
+        // the modifier to `detectDragGesturesAfterLongPress`. Not focusable on
+        // TV because it's not passed (dragHandleModifier is null there).
+        if (dragHandleModifier != null) {
+            Box(
+                modifier = Modifier
+                    .size(40.dp)
+                    .then(dragHandleModifier),
+                contentAlignment = Alignment.Center,
+            ) {
+                Icon(
+                    Icons.Default.DragHandle,
+                    contentDescription = stringResource(R.string.playlist_detail_drag_handle),
+                    tint = MaterialTheme.colorScheme.textSecondary,
+                    modifier = Modifier.size(22.dp),
+                )
             }
         }
     }

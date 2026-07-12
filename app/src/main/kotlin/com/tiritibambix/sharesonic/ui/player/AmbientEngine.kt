@@ -75,7 +75,7 @@ private fun oklabToRgb(bL: Double, a: Double, bb: Double): IntArray {
     )
 }
 
-internal fun oklchToRgb(l: Double, c: Double, h: Double): IntArray =
+private fun oklchToRgb(l: Double, c: Double, h: Double): IntArray =
     oklabToRgb(l, c * cos(h), c * sin(h))
 
 /** Perceptual mix of two RGB triples in OKLab. */

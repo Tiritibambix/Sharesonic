@@ -1,95 +1,76 @@
 package com.tiritibambix.sharesonic.ui.player
 
+import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.MusicNote
-import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.draw.drawBehind
+import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
-import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Shape
-import androidx.compose.ui.graphics.SolidColor
-import kotlin.math.PI
+import kotlin.random.Random
 
 /**
- * Deterministic per-key ambient seed. Hashes [key] to a hue on the OKLCH
- * circle, at fixed `l = 0.55`, `c = 0.12` — safely above [AmbientEngine]'s
- * `CHROMA_FLOOR` (0.030, would return null) and well below `CHROMA_CAP`
- * (0.220, would look neon).
+ * Fallback thumbnail for entries without artwork. Renders a small static
+ * waveform silhouette — same visual language as [WaveformSeekBar] but
+ * decorative and centred — over a flat `surfaceVariant` background. Fully
+ * monochrome: no colour is derived from the track, only the bar heights are
+ * (deterministic from [seedKey]), so a playlist of artwork-less songs shows
+ * varied, distinguishable tiles without introducing any palette guesswork.
  *
- * Used as a fallback when a track has no embedded artwork — feeds the same
- * [ambientBrush] the real album-art halo uses so the visual language matches.
- */
-fun syntheticSeed(key: String): Color {
-    // Kotlin's String.hashCode is stable across JVM versions — replaying the
-    // same track always yields the same tint. Modulo into a full radian
-    // circle, then run through the OKLCH → sRGB conversion the ambient engine
-    // uses so grayscale-reject / contrast-floor rules still apply upstream.
-    val hue = ((key.hashCode().toDouble().rem(360.0) + 360.0) % 360.0) * (PI / 180.0)
-    val rgb = oklchToRgb(l = 0.55, c = 0.12, h = hue)
-    return Color(rgb[0], rgb[1], rgb[2])
-}
-
-/**
- * Fallback thumbnail for entries without artwork: a soft ambient-tinted
- * radial gradient (top-left hot spot) with a small, semi-transparent
- * MusicNote glyph centred over it. Uses the same [ambientBrush] as the real
- * album-art halo so a no-art song still feels like it belongs to the app's
- * visual language.
- *
- * @param seedKey stable per-entry key (song id / entry id) — the tint is
- *   deterministic and different per key, so a playlist of artwork-less songs
- *   looks like a set of varied cards instead of identical blank tiles.
+ * @param seedKey stable per-entry key (song id / entry id). Same key ⇒ same
+ *   waveform on every re-composition, so a track never "shape-shifts" between
+ *   the mini bar, the browser row, and the full player.
  * @param shape clipping shape — 12.dp for the Now Playing full-size cover,
- *   4.dp for mini bar / list rows to match the surrounding cover art layout.
- * @param iconFraction size of the glyph as a fraction of the container's
- *   shortest side (default 0.42 → ~ half the box, half the old fallback's
- *   footprint so it reads as a watermark rather than a placeholder).
- * @param iconAlpha visibility of the glyph — kept low so the ambient tint
- *   is the primary signal and the icon doesn't compete with it.
+ *   4.dp for the mini bar and folder rows to match the cover-art layout.
  */
 @Composable
 fun NoArtworkThumb(
     seedKey: String,
     modifier: Modifier = Modifier,
     shape: Shape,
-    iconFraction: Float = 0.42f,
-    iconAlpha: Float = 0.35f,
 ) {
-    val base = MaterialTheme.colorScheme.surfaceVariant
-    val seed = remember(seedKey) { syntheticSeed(seedKey) }
-    // Build the OKLCH radial at draw time so the hot-spot radius scales with
-    // the actual container pixel size — a fixed radius clips awkwardly on the
-    // small mini-bar tile and doesn't span the full Now Playing cover. Falls
-    // back to solid `base` when ambientBrush returns null (shouldn't happen
-    // for our seed: chroma is 0.12, well above CHROMA_FLOOR = 0.030).
+    val barTint = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.30f)
+    // Same generator as WaveformSeekBar (0.20-1.00 range, deterministic per
+    // hashCode). Cached in remember so the FloatArray isn't reallocated on
+    // recomposition.
+    val heights = remember(seedKey) {
+        val rng = Random(seedKey.hashCode())
+        FloatArray(BAR_COUNT) { 0.20f + rng.nextFloat() * 0.80f }
+    }
     Box(
         modifier = modifier
             .clip(shape)
-            .drawBehind {
-                val brush = ambientBrush(
-                    seed = seed,
-                    base = base,
-                    vibrant = false,
-                    center = Offset.Zero,
-                    radius = size.maxDimension * 1.2f,
-                ) ?: SolidColor(base)
-                drawRect(brush = brush)
-            },
+            .background(MaterialTheme.colorScheme.surfaceVariant),
         contentAlignment = Alignment.Center,
     ) {
-        Icon(
-            imageVector = Icons.Default.MusicNote,
-            contentDescription = null,
-            tint = MaterialTheme.colorScheme.onSurface.copy(alpha = iconAlpha),
-            modifier = Modifier.fillMaxSize(iconFraction),
-        )
+        // 72 % of the tile leaves a visible margin so the waveform reads as a
+        // motif inside the tile rather than filling it edge-to-edge.
+        Canvas(modifier = Modifier.fillMaxSize(0.72f)) {
+            val gap = 3f
+            val n = BAR_COUNT
+            val barWidth = ((size.width - gap * (n - 1)) / n).coerceAtLeast(1f)
+            val radius = CornerRadius(barWidth / 2f, barWidth / 2f)
+            val cy = size.height / 2f
+            for (i in 0 until n) {
+                val h = (heights[i] * size.height).coerceAtLeast(barWidth)
+                drawRoundRect(
+                    color = barTint,
+                    topLeft = Offset(i * (barWidth + gap), cy - h / 2f),
+                    size = Size(barWidth, h),
+                    cornerRadius = radius,
+                )
+            }
+        }
     }
 }
+
+// Balanced count — dense enough to read as "waveform" on a 300 dp cover,
+// sparse enough to still show individual bars on a 46 dp mini-bar tile.
+private const val BAR_COUNT = 20
