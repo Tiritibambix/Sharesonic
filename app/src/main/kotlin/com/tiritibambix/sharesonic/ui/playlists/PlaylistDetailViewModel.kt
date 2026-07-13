@@ -92,41 +92,52 @@ class PlaylistDetailViewModel(
             var entries: List<PlaylistEntry> = emptyList()
             var diag: String? = null
 
-            // 1) Load with the name exactly as advertised by getall.
-            val first = repo.loadPlaylist(token, effectiveName)
-            if (first is Result.Success) entries = first.data.map { it.toPlaylistEntry() }
-            if (first is Result.Error) {
-                _state.update { PlaylistDetailState.Error(first.message) }
-                return@launch
-            }
+            // Every plausible name variant we should probe. Ordered so the
+            // exact name comes first; adopt whichever the server actually
+            // knows. Distinct + isNotEmpty guards against redundant hits.
+            val candidates = linkedSetOf(
+                effectiveName,
+                effectiveName.trim(),
+                effectiveName.trimEnd(),
+                effectiveName.trimStart(),
+                // Collapse any run of internal whitespace to a single space —
+                // catches "Luana 3***" vs. "Luana 3***" (double space) too.
+                effectiveName.trim().replace(Regex("\\s+"), " "),
+                // Strip ALL whitespace — a last resort for names where the
+                // stored entries use no whitespace at all.
+                effectiveName.replace(Regex("\\s+"), ""),
+            ).filter { it.isNotEmpty() }
 
-            // 2) Retry with a trimmed name if the first attempt was empty AND
-            //    the name has leading/trailing whitespace. Fixes playlists whose
-            //    stored header row has trailing spaces while their entry rows
-            //    don't — a Velvet server storage quirk we can't fix from here.
-            if (entries.isEmpty() && effectiveName != effectiveName.trim()) {
-                val trimmed = effectiveName.trim()
-                val second = repo.loadPlaylist(token, trimmed)
-                if (second is Result.Success && second.data.isNotEmpty()) {
-                    effectiveName = trimmed
-                    entries = second.data.map { it.toPlaylistEntry() }
+            val attempts = mutableListOf<String>()
+            for (name in candidates) {
+                val r = repo.loadPlaylist(token, name)
+                val (count, rawSummary) = when (r) {
+                    is Result.Success -> r.data.size to "[${r.data.size} entries]"
+                    is Result.Error   -> -1 to "ERROR ${r.message}"
+                }
+                attempts += "  '$name' (len=${name.length}) → $rawSummary"
+                if (count > 0 && r is Result.Success) {
+                    effectiveName = name
+                    entries = r.data.map { it.toPlaylistEntry() }
+                    break
                 }
             }
 
-            // 3) Still empty → capture a diagnostic so the empty screen can
-            //    show what we sent and what the server returned. Cheapest way
-            //    to keep investigating without a build+debug loop.
+            // Still empty → capture a diagnostic so the empty screen can show
+            // every variant we tried and the raw body of the original attempt.
             if (entries.isEmpty()) {
-                val raw = repo.loadPlaylistRawBody(token, effectiveName) ?: "(no body)"
+                val raw = repo.loadPlaylistRawBody(token, initialName) ?: "(no body)"
                 diag = buildString {
-                    append("Sent playlistname: ")
-                    append('"').append(effectiveName).append('"').append('\n')
-                    append("Length: ").append(effectiveName.length).append(" chars\n")
-                    append("Hex (UTF-8): ")
-                    effectiveName.toByteArray(Charsets.UTF_8).forEach {
+                    append("Original name from getall:\n")
+                    append("  \"").append(initialName).append("\"\n")
+                    append("  Length: ").append(initialName.length).append(" chars\n")
+                    append("  Hex (UTF-8): ")
+                    initialName.toByteArray(Charsets.UTF_8).forEach {
                         append(String.format("%02x ", it.toInt() and 0xFF))
                     }
-                    append('\n').append("Server body: ").append(raw)
+                    append("\n\nAttempts:\n")
+                    attempts.forEach { append(it).append('\n') }
+                    append("\nRaw body (original name): ").append(raw)
                 }
             }
 
