@@ -83,10 +83,24 @@ class PlaylistDetailViewModel(
                 is Result.Success -> {
                     val entries = r.data.map { it.toPlaylistEntry() }
                     // On an empty list, fetch the raw HTTP body a second time
-                    // and stash it in the state so the empty screen can show
-                    // what the server actually returned — the fastest way to
-                    // diagnose "playlist looks empty but has songs on Velvet".
-                    val diag = if (entries.isEmpty()) repo.loadPlaylistRawBody(token, playlistName) else null
+                    // and stash a diagnostic string in the state: what we sent,
+                    // hexdump of the sent name (catches invisible whitespace /
+                    // Unicode normalization differences), and what came back.
+                    // This is the fastest path to diagnose "empty on Sharesonic
+                    // but full on Velvet".
+                    val diag = if (entries.isEmpty()) {
+                        val raw = repo.loadPlaylistRawBody(token, playlistName) ?: "(no body)"
+                        buildString {
+                            append("Sent playlistname: ")
+                            append('"').append(playlistName).append('"').append('\n')
+                            append("Length: ").append(playlistName.length).append(" chars\n")
+                            append("Hex (UTF-8): ")
+                            playlistName.toByteArray(Charsets.UTF_8).forEach {
+                                append(String.format("%02x ", it.toInt() and 0xFF))
+                            }
+                            append('\n').append("Server body: ").append(raw)
+                        }
+                    } else null
                     _state.update {
                         PlaylistDetailState.Ready(
                             name             = playlistName,
