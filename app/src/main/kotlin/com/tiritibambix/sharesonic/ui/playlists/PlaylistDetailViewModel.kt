@@ -49,9 +49,19 @@ sealed interface AddSongsState {
 
 class PlaylistDetailViewModel(
     private val settingsRepo: SettingsRepository,
-    /** The playlist NAME — used as the identifier for all Velvet playlist endpoints. */
-    val playlistName: String
+    /** The playlist NAME as advertised by `getall` — used as the identifier for
+     *  every Velvet playlist endpoint. When `load` returns `[]` for this name
+     *  but a trimmed variant returns songs, [effectiveName] switches to the
+     *  trimmed value and every subsequent mutation uses it too. Fixes playlists
+     *  whose header row has trailing whitespace while the entry rows don't. */
+    private val initialName: String
 ) : ViewModel() {
+
+    /** Mutable so `load()` can promote a trimmed variant when it works. */
+    private var effectiveName: String = initialName
+
+    /** Alias so existing call sites still see `playlistName`. */
+    val playlistName: String get() = effectiveName
 
     private val _state = MutableStateFlow<PlaylistDetailState>(PlaylistDetailState.Loading)
     val state: StateFlow<PlaylistDetailState> = _state
@@ -79,37 +89,53 @@ class PlaylistDetailViewModel(
                 return@launch
             }
             val repo = VelvetRepository(VelvetClient.build(settings.serverUrl))
-            when (val r = repo.loadPlaylist(token, playlistName)) {
-                is Result.Success -> {
-                    val entries = r.data.map { it.toPlaylistEntry() }
-                    // On an empty list, fetch the raw HTTP body a second time
-                    // and stash a diagnostic string in the state: what we sent,
-                    // hexdump of the sent name (catches invisible whitespace /
-                    // Unicode normalization differences), and what came back.
-                    // This is the fastest path to diagnose "empty on Sharesonic
-                    // but full on Velvet".
-                    val diag = if (entries.isEmpty()) {
-                        val raw = repo.loadPlaylistRawBody(token, playlistName) ?: "(no body)"
-                        buildString {
-                            append("Sent playlistname: ")
-                            append('"').append(playlistName).append('"').append('\n')
-                            append("Length: ").append(playlistName.length).append(" chars\n")
-                            append("Hex (UTF-8): ")
-                            playlistName.toByteArray(Charsets.UTF_8).forEach {
-                                append(String.format("%02x ", it.toInt() and 0xFF))
-                            }
-                            append('\n').append("Server body: ").append(raw)
-                        }
-                    } else null
-                    _state.update {
-                        PlaylistDetailState.Ready(
-                            name             = playlistName,
-                            entries          = entries,
-                            emptyDiagnostic  = diag,
-                        )
-                    }
+            var entries: List<PlaylistEntry> = emptyList()
+            var diag: String? = null
+
+            // 1) Load with the name exactly as advertised by getall.
+            val first = repo.loadPlaylist(token, effectiveName)
+            if (first is Result.Success) entries = first.data.map { it.toPlaylistEntry() }
+            if (first is Result.Error) {
+                _state.update { PlaylistDetailState.Error(first.message) }
+                return@launch
+            }
+
+            // 2) Retry with a trimmed name if the first attempt was empty AND
+            //    the name has leading/trailing whitespace. Fixes playlists whose
+            //    stored header row has trailing spaces while their entry rows
+            //    don't — a Velvet server storage quirk we can't fix from here.
+            if (entries.isEmpty() && effectiveName != effectiveName.trim()) {
+                val trimmed = effectiveName.trim()
+                val second = repo.loadPlaylist(token, trimmed)
+                if (second is Result.Success && second.data.isNotEmpty()) {
+                    effectiveName = trimmed
+                    entries = second.data.map { it.toPlaylistEntry() }
                 }
-                is Result.Error -> _state.update { PlaylistDetailState.Error(r.message) }
+            }
+
+            // 3) Still empty → capture a diagnostic so the empty screen can
+            //    show what we sent and what the server returned. Cheapest way
+            //    to keep investigating without a build+debug loop.
+            if (entries.isEmpty()) {
+                val raw = repo.loadPlaylistRawBody(token, effectiveName) ?: "(no body)"
+                diag = buildString {
+                    append("Sent playlistname: ")
+                    append('"').append(effectiveName).append('"').append('\n')
+                    append("Length: ").append(effectiveName.length).append(" chars\n")
+                    append("Hex (UTF-8): ")
+                    effectiveName.toByteArray(Charsets.UTF_8).forEach {
+                        append(String.format("%02x ", it.toInt() and 0xFF))
+                    }
+                    append('\n').append("Server body: ").append(raw)
+                }
+            }
+
+            _state.update {
+                PlaylistDetailState.Ready(
+                    name             = effectiveName,
+                    entries          = entries,
+                    emptyDiagnostic  = diag,
+                )
             }
         }
     }
