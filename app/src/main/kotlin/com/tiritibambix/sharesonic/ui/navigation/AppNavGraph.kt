@@ -217,13 +217,12 @@ fun AppNavGraph() {
                 ?: Screen.Browser.ROOT
             // Decode Base64-encoded Velvet path; "root" passes through unchanged.
             val folderPath = Screen.Browser.decodePath(rawId)
-            // createRoute() URL-encodes the display name (URLEncoder — form-urlencoded
-            // semantics, spaces become '+'); it must be decoded back symmetrically or
-            // the top bar literally shows '+' wherever the folder name had a space.
-            val rawName = backStackEntry.arguments?.getString(Screen.Browser.ARG_NAME)
+            // createRoute() percent-encodes the display name via Uri.encode; Nav
+            // Compose already runs Uri.decode on the extracted path arg, so no
+            // second decode step is needed — running URLDecoder here would eat
+            // literal `+` characters (see Screen.urlEncode for the rationale).
+            val folderName = backStackEntry.arguments?.getString(Screen.Browser.ARG_NAME)
                 ?: "Library"
-            val folderName = runCatching { java.net.URLDecoder.decode(rawName, "UTF-8") }
-                .getOrDefault(rawName)
 
             val browserVm: FolderBrowserViewModel = viewModel(
                 key = "browser_$rawId",
@@ -286,9 +285,7 @@ fun AppNavGraph() {
                 navArgument(Screen.ArtistResults.ARG_NAME) { type = NavType.StringType }
             )
         ) { backStackEntry ->
-            val rawName = backStackEntry.arguments?.getString(Screen.ArtistResults.ARG_NAME) ?: ""
-            val artistName = runCatching { java.net.URLDecoder.decode(rawName, "UTF-8") }
-                .getOrDefault(rawName)
+            val artistName = backStackEntry.arguments?.getString(Screen.ArtistResults.ARG_NAME) ?: ""
 
             // Share the SearchViewModel instance with the Search screen still on the
             // back stack below us — the matching songs were stashed there via
@@ -338,10 +335,12 @@ fun AppNavGraph() {
                 navArgument(Screen.PlaylistDetail.ARG_NAME) { type = NavType.StringType }
             )
         ) { backStackEntry ->
-            val rawName = backStackEntry.arguments
+            // Nav Compose already Uri-decodes the extracted path arg (round-trip
+            // with createRoute's Uri.encode). Do NOT run URLDecoder here — it
+            // would silently turn every `+` character into a space (as it did
+            // for playlist "Luana 3***+" until this was fixed).
+            val playlistName = backStackEntry.arguments
                 ?.getString(Screen.PlaylistDetail.ARG_NAME) ?: return@composable
-            // URL-decode the name (encoded by createRoute)
-            val playlistName = java.net.URLDecoder.decode(rawName, "UTF-8")
             val detailVm: PlaylistDetailViewModel = viewModel(
                 key = "playlist_$playlistName",
                 factory = PlaylistDetailViewModelFactory(settingsRepo, playlistName)

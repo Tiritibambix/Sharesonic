@@ -50,7 +50,9 @@ sealed class Screen(val route: String) {
     /**
      * Playlist detail — the playlist NAME is both the identifier and the display label
      * (Velvet uses name as the primary key for all playlist mutations).
-     * Encoded with URLEncoder to handle spaces and special chars safely.
+     * Percent-encoded via [Uri.encode] so `+`, `#`, `?` and other reserved
+     * characters round-trip losslessly (Nav Compose's arg extractor decodes
+     * once symmetrically).
      */
     data object PlaylistDetail : Screen("playlist/{playlistName}") {
         fun createRoute(name: String): String = "playlist/${name.urlEncode()}"
@@ -76,4 +78,20 @@ sealed class Screen(val route: String) {
     data object LanguageSettings : Screen("language-settings")
 }
 
-private fun String.urlEncode() = java.net.URLEncoder.encode(this, "UTF-8")
+/**
+ * Percent-encode a nav-route path segment using [android.net.Uri.encode].
+ *
+ * Deliberately NOT [java.net.URLEncoder] — URLEncoder is form-encoding: it
+ * turns spaces into `+` and literal `+` into `%2B`. Nav Compose then applies
+ * [android.net.Uri.decode] on the extracted path arg, which reverses `%2B` back
+ * into a literal `+`. If we then ran [java.net.URLDecoder.decode] on top,
+ * every literal `+` in the name would collapse to a space — silently mangling
+ * playlist / artist names that contain `+` (a very real bug: a playlist named
+ * "Luana 3***+" was received as "Luana 3*** ", trailing space, breaking every
+ * subsequent load).
+ *
+ * `Uri.encode` uses percent-encoding for all non-unreserved chars — space →
+ * `%20`, `+` → `%2B`, etc. Nav Compose's `Uri.decode` round-trips both back
+ * losslessly. No client-side second decode step is needed.
+ */
+private fun String.urlEncode(): String = android.net.Uri.encode(this)

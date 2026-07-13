@@ -264,37 +264,11 @@ fun PlaylistDetailScreen(
                     )
                 is PlaylistDetailState.Ready -> {
                     if (s.entries.isEmpty()) {
-                        Column(
-                            modifier = Modifier
-                                .align(Alignment.Center)
-                                .padding(24.dp),
-                            horizontalAlignment = Alignment.CenterHorizontally,
-                            verticalArrangement = Arrangement.spacedBy(12.dp),
-                        ) {
-                            Text(
-                                "No songs — tap + to add some",
-                                color = MaterialTheme.colorScheme.textSecondary
-                            )
-                            // Diagnostic: raw HTTP body captured on the empty
-                            // load. Shown only when present. Selectable so the
-                            // user can copy it into an issue for us.
-                            s.emptyDiagnostic?.let { diag ->
-                                Text(
-                                    "Server response:",
-                                    style = MaterialTheme.typography.labelMedium,
-                                    color = MaterialTheme.colorScheme.textSecondary,
-                                )
-                                androidx.compose.foundation.text.selection.SelectionContainer {
-                                    Text(
-                                        diag.take(2000),
-                                        style = MaterialTheme.typography.bodySmall.copy(
-                                            fontFamily = androidx.compose.ui.text.font.FontFamily.Monospace
-                                        ),
-                                        color = MaterialTheme.colorScheme.textSecondary,
-                                    )
-                                }
-                            }
-                        }
+                        Text(
+                            "No songs — tap + to add some",
+                            modifier = Modifier.align(Alignment.Center),
+                            color = MaterialTheme.colorScheme.textSecondary
+                        )
                     } else {
                         // Drag-to-reorder state (phone only). The dragged row
                         // lifts to a higher z-index and translates by the drag

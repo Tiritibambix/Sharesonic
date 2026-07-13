@@ -203,19 +203,6 @@ interface VelvetApiService {
         @Body request: NativePlaylistLoadRequest
     ): List<NativePlaylistEntry>
 
-    /**
-     * Same endpoint as [loadPlaylist] but returns the raw HTTP body. Used as a
-     * diagnostic fallback when [loadPlaylist] parses to an empty list — dumping
-     * the raw JSON on-screen lets the user see whether the server actually
-     * returned 0 entries or whether the client's Gson parse silently produced
-     * an empty list (e.g. object vs. array mismatch).
-     */
-    @POST("api/v1/playlist/load")
-    suspend fun loadPlaylistRaw(
-        @Header("x-access-token") token: String,
-        @Body request: NativePlaylistLoadRequest
-    ): ResponseBody
-
     /** Create a new empty playlist. Returns {} on success. */
     @POST("api/v1/playlist/new")
     suspend fun createPlaylist(

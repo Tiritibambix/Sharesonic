@@ -31,11 +31,6 @@ sealed interface PlaylistDetailState {
     data class Ready(
         val name: String,
         val entries: List<PlaylistEntry>,
-        /** When `entries` is empty, an on-screen diagnostic dump of the raw HTTP
-         *  body returned by `/api/v1/playlist/load` — displayed alongside the
-         *  empty-state text so we can see whether the server actually returned
-         *  `[]` or something Gson silently turned into an empty list. */
-        val emptyDiagnostic: String? = null,
     ) : PlaylistDetailState
     data class Error(val message: String) : PlaylistDetailState
 }
@@ -49,19 +44,9 @@ sealed interface AddSongsState {
 
 class PlaylistDetailViewModel(
     private val settingsRepo: SettingsRepository,
-    /** The playlist NAME as advertised by `getall` — used as the identifier for
-     *  every Velvet playlist endpoint. When `load` returns `[]` for this name
-     *  but a trimmed variant returns songs, [effectiveName] switches to the
-     *  trimmed value and every subsequent mutation uses it too. Fixes playlists
-     *  whose header row has trailing whitespace while the entry rows don't. */
-    private val initialName: String
+    /** The playlist NAME — used as the identifier for all Velvet playlist endpoints. */
+    val playlistName: String
 ) : ViewModel() {
-
-    /** Mutable so `load()` can promote a trimmed variant when it works. */
-    private var effectiveName: String = initialName
-
-    /** Alias so existing call sites still see `playlistName`. */
-    val playlistName: String get() = effectiveName
 
     private val _state = MutableStateFlow<PlaylistDetailState>(PlaylistDetailState.Loading)
     val state: StateFlow<PlaylistDetailState> = _state
@@ -89,79 +74,14 @@ class PlaylistDetailViewModel(
                 return@launch
             }
             val repo = VelvetRepository(VelvetClient.build(settings.serverUrl))
-            var entries: List<PlaylistEntry> = emptyList()
-            var diag: String? = null
-
-            // Every plausible name variant we should probe. Ordered so the
-            // exact name comes first; adopt whichever the server actually
-            // knows. Distinct + isNotEmpty guards against redundant hits.
-            val candidates = linkedSetOf(
-                effectiveName,
-                effectiveName.trim(),
-                effectiveName.trimEnd(),
-                effectiveName.trimStart(),
-                // Collapse any run of internal whitespace to a single space —
-                // catches "Luana 3***" vs. "Luana 3***" (double space) too.
-                effectiveName.trim().replace(Regex("\\s+"), " "),
-                // Strip ALL whitespace — a last resort for names where the
-                // stored entries use no whitespace at all.
-                effectiveName.replace(Regex("\\s+"), ""),
-            ).filter { it.isNotEmpty() }
-
-            val attempts = mutableListOf<String>()
-            for (name in candidates) {
-                val r = repo.loadPlaylist(token, name)
-                val (count, rawSummary) = when (r) {
-                    is Result.Success -> r.data.size to "[${r.data.size} entries]"
-                    is Result.Error   -> -1 to "ERROR ${r.message}"
+            when (val r = repo.loadPlaylist(token, playlistName)) {
+                is Result.Success -> _state.update {
+                    PlaylistDetailState.Ready(
+                        name    = playlistName,
+                        entries = r.data.map { it.toPlaylistEntry() }
+                    )
                 }
-                attempts += "  '$name' (len=${name.length}) → $rawSummary"
-                if (count > 0 && r is Result.Success) {
-                    effectiveName = name
-                    entries = r.data.map { it.toPlaylistEntry() }
-                    break
-                }
-            }
-
-            // Still empty → capture a diagnostic so the empty screen can show
-            // every variant we tried and the raw body of the original attempt.
-            // Includes a hex dump of the JSON body that actually left the phone
-            // (captured by the OkHttp interceptor), so we can catch any silent
-            // char corruption happening below the string level (e.g. Retrofit
-            // / Gson mangling `*` or `+`).
-            if (entries.isEmpty()) {
-                val raw = repo.loadPlaylistRawBody(token, initialName) ?: "(no body)"
-                val sentBytes = com.tiritibambix.sharesonic.data.api.VelvetClient.lastPlaylistLoadRequestBody
-                diag = buildString {
-                    append("Original name from getall:\n")
-                    append("  \"").append(initialName).append("\"\n")
-                    append("  Length: ").append(initialName.length).append(" chars\n")
-                    append("  Hex (UTF-8): ")
-                    initialName.toByteArray(Charsets.UTF_8).forEach {
-                        append(String.format("%02x ", it.toInt() and 0xFF))
-                    }
-                    append("\n\nOutbound HTTP body bytes:\n  ")
-                    if (sentBytes == null) {
-                        append("(not captured)")
-                    } else {
-                        append(String(sentBytes, Charsets.UTF_8))
-                        append("\n  Hex: ")
-                        sentBytes.forEach {
-                            append(String.format("%02x ", it.toInt() and 0xFF))
-                        }
-                    }
-                    append("\n\nAttempts:\n")
-                    attempts.forEach { append(it).append('\n') }
-                    append("\nRaw body (original name): ").append(raw)
-                }
-            }
-
-            _state.update {
-                PlaylistDetailState.Ready(
-                    name             = effectiveName,
-                    entries          = entries,
-                    emptyDiagnostic  = diag,
-                )
+                is Result.Error -> _state.update { PlaylistDetailState.Error(r.message) }
             }
         }
     }
