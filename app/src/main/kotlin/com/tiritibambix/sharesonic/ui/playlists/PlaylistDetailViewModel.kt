@@ -30,7 +30,12 @@ sealed interface PlaylistDetailState {
     data object Loading : PlaylistDetailState
     data class Ready(
         val name: String,
-        val entries: List<PlaylistEntry>
+        val entries: List<PlaylistEntry>,
+        /** When `entries` is empty, an on-screen diagnostic dump of the raw HTTP
+         *  body returned by `/api/v1/playlist/load` — displayed alongside the
+         *  empty-state text so we can see whether the server actually returned
+         *  `[]` or something Gson silently turned into an empty list. */
+        val emptyDiagnostic: String? = null,
     ) : PlaylistDetailState
     data class Error(val message: String) : PlaylistDetailState
 }
@@ -75,11 +80,20 @@ class PlaylistDetailViewModel(
             }
             val repo = VelvetRepository(VelvetClient.build(settings.serverUrl))
             when (val r = repo.loadPlaylist(token, playlistName)) {
-                is Result.Success -> _state.update {
-                    PlaylistDetailState.Ready(
-                        name    = playlistName,
-                        entries = r.data.map { it.toPlaylistEntry() }
-                    )
+                is Result.Success -> {
+                    val entries = r.data.map { it.toPlaylistEntry() }
+                    // On an empty list, fetch the raw HTTP body a second time
+                    // and stash it in the state so the empty screen can show
+                    // what the server actually returned — the fastest way to
+                    // diagnose "playlist looks empty but has songs on Velvet".
+                    val diag = if (entries.isEmpty()) repo.loadPlaylistRawBody(token, playlistName) else null
+                    _state.update {
+                        PlaylistDetailState.Ready(
+                            name             = playlistName,
+                            entries          = entries,
+                            emptyDiagnostic  = diag,
+                        )
+                    }
                 }
                 is Result.Error -> _state.update { PlaylistDetailState.Error(r.message) }
             }

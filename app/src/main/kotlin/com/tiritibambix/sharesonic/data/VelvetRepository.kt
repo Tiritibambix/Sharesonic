@@ -447,6 +447,16 @@ class VelvetRepository(private val api: VelvetApiService) {
         Result.Success(api.loadPlaylist(token, NativePlaylistLoadRequest(name)))
     } catch (e: Exception) { Result.Error(e.message ?: "Network error") }
 
+    /**
+     * Diagnostic call for [loadPlaylist] — returns the raw HTTP response body as
+     * text so the UI can display it when the parsed list is empty. Lets us tell
+     * "server returned []" from "server returned an object shape Gson silently
+     * turned into empty".
+     */
+    suspend fun loadPlaylistRawBody(token: String, name: String): String? = try {
+        api.loadPlaylistRaw(token, NativePlaylistLoadRequest(name)).string()
+    } catch (_: Exception) { null }
+
     /** Create a new empty playlist with the given title. Fire-and-forget on success. */
     suspend fun createPlaylist(token: String, title: String): Result<Unit> = try {
         api.createPlaylist(token, NativePlaylistNewRequest(title))
