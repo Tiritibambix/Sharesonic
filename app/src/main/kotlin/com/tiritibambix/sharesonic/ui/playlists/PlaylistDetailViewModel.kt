@@ -125,8 +125,13 @@ class PlaylistDetailViewModel(
 
             // Still empty → capture a diagnostic so the empty screen can show
             // every variant we tried and the raw body of the original attempt.
+            // Includes a hex dump of the JSON body that actually left the phone
+            // (captured by the OkHttp interceptor), so we can catch any silent
+            // char corruption happening below the string level (e.g. Retrofit
+            // / Gson mangling `*` or `+`).
             if (entries.isEmpty()) {
                 val raw = repo.loadPlaylistRawBody(token, initialName) ?: "(no body)"
+                val sentBytes = com.tiritibambix.sharesonic.data.api.VelvetClient.lastPlaylistLoadRequestBody
                 diag = buildString {
                     append("Original name from getall:\n")
                     append("  \"").append(initialName).append("\"\n")
@@ -134,6 +139,16 @@ class PlaylistDetailViewModel(
                     append("  Hex (UTF-8): ")
                     initialName.toByteArray(Charsets.UTF_8).forEach {
                         append(String.format("%02x ", it.toInt() and 0xFF))
+                    }
+                    append("\n\nOutbound HTTP body bytes:\n  ")
+                    if (sentBytes == null) {
+                        append("(not captured)")
+                    } else {
+                        append(String(sentBytes, Charsets.UTF_8))
+                        append("\n  Hex: ")
+                        sentBytes.forEach {
+                            append(String.format("%02x ", it.toInt() and 0xFF))
+                        }
                     }
                     append("\n\nAttempts:\n")
                     attempts.forEach { append(it).append('\n') }
