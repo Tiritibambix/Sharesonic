@@ -13,9 +13,8 @@ import kotlin.math.sin
 import kotlin.math.sqrt
 
 /**
- * Album-art ambient colour engine, ported from mStream's `ambient_color.dart`
- * (which itself ports `color.jsx` from the Velvet webapp). Reproduces four
- * lessons baked into the original:
+ * Album-art ambient colour engine, ported from the Velvet webapp's
+ * `color.jsx`. Reproduces four lessons baked into the original:
  *
  *  1. seed from a vibrancy-gated swatch
  *  2. grayscale fallback (reject low chroma)

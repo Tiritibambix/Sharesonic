@@ -94,3 +94,12 @@ internal val ColorblindInks = SharesonicInks(
     borderSoft    = CbBorder,
     borderStrong  = CbBorder2,
 )
+
+internal val LegacyInks = SharesonicInks(
+    textPrimary   = LegacyT1,
+    textSecondary = LegacyT2,
+    textTertiary  = LegacyT3,
+    textDim       = LegacyT4,
+    borderSoft    = LegacyBorder,
+    borderStrong  = LegacyBorder2,
+)

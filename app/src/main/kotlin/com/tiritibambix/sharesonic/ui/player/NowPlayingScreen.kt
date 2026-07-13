@@ -514,13 +514,13 @@ private fun NowPlayingPage(
 ) {
     val isTV = LocalIsTV.current
     val base = MaterialTheme.colorScheme.background
-    // Album-art halo — OKLCH radial glow anchored top-centre (mStream parity),
-    // seeded from the cover's vibrant swatch. The brush is built at draw time
+    // Album-art halo — OKLCH radial glow anchored top-centre, seeded from the
+    // cover's vibrant swatch. The brush is built at draw time
     // (Modifier.drawWithCache) because Brush.radialGradient's center/radius are
-    // in pixels — feeding fractional values or Offset.Unspecified put the seed
-    // in the top-left corner or dead-centre (invisible / wrong). Building with
-    // `size` in hand lets us point the halo at (width/2, 0) with a radius of
-    // 1.25 × the shortest side, which is what mStream's ambientGradient does.
+    // in pixels — feeding fractional values or Offset.Unspecified puts the
+    // seed in the top-left corner or dead-centre (invisible / wrong). Building
+    // with `size` in hand lets us point the halo at (width/2, 0) with a radius
+    // of 1.25 × the shortest side.
     val ambientSeed = rememberAmbientColor(state.coverArtUrl, vibrant = true)
     Box(modifier = Modifier.fillMaxSize()) {
         Crossfade(

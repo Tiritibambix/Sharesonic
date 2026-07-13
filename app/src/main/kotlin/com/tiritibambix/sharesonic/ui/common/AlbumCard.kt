@@ -35,7 +35,7 @@ import coil.compose.AsyncImage
 import com.tiritibambix.sharesonic.ui.theme.textSecondary
 
 /**
- * Rounded album card, mirrored from mStream's album_grid.dart:
+ * Rounded album card, laid out to match the Velvet webapp's album grid:
  *   - 12 dp corner radius on the whole card, art clipped to the top corners
  *   - square art, then a tight 8/6/8 dp text block
  *   - two lines: title (12 sp semibold, primary text) + optional subtitle

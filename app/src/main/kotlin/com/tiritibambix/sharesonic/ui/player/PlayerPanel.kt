@@ -39,7 +39,7 @@ import kotlin.math.roundToInt
 
 /**
  * Drag-up player sheet — one component that unifies the persistent mini-player
- * with the full Now Playing screen, mirroring mStream's `player_panel.dart`.
+ * with the full Now Playing screen.
  *
  *  - At progress 0f, the collapsed mini-player is fully visible at the bottom
  *    edge; the expanded sheet is off-screen below.
@@ -47,7 +47,7 @@ import kotlin.math.roundToInt
  *    slides in from the bottom, the mini bar fades out (front-loaded, gone by
  *    progress 0.4).
  *  - Dragging down past the middle, or fling velocity > 300 px/s, collapses.
- *  - System back collapses when expanded (mStream parity).
+ *  - System back collapses when expanded.
  *
  * Sharesonic previously routed to a separate `NowPlaying` screen; this makes
  * the transition a native gesture instead of a nav-graph animation, and gives

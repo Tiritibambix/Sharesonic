@@ -7,11 +7,10 @@ import androidx.compose.ui.graphics.luminance
 
 /**
  * Returns a [ColorScheme] whose `primary` and every role Material 3 derives
- * from it have been repointed at [a]. Ported from mStream's
- * `VelvetPalette.withAccent(a)` (`velvet_theme.dart:125-137`): one user-picked
- * hue drives the button fill, tonal-elevation tint and inverse primary; on-
- * primary text flips between white and near-black based on the accent's
- * luminance so button labels stay legible whatever colour the user picks.
+ * from it have been repointed at [a]. One user-picked hue drives the button
+ * fill, tonal-elevation tint and inverse primary; on-primary text flips
+ * between white and near-black based on the accent's luminance so button
+ * labels stay legible whatever colour the user picks.
  *
  * Only the primary family is overridden — `secondary` / `tertiary` still come
  * from the underlying theme so the theme's identity is preserved. Set `accent`
@@ -22,8 +21,8 @@ fun ColorScheme.withAccent(a: Color): ColorScheme {
     return copy(
         primary = a,
         onPrimary = onA,
-        // Dim tint of the accent over the theme's surface variant — mirrors
-        // mStream's `primaryDim = a.withAlpha(0.16)`.
+        // Dim tint of the accent over the theme's surface variant — matches
+        // the 16 % alpha "primary-dim" convention Velvet uses.
         primaryContainer = a.copy(alpha = 0.16f).compositeOver(surfaceVariant),
         // Legible ink on the container — flip based on the accent's luminance
         // so a light custom accent doesn't leave white-on-white text.
@@ -34,8 +33,7 @@ fun ColorScheme.withAccent(a: Color): ColorScheme {
 }
 
 /**
- * Black or white — whichever reads better on top of [c]. Matches mStream's
- * `onAccent` helper (velvet_theme.dart:141) so buttons/badges labelled on a
- * user-picked accent stay legible.
+ * Black or white — whichever reads better on top of [c]. Keeps buttons and
+ * badges labelled on a user-picked accent legible whatever colour is chosen.
  */
 fun onAccent(c: Color): Color = if (c.luminance() > 0.5f) Color.Black else Color.White

@@ -189,6 +189,46 @@ private val HighContrastColorScheme = darkColorScheme(
 )
 
 /**
+ * "Legacy" scheme — neutral dark greys with an amber CTA. A nostalgic
+ * dark palette that pairs a plain dark grey body with a warm amber accent.
+ */
+private val LegacyColorScheme = darkColorScheme(
+    primary             = LegacyPrimary,
+    onPrimary           = LegacyInk,
+    primaryContainer    = LegacyPrimaryDark,
+    onPrimaryContainer  = LegacyPrimaryOnC,
+
+    secondary             = LegacyAccent,
+    onSecondary           = LegacyInk,
+    secondaryContainer    = LegacyAccentDark,
+    onSecondaryContainer  = LegacyAccentOnC,
+
+    tertiary             = LegacyGreen,
+    onTertiary           = LegacyInk,
+    tertiaryContainer    = LegacyGreenDark,
+    onTertiaryContainer  = LegacyGreenOnC,
+
+    error             = LegacyRed,
+    onError           = LegacyInk,
+    errorContainer    = LegacyRedDark,
+    onErrorContainer  = LegacyRed,
+
+    background   = LegacyBg,
+    onBackground = LegacyT1,
+    surface      = LegacySurface,
+    onSurface    = LegacyT1,
+    surfaceVariant   = LegacyRaised,
+    onSurfaceVariant = LegacyT2,
+
+    outline        = LegacyBorder,
+    outlineVariant = LegacyBorder2,
+
+    inverseSurface    = LegacyT1,
+    inverseOnSurface  = LegacyBg,
+    inversePrimary    = LegacyPrimaryHov,
+)
+
+/**
  * Colourblind-safe scheme — blue primary + orange accent, no red/green
  * reliance (Velvet :root.cb). Deuteranopia-friendly.
  */
@@ -240,6 +280,7 @@ fun SharesonicTheme(
         AppTheme.LIGHT           -> LightAppColorScheme
         AppTheme.HIGH_CONTRAST   -> HighContrastColorScheme
         AppTheme.COLORBLIND_SAFE -> ColorblindColorScheme
+        AppTheme.LEGACY          -> LegacyColorScheme
     }
     // User-picked accent (theme's primary override). See AccentOverride.kt for
     // the derivation of onPrimary / surfaceTint / inversePrimary from `accent`.
@@ -250,6 +291,7 @@ fun SharesonicTheme(
         AppTheme.LIGHT           -> LightInks
         AppTheme.HIGH_CONTRAST   -> HighContrastInks
         AppTheme.COLORBLIND_SAFE -> ColorblindInks
+        AppTheme.LEGACY          -> LegacyInks
     }
     CompositionLocalProvider(LocalSharesonicInks provides inks) {
         MaterialTheme(

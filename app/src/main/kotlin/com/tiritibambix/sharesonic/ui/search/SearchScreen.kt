@@ -316,9 +316,10 @@ private fun SearchResults(
         }
 
         // ── Albums ───────────────────────────────────────────────────────
-        // Grid of rounded cards (mStream album_grid parity) rather than the
-        // flat list the other sections use — albums are a visual result set
-        // (cover art is the primary signifier), the others are text-first.
+        // Grid of rounded cards — same layout as the Velvet webapp's album
+        // grid — rather than the flat list the other sections use. Albums are
+        // a visual result set (cover art is the primary signifier), the
+        // others are text-first.
         if (result.album.isNotEmpty()) {
             item { SectionHeader(stringResource(R.string.search_section_albums)) }
             item {

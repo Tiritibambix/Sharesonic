@@ -45,6 +45,8 @@ import com.tiritibambix.sharesonic.ui.theme.DarkBg
 import com.tiritibambix.sharesonic.ui.theme.DarkPrimary
 import com.tiritibambix.sharesonic.ui.theme.HcBg
 import com.tiritibambix.sharesonic.ui.theme.HcPrimary
+import com.tiritibambix.sharesonic.ui.theme.LegacyBg
+import com.tiritibambix.sharesonic.ui.theme.LegacyPrimary
 import com.tiritibambix.sharesonic.ui.theme.LightBg
 import com.tiritibambix.sharesonic.ui.theme.LightPrimary
 import com.tiritibambix.sharesonic.ui.theme.VelvetBg
@@ -139,6 +141,8 @@ private val Themes = listOf(
         bg = HcBg,     primary = HcPrimary),
     ThemeSpec(AppTheme.COLORBLIND_SAFE, R.string.theme_cb,     R.string.theme_cb_desc,
         bg = CbBg,     primary = CbPrimary),
+    ThemeSpec(AppTheme.LEGACY,          R.string.theme_legacy, R.string.theme_legacy_desc,
+        bg = LegacyBg, primary = LegacyPrimary),
 )
 
 private fun currentThemeDefault(theme: AppTheme): Color = when (theme) {
@@ -147,6 +151,7 @@ private fun currentThemeDefault(theme: AppTheme): Color = when (theme) {
     AppTheme.LIGHT           -> LightPrimary
     AppTheme.HIGH_CONTRAST   -> HcPrimary
     AppTheme.COLORBLIND_SAFE -> CbPrimary
+    AppTheme.LEGACY          -> LegacyPrimary
 }
 
 @Composable

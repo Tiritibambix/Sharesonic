@@ -62,13 +62,13 @@ import com.tiritibambix.sharesonic.utils.LocalIsTV
 /** Curated presets — subset the user asked for, plus the current Velvet primary. */
 private val AccentPresets = listOf(
     Color(0xFF8B5CF6), // Velvet purple
-    Color(0xFFFFAB00), // mStream amber / gold
+    Color(0xFFFFAB00), // amber / gold
     Color(0xFF9E9E9E), // neutral grey
     Color(0xFFFFFFFF), // white
     Color(0xFF000000), // black
 )
 
-/** Full hue spectrum for the hue slider track (mStream `_hueTrack`). */
+/** Full hue spectrum for the hue slider track. */
 private val HueTrack = listOf(
     Color(0xFFFF0000),
     Color(0xFFFFFF00),
@@ -132,9 +132,9 @@ private fun Color.toHsv(): Hsv {
  * colour previews on the real UI behind the sheet. Preset taps also dismiss
  * the sheet; HSV drags commit on release only, not per tick.
  *
- * Port of mStream `accent_color_sheet.dart`, tightened to the presets asked
- * for (purple / gold / grey / white / black — mStream's amber/orange/red/…
- * catalogue is dropped since the HSV picker covers that range anyway).
+ * Presets are deliberately tight — purple / gold / grey / white / black.
+ * The broader amber/orange/red/… catalogue would only duplicate what the HSV
+ * picker below already covers.
  */
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
 @Composable
@@ -286,8 +286,7 @@ private fun Swatch(
 }
 
 /**
- * Horizontal gradient track with a draggable white thumb — Compose port of
- * mStream `_GradientBar` (`accent_color_sheet.dart:253-319`). [t] is the
+ * Horizontal gradient track with a draggable white thumb. [t] is the
  * fractional position 0..1; [onChanged] fires continuously during a drag /
  * tap for a live preview; [onEnd] fires once on release / tap-up to commit.
  */

@@ -62,6 +62,8 @@
     <string name="theme_hc_desc">Pure black/white with yellow accent.</string>
     <string name="theme_cb">Colourblind-safe</string>
     <string name="theme_cb_desc">Blue + orange, no red/green reliance.</string>
+    <string name="theme_legacy">Legacy</string>
+    <string name="theme_legacy_desc">Neutral dark greys with amber accent — nostalgic look.</string>
     <string name="theme_accent">Accent color</string>
     <string name="theme_accent_desc">Override the theme\'s primary. Presets + HSV picker.</string>
     <string name="theme_accent_sheet_title">Accent color</string>

@@ -184,3 +184,47 @@ val CbT3          = Color(0xFFAEB8CA)   // --t3
 val CbT4          = Color(0xFF2A3140)   // --t4
 
 val CbInk         = Color(0xFF0A0F1A)   // near-black ink
+
+// ── "Legacy" palette — neutral dark greys with amber accent ────────────────
+// A nostalgic dark theme — dark grey backgrounds, amber CTA, deep bar. Values
+// are frozen at the exact hex codes below so the look stays bit-perfect
+// across app versions.
+
+val LegacyBg          = Color(0xFF1E1E1E)   // bg
+val LegacySurface     = Color(0xFF1E1E1E)   // surface (identical to bg in the source)
+val LegacyRaised      = Color(0xFF2A2A2A)   // raised — chip / input backgrounds
+val LegacyCard        = Color(0xFF242424)   // card
+
+val LegacyBorder      = Color(0xFF333333)   // border
+val LegacyBorder2     = Color(0xFF4A4A4A)   // border2 (stronger)
+
+val LegacyPrimary       = Color(0xFFFFAB00) // amber CTA
+val LegacyPrimaryHov    = Color(0xFFFFC233) // hover
+val LegacyPrimaryDark   = Color(0xFF3E2A00) // dark amber container
+val LegacyPrimaryOnC    = Color(0xFFFFECB3) // light amber text on container
+
+val LegacyAccent      = Color(0xFFFFAB00)   // same amber as primary
+val LegacyAccentDark  = Color(0xFF3E2A00)   // dark container for accent
+val LegacyAccentOnC   = Color(0xFFFFECB3)   // on secondaryContainer
+
+val LegacyGreen       = Color(0xFF34D399)   // success
+val LegacyGreenDark   = Color(0xFF0F3D2E)   // dark container for green
+val LegacyGreenOnC    = Color(0xFFB8F0D9)   // on tertiaryContainer
+
+val LegacyRed         = Color(0xFFF87171)   // error
+val LegacyRedDark     = Color(0xFF4A1F1F)   // error container
+val LegacyYellow      = Color(0xFFFBBF24)   // warning (unused by M3 but available)
+
+val LegacyT1          = Color(0xFFEEEEEE)   // primary text
+val LegacyT2          = Color(0xFFAAAAAA)   // secondary text
+val LegacyT3          = Color(0xFF888888)   // tertiary / muted
+val LegacyT4          = Color(0xFF555555)   // dim / disabled
+
+// Deliberately darker than the body — unused by M3's ColorScheme (which pairs
+// surface/onSurface for the bar) but exported here so any caller consuming the
+// palette directly has access to it.
+val LegacyAppBarBg    = Color(0xFF121212)
+
+// Ink painted on the amber primary — dark espresso keeps contrast on the
+// bright amber CTA (black-on-amber pattern for luminance > 0.5).
+val LegacyInk         = Color(0xFF1A1206)

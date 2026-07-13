@@ -16,15 +16,13 @@ import coil.request.SuccessResult
 /**
  * Loads [imageUrl] via Coil, downscales it, and extracts a representative
  * "ambient" colour from the artwork using [AmbientEngine]'s dominant / vibrant
- * quantiser — the same algorithm mStream uses. Returns null while loading, if
- * the URL is null, or if no colour could be derived. Recomputes when the URL
- * or [vibrant] changes.
+ * quantiser. Returns null while loading, if the URL is null, or if no colour
+ * could be derived. Recomputes when the URL or [vibrant] changes.
  *
  * Previously used `androidx.palette` for swatch extraction, which was a whole
  * dependency for a mediocre visual (Palette's vibrant swatch is often a stray
  * highlight, not the field colour). The engine's own 12-bit bucket count on a
- * 64px thumbnail is smaller, faster, and gives the same "album halo" mStream
- * has.
+ * 64 px thumbnail is smaller, faster, and gives the "album halo" look we want.
  *
  * `allowHardware(false)` forces a software bitmap so the pixel scan can run
  * on the CPU (hardware bitmaps aren't readable via `getPixel`).
@@ -61,7 +59,7 @@ fun rememberAmbientColor(imageUrl: String?, vibrant: Boolean = false): Color? {
  * loading, when the URL is null, or when the seed is too grayscale to tint
  * (WCAG-safe fallback).
  *
- * Callers should paint this as the outer container's background — mStream's
+ * Callers should paint this as the outer container's background — the
  * signature "album halo" look.
  */
 @Composable
