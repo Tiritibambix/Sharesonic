@@ -340,6 +340,49 @@ fun FrostedShareExpiryDialog(
 }
 
 /**
+ * Simple frosted-glass confirmation dialog — title, message, Cancel/Confirm.
+ * Used for playlist delete + playlist entry remove, so those confirmation
+ * modals match the other frosted-glass overlays.
+ */
+@Composable
+fun FrostedConfirmDialog(
+    title: String,
+    message: String,
+    confirmLabel: String,
+    onConfirm: () -> Unit,
+    onDismiss: () -> Unit,
+    destructive: Boolean = false,
+) {
+    FrostedOverlay(onDismiss = onDismiss) {
+        FrostedCard {
+            Text(
+                title,
+                style = MaterialTheme.typography.titleLarge,
+                fontWeight = FontWeight.SemiBold,
+            )
+            Text(
+                message,
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.textSecondary,
+            )
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.End,
+            ) {
+                TextButton(onClick = onDismiss) { Text(stringResource(R.string.common_cancel)) }
+                TextButton(onClick = onConfirm) {
+                    Text(
+                        confirmLabel,
+                        color = if (destructive) MaterialTheme.colorScheme.error
+                                else MaterialTheme.colorScheme.primary,
+                    )
+                }
+            }
+        }
+    }
+}
+
+/**
  * Generic frosted-glass single-line text prompt (title + optional hint + one
  * field + Cancel/Confirm). Used for "Save queue as playlist" and reusable for
  * any other name-entry flow, so those all match the share / picker modals.

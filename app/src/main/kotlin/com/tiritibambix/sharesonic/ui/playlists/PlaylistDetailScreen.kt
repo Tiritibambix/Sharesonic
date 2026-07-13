@@ -15,6 +15,7 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.blur
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.input.pointer.pointerInput
@@ -25,6 +26,9 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.zIndex
 import com.tiritibambix.sharesonic.R
 import com.tiritibambix.sharesonic.data.api.models.EntryDto
+import com.tiritibambix.sharesonic.ui.components.FrostedCard
+import com.tiritibambix.sharesonic.ui.components.FrostedOverlay
+import com.tiritibambix.sharesonic.ui.components.FrostedTextPromptDialog
 import com.tiritibambix.sharesonic.ui.player.PlayerViewModel
 import com.tiritibambix.sharesonic.ui.theme.textSecondary
 import com.tiritibambix.sharesonic.utils.LocalIsTV
@@ -56,117 +60,24 @@ fun PlaylistDetailScreen(
     val playlistName = (state as? PlaylistDetailState.Ready)?.name ?: initialName
     val isTV = LocalIsTV.current
 
+    // Hoisted OUT of the `when` block so the scroll offset survives every
+    // Loading/Ready transition — the reorder commit refresh in particular
+    // used to snap the list back to the top on every drop.
+    val listState = rememberLazyListState()
+    var draggedKey by remember { mutableStateOf<Int?>(null) }
+    var dragOffsetY by remember { mutableFloatStateOf(0f) }
+
     var showRenameDialog by remember { mutableStateOf(false) }
-    var renameName by remember { mutableStateOf("") }
-
     var showAddDialog by remember { mutableStateOf(false) }
-    var addQuery by remember { mutableStateOf("") }
 
-    // ── Rename dialog ─────────────────────────────────────────────────────────
-    if (showRenameDialog) {
-        AlertDialog(
-            onDismissRequest = { showRenameDialog = false },
-            title = { Text(stringResource(R.string.playlists_rename_title)) },
-            text = {
-                OutlinedTextField(
-                    value = renameName,
-                    onValueChange = { renameName = it },
-                    label = { Text(stringResource(R.string.playlists_new_name)) },
-                    singleLine = true
-                )
-            },
-            confirmButton = {
-                TextButton(onClick = {
-                    if (renameName.isNotBlank()) viewModel.rename(renameName.trim())
-                    showRenameDialog = false
-                }) { Text(stringResource(R.string.common_rename)) }
-            },
-            dismissButton = {
-                TextButton(onClick = { showRenameDialog = false }) { Text(stringResource(R.string.common_cancel)) }
-            }
-        )
-    }
-
-    // ── Add songs dialog ──────────────────────────────────────────────────────
-    if (showAddDialog) {
-        AlertDialog(
-            onDismissRequest = {
-                showAddDialog = false; addQuery = ""; viewModel.clearAddSongsSearch()
-            },
-            title = { Text(stringResource(R.string.playlist_detail_add_songs)) },
-            text = {
-                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    OutlinedTextField(
-                        value = addQuery,
-                        onValueChange = { addQuery = it; viewModel.searchSongsToAdd(it) },
-                        placeholder = { Text(stringResource(R.string.search_hint)) },
-                        singleLine = true,
-                        trailingIcon = {
-                            if (addQuery.isNotEmpty()) {
-                                IconButton(onClick = { addQuery = ""; viewModel.clearAddSongsSearch() }) {
-                                    Icon(Icons.Default.Clear, contentDescription = null)
-                                }
-                            }
-                        },
-                        shape = RoundedCornerShape(24.dp),
-                        modifier = Modifier.fillMaxWidth()
-                    )
-                    Box(modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp, max = 300.dp)) {
-                        when (val s = addSongsState) {
-                            is AddSongsState.Idle ->
-                                Text(
-                                    stringResource(R.string.search_empty),
-                                    modifier = Modifier.align(Alignment.Center),
-                                    color = MaterialTheme.colorScheme.textSecondary,
-                                    style = MaterialTheme.typography.bodySmall
-                                )
-                            is AddSongsState.Loading ->
-                                CircularProgressIndicator(
-                                    modifier = Modifier.size(24.dp).align(Alignment.Center),
-                                    strokeWidth = 2.dp
-                                )
-                            is AddSongsState.Error ->
-                                Text(
-                                    s.message,
-                                    modifier = Modifier.align(Alignment.Center),
-                                    color = MaterialTheme.colorScheme.error,
-                                    style = MaterialTheme.typography.bodySmall
-                                )
-                            is AddSongsState.Results -> {
-                                if (s.songs.isEmpty()) {
-                                    Text(
-                                        stringResource(R.string.playlist_detail_empty),
-                                        modifier = Modifier.align(Alignment.Center),
-                                        color = MaterialTheme.colorScheme.textSecondary,
-                                        style = MaterialTheme.typography.bodySmall
-                                    )
-                                } else {
-                                    LazyColumn {
-                                        items(s.songs, key = { it.id }) { song ->
-                                            AddSongRow(song = song, onAdd = {
-                                                viewModel.addSong(song.id)
-                                                showAddDialog = false
-                                                addQuery = ""
-                                                viewModel.clearAddSongsSearch()
-                                            })
-                                        }
-                                    }
-                                }
-                            }
-                        }
-                    }
-                }
-            },
-            confirmButton = {},
-            dismissButton = {
-                TextButton(onClick = {
-                    showAddDialog = false; addQuery = ""; viewModel.clearAddSongsSearch()
-                }) { Text(stringResource(R.string.common_close)) }
-            }
-        )
-    }
+    val contentBlur by androidx.compose.animation.core.animateDpAsState(
+        targetValue = if (showRenameDialog || showAddDialog) 18.dp else 0.dp,
+        animationSpec = androidx.compose.animation.core.tween(200),
+        label = "contentBlur"
+    )
 
     Scaffold(
+        modifier = Modifier.blur(contentBlur),
         topBar = {
             @OptIn(ExperimentalMaterial3Api::class)
             TopAppBar(
@@ -208,10 +119,10 @@ fun PlaylistDetailScreen(
                             }
                         }
                     }
-                    IconButton(onClick = { renameName = playlistName; showRenameDialog = true }, modifier = Modifier.size(36.dp)) {
+                    IconButton(onClick = { showRenameDialog = true }, modifier = Modifier.size(36.dp)) {
                         Icon(Icons.Default.Edit, contentDescription = stringResource(R.string.common_rename), modifier = Modifier.size(20.dp))
                     }
-                    IconButton(onClick = { addQuery = ""; showAddDialog = true }, modifier = Modifier.size(36.dp)) {
+                    IconButton(onClick = { showAddDialog = true }, modifier = Modifier.size(36.dp)) {
                         Icon(Icons.Default.Add, contentDescription = stringResource(R.string.playlist_detail_add_songs), modifier = Modifier.size(20.dp))
                     }
                 }
@@ -270,13 +181,9 @@ fun PlaylistDetailScreen(
                             color = MaterialTheme.colorScheme.textSecondary
                         )
                     } else {
-                        // Drag-to-reorder state (phone only). The dragged row
-                        // lifts to a higher z-index and translates by the drag
-                        // delta while its underlying index in the ViewModel is
-                        // updated whenever the drag centre crosses a neighbour.
-                        val listState = rememberLazyListState()
-                        var draggedKey by remember { mutableStateOf<Int?>(null) }
-                        var dragOffsetY by remember { mutableFloatStateOf(0f) }
+                        // Drag-to-reorder: state is hoisted at the top of the
+                        // screen composable so it survives Loading↔Ready
+                        // transitions (see rationale near the declaration).
                         val haptic = LocalHapticFeedback.current
 
                         LazyColumn(
@@ -361,6 +268,108 @@ fun PlaylistDetailScreen(
                             }
                         }
                     }
+                }
+            }
+        }
+    }
+
+    // ── Rename dialog (frosted) ────────────────────────────────────────────
+    if (showRenameDialog) {
+        FrostedTextPromptDialog(
+            title = stringResource(R.string.playlists_rename_title),
+            label = stringResource(R.string.playlists_new_name),
+            confirmLabel = stringResource(R.string.common_rename),
+            initialValue = playlistName,
+            onConfirm = { name ->
+                viewModel.rename(name)
+                showRenameDialog = false
+            },
+            onDismiss = { showRenameDialog = false }
+        )
+    }
+
+    // ── Add songs (frosted) — inline search + result list on a FrostedCard ──
+    if (showAddDialog) {
+        var addQuery by remember { mutableStateOf("") }
+        val closeAdd: () -> Unit = {
+            showAddDialog = false
+            addQuery = ""
+            viewModel.clearAddSongsSearch()
+        }
+        FrostedOverlay(onDismiss = closeAdd) {
+            FrostedCard(modifier = Modifier.heightIn(max = 520.dp)) {
+                Text(
+                    stringResource(R.string.playlist_detail_add_songs),
+                    style = MaterialTheme.typography.titleLarge,
+                    fontWeight = androidx.compose.ui.text.font.FontWeight.SemiBold,
+                )
+                OutlinedTextField(
+                    value = addQuery,
+                    onValueChange = { addQuery = it; viewModel.searchSongsToAdd(it) },
+                    placeholder = { Text(stringResource(R.string.search_hint)) },
+                    singleLine = true,
+                    trailingIcon = {
+                        if (addQuery.isNotEmpty()) {
+                            IconButton(onClick = { addQuery = ""; viewModel.clearAddSongsSearch() }) {
+                                Icon(Icons.Default.Clear, contentDescription = null)
+                            }
+                        }
+                    },
+                    shape = RoundedCornerShape(12.dp),
+                    modifier = Modifier.fillMaxWidth()
+                )
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .weight(1f, fill = false)
+                        .heightIn(min = 48.dp)
+                ) {
+                    when (val s = addSongsState) {
+                        is AddSongsState.Idle ->
+                            Text(
+                                stringResource(R.string.search_empty),
+                                modifier = Modifier.align(Alignment.Center),
+                                color = MaterialTheme.colorScheme.textSecondary,
+                                style = MaterialTheme.typography.bodySmall
+                            )
+                        is AddSongsState.Loading ->
+                            CircularProgressIndicator(
+                                modifier = Modifier.size(24.dp).align(Alignment.Center),
+                                strokeWidth = 2.dp
+                            )
+                        is AddSongsState.Error ->
+                            Text(
+                                s.message,
+                                modifier = Modifier.align(Alignment.Center),
+                                color = MaterialTheme.colorScheme.error,
+                                style = MaterialTheme.typography.bodySmall
+                            )
+                        is AddSongsState.Results -> {
+                            if (s.songs.isEmpty()) {
+                                Text(
+                                    stringResource(R.string.playlist_detail_empty),
+                                    modifier = Modifier.align(Alignment.Center),
+                                    color = MaterialTheme.colorScheme.textSecondary,
+                                    style = MaterialTheme.typography.bodySmall
+                                )
+                            } else {
+                                LazyColumn {
+                                    items(s.songs, key = { it.id }) { song ->
+                                        AddSongRow(song = song, onAdd = {
+                                            viewModel.addSong(song.id)
+                                            closeAdd()
+                                        })
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.End,
+                ) {
+                    TextButton(onClick = closeAdd) { Text(stringResource(R.string.common_close)) }
                 }
             }
         }

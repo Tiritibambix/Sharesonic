@@ -253,6 +253,22 @@ class VelvetRepository(private val api: VelvetApiService) {
         return shareFilepaths(token, filepaths, expiryDays)
     }
 
+    /**
+     * Create a public share link for a saved playlist. Fetches the playlist's
+     * entries via [loadPlaylist] and reuses the same share endpoint as
+     * [shareFolder] / [shareQueue] — a single native share request with the
+     * playlist's filepaths.
+     */
+    suspend fun sharePlaylist(token: String, playlistName: String, expiryDays: Int? = null): Result<String> {
+        val entries = when (val r = loadPlaylist(token, playlistName)) {
+            is Result.Success -> r.data
+            is Result.Error   -> return Result.Error(r.message)
+        }
+        val filepaths = entries.map { it.filepath }.filter { it.isNotBlank() }
+        if (filepaths.isEmpty()) return Result.Error("Playlist is empty")
+        return shareFilepaths(token, filepaths, expiryDays)
+    }
+
     private suspend fun shareFilepaths(
         token: String,
         filepaths: List<String>,

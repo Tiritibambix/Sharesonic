@@ -22,10 +22,20 @@ sealed interface PlaylistsState {
     data class Error(val message: String) : PlaylistsState
 }
 
+sealed interface PlaylistShareState {
+    data object Idle : PlaylistShareState
+    data object Loading : PlaylistShareState
+    data class Done(val url: String) : PlaylistShareState
+    data class Error(val message: String) : PlaylistShareState
+}
+
 class PlaylistsViewModel(private val settingsRepo: SettingsRepository) : ViewModel() {
 
     private val _state = MutableStateFlow<PlaylistsState>(PlaylistsState.Loading)
     val state: StateFlow<PlaylistsState> = _state
+
+    private val _shareState = MutableStateFlow<PlaylistShareState>(PlaylistShareState.Idle)
+    val shareState: StateFlow<PlaylistShareState> = _shareState
 
     init { load() }
 
@@ -96,6 +106,31 @@ class PlaylistsViewModel(private val settingsRepo: SettingsRepository) : ViewMod
             load()
         }
     }
+
+    fun sharePlaylist(name: String, expiryDays: Int?) {
+        viewModelScope.launch {
+            _shareState.update { PlaylistShareState.Loading }
+            val settings = settingsRepo.settings.first()
+            if (!settings.isConfigured) {
+                _shareState.update { PlaylistShareState.Error("Server not configured") }
+                return@launch
+            }
+            val token = settings.jwtToken.ifEmpty {
+                _shareState.update { PlaylistShareState.Error("Not authenticated") }
+                return@launch
+            }
+            val repo = VelvetRepository(VelvetClient.build(settings.serverUrl))
+            when (val r = repo.sharePlaylist(token, name, expiryDays)) {
+                is Result.Success -> {
+                    val url = "${settings.serverUrl.trimEnd('/')}/shared/${r.data}"
+                    _shareState.update { PlaylistShareState.Done(url) }
+                }
+                is Result.Error -> _shareState.update { PlaylistShareState.Error(r.message) }
+            }
+        }
+    }
+
+    fun clearShareState() { _shareState.update { PlaylistShareState.Idle } }
 }
 
 class PlaylistsViewModelFactory(

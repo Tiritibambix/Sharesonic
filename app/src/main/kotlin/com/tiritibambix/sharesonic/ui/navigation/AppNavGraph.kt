@@ -325,6 +325,7 @@ fun AppNavGraph() {
                 onOpenPlaylist = { name ->
                     navController.navigate(Screen.PlaylistDetail.createRoute(name))
                 },
+                onShareCreated = ::onShareCreated,
                 miniPlayerVisible = playerState.currentSong != null
             )
         }

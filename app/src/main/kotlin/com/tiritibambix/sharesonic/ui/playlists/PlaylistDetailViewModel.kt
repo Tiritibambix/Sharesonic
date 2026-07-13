@@ -63,7 +63,13 @@ class PlaylistDetailViewModel(
 
     fun load() {
         viewModelScope.launch {
-            _state.update { PlaylistDetailState.Loading }
+            // Skip the Loading transition when we already have entries: the
+            // drag-reorder commit path calls load() to refresh entryIds after
+            // savePlaylist re-inserts rows, and blanking the list makes the
+            // whole screen flash + the LazyColumn snap back to offset 0.
+            if (_state.value !is PlaylistDetailState.Ready) {
+                _state.update { PlaylistDetailState.Loading }
+            }
             val settings = settingsRepo.settings.first()
             if (!settings.isConfigured) {
                 _state.update { PlaylistDetailState.Error("Server not configured") }
