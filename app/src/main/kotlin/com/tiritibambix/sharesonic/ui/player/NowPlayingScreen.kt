@@ -1119,7 +1119,11 @@ private fun QueuePage(
         modifier = Modifier.fillMaxSize(),
         contentPadding = androidx.compose.foundation.layout.PaddingValues(top = topPadding),
     ) {
-        itemsIndexed(state.queue, key = { _, song -> song.id }) { index, song ->
+        // Prefix the key with the queue position so a track that appears
+        // twice (Auto-DJ re-picking a song, or manual double-add) doesn't
+        // crash LazyColumn with "Key was already used". song.id (filepath)
+        // alone isn't guaranteed unique inside the queue.
+        itemsIndexed(state.queue, key = { idx, song -> "$idx-${song.id}" }) { index, song ->
             val isCurrent = index == state.queueIndex
 
             if (isTV) {

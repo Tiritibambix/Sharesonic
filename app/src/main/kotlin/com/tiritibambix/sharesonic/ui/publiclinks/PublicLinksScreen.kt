@@ -37,7 +37,8 @@ import java.time.format.DateTimeFormatter
 @Composable
 fun PublicLinksScreen(
     viewModel: PublicLinksViewModel,
-    onBack: () -> Unit
+    onBack: () -> Unit,
+    miniPlayerVisible: Boolean = false,
 ) {
     val state by viewModel.state.collectAsState()
     val context = LocalContext.current
@@ -107,7 +108,10 @@ fun PublicLinksScreen(
                     } else {
                         LazyColumn(
                             modifier = Modifier.fillMaxSize(),
-                            contentPadding = PaddingValues(vertical = 8.dp)
+                            contentPadding = PaddingValues(
+                                top = 8.dp,
+                                bottom = if (miniPlayerVisible) 88.dp else 8.dp,
+                            )
                         ) {
                             items(s.links, key = { it.playlistId }) { link ->
                                 PublicLinkRow(

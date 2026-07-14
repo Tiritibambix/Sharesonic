@@ -19,7 +19,8 @@ import com.tiritibambix.sharesonic.R
 fun ServerSettingsScreen(
     viewModel: SettingsViewModel,
     onBack: () -> Unit,
-    onNavigateToBrowser: () -> Unit
+    onNavigateToBrowser: () -> Unit,
+    miniPlayerVisible: Boolean = false,
 ) {
     Scaffold(
         topBar = {
@@ -36,7 +37,8 @@ fun ServerSettingsScreen(
         ServerSettingsContent(
             viewModel = viewModel,
             onNavigateToBrowser = onNavigateToBrowser,
-            modifier = Modifier.padding(padding)
+            modifier = Modifier.padding(padding),
+            miniPlayerVisible = miniPlayerVisible,
         )
     }
 }
@@ -44,6 +46,7 @@ fun ServerSettingsScreen(
 @Composable
 private fun ServerSettingsContent(
     viewModel: SettingsViewModel,
+    miniPlayerVisible: Boolean = false,
     onNavigateToBrowser: () -> Unit,
     modifier: Modifier = Modifier
 ) {
@@ -147,5 +150,6 @@ private fun ServerSettingsContent(
             }
             else -> {}
         }
+        if (miniPlayerVisible) Spacer(Modifier.height(80.dp))
     }
 }

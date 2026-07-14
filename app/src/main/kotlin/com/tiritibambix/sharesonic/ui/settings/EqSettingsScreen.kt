@@ -83,7 +83,8 @@ class EqViewModelFactory(private val repo: SettingsRepository) : ViewModelProvid
 @Composable
 fun EqSettingsScreen(
     viewModel: EqViewModel,
-    onBack: () -> Unit
+    onBack: () -> Unit,
+    miniPlayerVisible: Boolean = false,
 ) {
     Scaffold(
         topBar = {
@@ -154,7 +155,7 @@ fun EqSettingsScreen(
                     )
                 }
             }
-            Spacer(Modifier.height(24.dp))
+            Spacer(Modifier.height(if (miniPlayerVisible) 96.dp else 24.dp))
         }
     }
 }

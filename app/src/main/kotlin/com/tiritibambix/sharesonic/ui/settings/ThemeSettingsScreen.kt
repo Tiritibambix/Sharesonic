@@ -7,6 +7,8 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
@@ -64,7 +66,8 @@ import com.tiritibambix.sharesonic.ui.theme.textSecondary
 @Composable
 fun ThemeSettingsScreen(
     viewModel: SettingsViewModel,
-    onBack: () -> Unit
+    onBack: () -> Unit,
+    miniPlayerVisible: Boolean = false,
 ) {
     val appTheme by viewModel.appTheme.collectAsState()
     val accentArgb by viewModel.accentColor.collectAsState()
@@ -109,6 +112,8 @@ fun ThemeSettingsScreen(
                     ?: currentThemeDefault(appTheme),
                 onTap = { showAccentSheet = true },
             )
+            // Clear the mini player bar (66 dp) so the last row stays reachable.
+            if (miniPlayerVisible) Spacer(Modifier.height(80.dp))
         }
     }
 

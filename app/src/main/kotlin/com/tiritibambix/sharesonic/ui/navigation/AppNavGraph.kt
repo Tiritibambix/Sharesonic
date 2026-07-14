@@ -151,6 +151,7 @@ fun AppNavGraph() {
             ServerSettingsScreen(
                 viewModel = settingsVm,
                 onBack = { navController.popBackStack() },
+                miniPlayerVisible = playerState.currentSong != null,
                 onNavigateToBrowser = {
                     // ServerSettingsScreen invokes this only from save()'s
                     // onSaved completion hook — i.e. after the new settings have
@@ -175,14 +176,16 @@ fun AppNavGraph() {
         composable(Screen.ThemeSettings.route) {
             ThemeSettingsScreen(
                 viewModel = settingsVm,
-                onBack = { navController.popBackStack() }
+                onBack = { navController.popBackStack() },
+                miniPlayerVisible = playerState.currentSong != null,
             )
         }
 
         composable(Screen.LanguageSettings.route) {
             LanguageSettingsScreen(
                 viewModel = settingsVm,
-                onBack = { navController.popBackStack() }
+                onBack = { navController.popBackStack() },
+                miniPlayerVisible = playerState.currentSong != null,
             )
         }
 
@@ -191,7 +194,8 @@ fun AppNavGraph() {
                 viewModel(factory = PublicLinksViewModelFactory(settingsRepo))
             PublicLinksScreen(
                 viewModel = publicLinksVm,
-                onBack = { navController.popBackStack() }
+                onBack = { navController.popBackStack() },
+                miniPlayerVisible = playerState.currentSong != null,
             )
         }
 
@@ -199,7 +203,8 @@ fun AppNavGraph() {
             val eqVm: EqViewModel = viewModel(factory = EqViewModelFactory(settingsRepo))
             EqSettingsScreen(
                 viewModel = eqVm,
-                onBack = { navController.popBackStack() }
+                onBack = { navController.popBackStack() },
+                miniPlayerVisible = playerState.currentSong != null,
             )
         }
 

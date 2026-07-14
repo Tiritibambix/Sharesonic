@@ -5,7 +5,9 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
@@ -43,7 +45,8 @@ import com.tiritibambix.sharesonic.ui.theme.textSecondary
 @Composable
 fun LanguageSettingsScreen(
     viewModel: SettingsViewModel,
-    onBack: () -> Unit
+    onBack: () -> Unit,
+    miniPlayerVisible: Boolean = false,
 ) {
     val currentTag by viewModel.appLanguage.collectAsState()
     val activity = LocalContext.current as? Activity
@@ -97,6 +100,7 @@ fun LanguageSettingsScreen(
                     }
                 )
             }
+            if (miniPlayerVisible) Spacer(Modifier.height(80.dp))
         }
     }
 }

@@ -15,9 +15,12 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
@@ -162,8 +165,14 @@ fun AccentColorSheet(
         Column(
             modifier = Modifier
                 .fillMaxWidth()
+                // Vertical scroll survives short screens (foldable inner
+                // display, split-screen, landscape phones) where the presets
+                // grid + three HSV bars overflow. Gesture-nav insets keep the
+                // last bar clear of the home indicator.
+                .verticalScroll(rememberScrollState())
                 .padding(horizontal = 20.dp)
-                .padding(bottom = 24.dp),
+                .padding(bottom = 24.dp)
+                .navigationBarsPadding(),
         ) {
             Text(
                 stringResource(R.string.theme_accent_sheet_title),
@@ -233,10 +242,14 @@ fun AccentColorSheet(
                         onChanged = { hsv = hsv.withHue(it * 360f) },
                         onEnd = { onPick(hsv.toColor().toArgb()) },
                     )
+                    // Saturation bar rendered at V=1 (standard picker
+                    // convention) — otherwise picking a dark accent (V → 0)
+                    // turns both stops black and the bar becomes an unusable
+                    // black strip with no visible thumb.
                     GradientBar(
                         colors = listOf(
-                            hsvToColor(hsv.h, 0f, hsv.v),
-                            hsvToColor(hsv.h, 1f, hsv.v),
+                            hsvToColor(hsv.h, 0f, 1f),
+                            hsvToColor(hsv.h, 1f, 1f),
                         ),
                         t = hsv.s,
                         onChanged = { hsv = hsv.withSat(it) },
