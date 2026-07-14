@@ -4,8 +4,6 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.focusable
-import androidx.compose.foundation.gestures.detectHorizontalDragGestures
-import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -15,12 +13,13 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.gestures.awaitEachGesture
+import androidx.compose.foundation.gestures.awaitFirstDown
+import androidx.compose.foundation.gestures.drag
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
@@ -165,11 +164,6 @@ fun AccentColorSheet(
         Column(
             modifier = Modifier
                 .fillMaxWidth()
-                // Vertical scroll survives short screens (foldable inner
-                // display, split-screen, landscape phones) where the presets
-                // grid + three HSV bars overflow. Gesture-nav insets keep the
-                // last bar clear of the home indicator.
-                .verticalScroll(rememberScrollState())
                 .padding(horizontal = 20.dp)
                 .padding(bottom = 24.dp)
                 .navigationBarsPadding(),
@@ -338,20 +332,25 @@ private fun GradientBar(
                     }
                 else Modifier
             )
+            // Single-pointerInput slider ergonomics: tap-to-jump AND drag-to-
+            // scrub, no direction filter (any pointer motion on the bar tracks
+            // the slider). Consuming each change stops the parent (bottom
+            // sheet, drawer, LazyColumn if any) from stealing the drag mid-
+            // gesture — which was the "clunky after the first drag" cause: the
+            // previous split detectTapGestures + detectHorizontalDragGestures
+            // pair let vertical-scroll ancestors race the horizontal drag,
+            // and lost after the first commit's recomposition.
             .pointerInput(boxSize) {
                 if (boxSize.width == 0) return@pointerInput
-                detectTapGestures(onTap = { pos ->
-                    onChanged((pos.x / boxSize.width).coerceIn(0f, 1f))
+                awaitEachGesture {
+                    val down = awaitFirstDown(requireUnconsumed = false)
+                    onChanged((down.position.x / boxSize.width).coerceIn(0f, 1f))
+                    down.consume()
+                    drag(down.id) { change ->
+                        onChanged((change.position.x / boxSize.width).coerceIn(0f, 1f))
+                        change.consume()
+                    }
                     onEnd()
-                })
-            }
-            .pointerInput(boxSize) {
-                if (boxSize.width == 0) return@pointerInput
-                detectHorizontalDragGestures(
-                    onDragEnd = { onEnd() },
-                    onDragCancel = { onEnd() },
-                ) { change, _ ->
-                    onChanged((change.position.x / boxSize.width).coerceIn(0f, 1f))
                 }
             },
     ) {
