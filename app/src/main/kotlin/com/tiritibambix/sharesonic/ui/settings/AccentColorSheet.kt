@@ -36,6 +36,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -307,6 +308,14 @@ private fun GradientBar(
     val h = 26.dp
     var boxSize by remember { mutableStateOf(IntSize.Zero) }
     val isTV = LocalIsTV.current
+    // Callback lambdas are re-created on every recomposition (they close over
+    // `hsv`). pointerInput captures its block once at coroutine launch, so
+    // without rememberUpdatedState the coroutine would keep calling the
+    // ORIGINAL onChanged / onEnd forever — which after the accent commit's
+    // reset would silently no-op, giving the "second touch does nothing"
+    // symptom the user reported.
+    val currentOnChanged by rememberUpdatedState(onChanged)
+    val currentOnEnd by rememberUpdatedState(onEnd)
     Box(
         modifier = Modifier
             .fillMaxWidth()
@@ -333,24 +342,23 @@ private fun GradientBar(
                 else Modifier
             )
             // Single-pointerInput slider ergonomics: tap-to-jump AND drag-to-
-            // scrub, no direction filter (any pointer motion on the bar tracks
-            // the slider). Consuming each change stops the parent (bottom
-            // sheet, drawer, LazyColumn if any) from stealing the drag mid-
-            // gesture — which was the "clunky after the first drag" cause: the
-            // previous split detectTapGestures + detectHorizontalDragGestures
-            // pair let vertical-scroll ancestors race the horizontal drag,
-            // and lost after the first commit's recomposition.
-            .pointerInput(boxSize) {
-                if (boxSize.width == 0) return@pointerInput
+            // scrub, no direction filter — any pointer motion on the bar
+            // tracks the slider. Consuming each change stops the parent
+            // (bottom sheet, drawer, LazyColumn if any) from stealing the
+            // drag mid-gesture. Key=Unit + rememberUpdatedState above keep
+            // this coroutine alive across accent commits without holding
+            // stale callback references.
+            .pointerInput(Unit) {
                 awaitEachGesture {
+                    if (size.width == 0) return@awaitEachGesture
                     val down = awaitFirstDown(requireUnconsumed = false)
-                    onChanged((down.position.x / boxSize.width).coerceIn(0f, 1f))
+                    currentOnChanged((down.position.x / size.width).coerceIn(0f, 1f))
                     down.consume()
                     drag(down.id) { change ->
-                        onChanged((change.position.x / boxSize.width).coerceIn(0f, 1f))
+                        currentOnChanged((change.position.x / size.width).coerceIn(0f, 1f))
                         change.consume()
                     }
-                    onEnd()
+                    currentOnEnd()
                 }
             },
     ) {
