@@ -57,9 +57,9 @@ Sharesonic is built for the other scenario: the large, chaotic, lovingly disorga
 | **Equalizer** | Native Android per-band equalizer reachable from the drawer or Settings: on/off switch, per-band gain sliders, "reset to flat" |
 | **Add to queue** | Swipe left on any track in the browser |
 | **Add to playlist** | Swipe right on a track in the browser, or tap "Playlist" in Now Playing. The frosted-glass picker lets you create a new playlist inline (name it and add in one step) or pick an existing one |
-| **Playlist management** | Create, rename, delete playlists; add/remove tracks; play all or shuffle |
+| **Playlist management** | Create, rename, delete, share; add/remove tracks; **drag-to-reorder** tracks with long-press; play all or shuffle |
 | **Save queue as playlist** | From the queue view, save every track currently queued as a brand-new named playlist in one tap |
-| **Search** | Pill-shaped, Material You search bar with full-text search grouped into Folders, Artists, Albums and Songs. Tapping a folder navigates straight to it; tapping an artist opens a list of that artist's tracks (featuring/variant spellings included) |
+| **Search** | Pill-shaped, Material You search bar with full-text search grouped into Folders, Artists, Albums and Songs. Tapping a folder navigates straight to it; tapping an artist opens a list of that artist's tracks (featuring/variant spellings included); swipe or long-press any song result to add it to the queue or a playlist |
 | **Scrobbling** | Playback reported to Velvet, forwarded to Last.fm + ListenBrainz (no API keys needed). Requires **"Scrobble from External Apps"** to be enabled in Velvet's server settings; otherwise Velvet silently ignores the scrobble calls |
 | **Language** | 12-language UI (English, Nederlands, Deutsch, Français, Español, Italiano, Português, Polski, Русский, 中文, 日本語, 한국어) plus "System default". Pick from the drawer or Settings hub; the app relaunches instantly in the chosen language |
 | **Crash reporter** | If the app ever crashes, the full stack trace is shown in a copyable dialog on the next launch. No adb needed to diagnose |
@@ -147,7 +147,7 @@ GitHub Actions runs on every push and tag:
 
 | Trigger | Action |
 |---|---|
-| Push to any branch | Build debug APK named `sharesonic-artifact+<run>.apk`, upload as workflow artifact |
+| Push to any branch | Build debug APK named `sharesonic-artifact-<run>.apk`, upload as workflow artifact |
 | Tag `v*` | Build signed release APK named `sharesonic-v<version>.apk`, create GitHub Release, attach APK |
 
 ---
