@@ -55,6 +55,10 @@ class SettingsRepository(private val context: Context) {
         val EQ_BANDS   = stringPreferencesKey("eq_bands")
         /** BCP-47 language tag ("en", "fr", …). Empty string = follow the system locale. */
         val APP_LANGUAGE = stringPreferencesKey("app_language")
+        /** Auto-DJ toggle flag — persisted so the home-screen widget (and the
+         *  playback service after an Activity kill) share the same on/off state
+         *  with the app UI. */
+        val AUTO_DJ_ENABLED = booleanPreferencesKey("auto_dj_enabled")
     }
 
     val settings: Flow<ServerSettings> = context.dataStore.data.map { prefs ->
@@ -118,6 +122,15 @@ class SettingsRepository(private val context: Context) {
 
     suspend fun saveAppLanguage(tag: String) {
         context.dataStore.edit { prefs -> prefs[Keys.APP_LANGUAGE] = tag }
+    }
+
+    /** Auto-DJ toggle flag. Read by the ViewModel to drive the in-app UI and by
+     *  the widget action to write from outside. Persisted so the state survives
+     *  the Activity being destroyed while the playback service keeps running. */
+    val autoDjEnabled: Flow<Boolean> = context.dataStore.data.map { it[Keys.AUTO_DJ_ENABLED] ?: false }
+
+    suspend fun saveAutoDjEnabled(enabled: Boolean) {
+        context.dataStore.edit { prefs -> prefs[Keys.AUTO_DJ_ENABLED] = enabled }
     }
 
     /** Persisted equalizer state; applied by [com.tiritibambix.sharesonic.playback.PlaybackService] on start. */

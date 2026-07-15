@@ -281,4 +281,7 @@
 
     <!-- ── Crash reporter ──────────────────────────────────────────────── -->
     <string name="crash_title">Previous crash</string>
+
+    <!-- ── Home-screen widget ─────────────────────────────────────────── -->
+    <string name="widget_description">Playback controls, rating and Auto-DJ toggle for the current track.</string>
 </resources>

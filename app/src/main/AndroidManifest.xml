@@ -43,5 +43,20 @@
             </intent-filter>
         </service>
 
+        <!-- Home-screen widget: 3 responsive sizes (SMALL 2x1 / MEDIUM 3x2 /
+             LARGE 4x2), transport + Auto-DJ + rating + cover-art thumbnail.
+             Backed by Glance; see ui/widget/*. -->
+        <receiver
+            android:name=".widget.SharesonicWidgetReceiver"
+            android:exported="false"
+            android:label="@string/app_name">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+            </intent-filter>
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/sharesonic_widget_info" />
+        </receiver>
+
     </application>
 </manifest>

@@ -21,17 +21,16 @@ import com.tiritibambix.sharesonic.data.Result
 import com.tiritibambix.sharesonic.data.SubsonicRepository
 import com.tiritibambix.sharesonic.data.api.VelvetClient
 import com.tiritibambix.sharesonic.data.api.SubsonicClient
-import com.tiritibambix.sharesonic.data.api.models.BpmRange
 import com.tiritibambix.sharesonic.data.api.models.EntryDto
 import com.tiritibambix.sharesonic.data.api.models.VelvetInnerMetadata
-import com.tiritibambix.sharesonic.data.api.models.VelvetRandomSongsRequest
 import com.tiritibambix.sharesonic.data.api.models.NativePlaylist
 import com.tiritibambix.sharesonic.data.settings.AutoDjSettings
 import com.tiritibambix.sharesonic.data.settings.ServerSettings
 import com.tiritibambix.sharesonic.data.settings.SettingsRepository
-import com.tiritibambix.sharesonic.utils.CamelotWheel
-import com.tiritibambix.sharesonic.utils.KeywordFilter
+import com.tiritibambix.sharesonic.playback.AutoDjOrchestrator
 import com.tiritibambix.sharesonic.playback.PlaybackService
+import com.tiritibambix.sharesonic.widget.WidgetSnapshot
+import com.tiritibambix.sharesonic.widget.WidgetStateRepository
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
@@ -85,17 +84,26 @@ class PlayerViewModel(
     private val _playlists = MutableStateFlow<List<NativePlaylist>>(emptyList())
     val playlists: StateFlow<List<NativePlaylist>> = _playlists
 
-    // ── Auto-DJ internal state ────────────────────────────────────────────────
-    /** Songs already returned this session — passed back to avoid repeats. */
-    private var autoDjIgnoreList: List<Int> = emptyList()
-    /** Ring buffer of recently played artist names for cooldown tracking. */
-    private val recentlyPlayedArtists = ArrayDeque<String>()
-    /** Cache of Last.fm similar-artist lookups (artist → list of similar artists). */
-    private val similarArtistsCache = mutableMapOf<String, List<String>>()
+    // ── Auto-DJ ───────────────────────────────────────────────────────────────
     /** Latest snapshot of the user's Auto-DJ configuration. */
     private var autoDjSettings: AutoDjSettings = AutoDjSettings()
     /** Available library vpaths from the last successful connection test. */
     private var cachedVpaths: List<String> = emptyList()
+    /** Shared engine — the [PlaybackService] runs an equivalent instance so
+     *  Auto-DJ keeps producing tracks even when the Activity is destroyed. */
+    private val autoDj = AutoDjOrchestrator(
+        context = context,
+        settingsRepo = settingsRepo,
+        addTrackToQueue = { song -> addToQueue(song) },
+        getCurrentTrack = { _state.value.currentSong },
+        getCachedVpaths = { cachedVpaths },
+    )
+
+    // ── Widget snapshot writer ────────────────────────────────────────────────
+    /** Publishes changes to the home-screen widget's persistent snapshot on top
+     *  of the [PlaybackService]'s own publishes — needed for state the service
+     *  doesn't observe on its own (star rating). */
+    private val widgetState = WidgetStateRepository(context)
 
     // ── Sleep timer ───────────────────────────────────────────────────────────
     /** Wall-clock time (SystemClock.elapsedRealtime) at which playback should pause,
@@ -141,17 +149,10 @@ class PlayerViewModel(
                                 fireNowPlaying(song)
                             }
                             // Auto-DJ: track artist for cooldown
-                            val artist = song.artist
-                            if (!artist.isNullOrBlank()) {
-                                recentlyPlayedArtists.remove(artist)   // deduplicate
-                                recentlyPlayedArtists.addLast(artist)
-                                while (recentlyPlayedArtists.size > autoDjSettings.artistCooldown) {
-                                    recentlyPlayedArtists.removeFirst()
-                                }
-                            }
+                            autoDj.onTrackChanged(song, autoDjSettings.artistCooldown)
                             // Auto-DJ: when we reach the last queued track, pre-fetch the next one
                             if (_state.value.autoDjEnabled && idx == queue.lastIndex) {
-                                fetchAndEnqueueAutoDjSong()
+                                autoDj.fetchNext(viewModelScope)
                             }
                         }
                     }
@@ -203,7 +204,54 @@ class PlayerViewModel(
         viewModelScope.launch {
             settingsRepo.vpaths.collect { cachedVpaths = it }
         }
+        // Bridge the persistent Auto-DJ flag into PlayerState so the in-app UI
+        // (Now Playing toggle, mini-bar toggle) stays live-synced with the
+        // DataStore value — the widget writes to that same key.
+        viewModelScope.launch {
+            settingsRepo.autoDjEnabled.collect { enabled ->
+                val wasEnabled = _state.value.autoDjEnabled
+                _state.update { it.copy(autoDjEnabled = enabled) }
+                if (!enabled && wasEnabled) autoDj.reset()
+                if (enabled && !wasEnabled) {
+                    // Turning on — if we're already sitting at the last track,
+                    // fetch immediately so the transition to Auto-DJ mode is felt.
+                    val s = _state.value
+                    if (s.queue.isNotEmpty() && s.queueIndex == s.queue.lastIndex) {
+                        autoDj.fetchNext(viewModelScope)
+                    }
+                }
+                // Republish snapshot so the widget picks up the flag change from
+                // outside sources (Now Playing toggle in-app) too.
+                publishWidgetSnapshot()
+            }
+        }
+        // Republish widget snapshot on every state change (rating updates,
+        // isPlaying, currentSong changes). The service also publishes on player
+        // events; the VM stays authoritative for rating (which the service
+        // doesn't see) and for cover-art URL / artist / filepath (data that
+        // lives on EntryDto, not on MediaMetadata).
+        viewModelScope.launch {
+            _state.collect { publishWidgetSnapshot() }
+        }
         startPositionPolling()
+    }
+
+    private fun publishWidgetSnapshot() {
+        val s = _state.value
+        val song = s.currentSong
+        viewModelScope.launch {
+            widgetState.update {
+                WidgetSnapshot(
+                    title         = song?.title ?: song?.name,
+                    artist        = song?.artist,
+                    filepath      = song?.id?.takeUnless { it.isSubsonicNumericId() },
+                    coverArtUrl   = s.coverArtUrl,
+                    isPlaying     = s.isPlaying,
+                    rating        = (song?.rating ?: 0) / 2,
+                    autoDjEnabled = s.autoDjEnabled,
+                )
+            }
+        }
     }
 
     // ── Position polling ──────────────────────────────────────────────────────
@@ -435,158 +483,18 @@ class PlayerViewModel(
         _state.update { it.copy(sleepRemainingMs = null) }
     }
 
-    // ── Auto-DJ ───────────────────────────────────────────────────────────────
+    // ── Auto-DJ toggle ────────────────────────────────────────────────────────
 
     /**
-     * Toggle the Auto-DJ feature on or off.
-     * When turned on while at the last track of the queue, fetches the next song immediately.
-     * When turned off, the session state (ignoreList, artist cache) is reset.
+     * Toggle the persistent Auto-DJ flag. The DataStore observer above bridges
+     * the value change into [PlayerState.autoDjEnabled] and handles the
+     * turn-on / turn-off side effects (fetch-if-at-last / reset). Writing to
+     * DataStore instead of state directly ensures the widget sees the flag from
+     * outside the app and vice-versa.
      */
     fun toggleAutoDj() {
-        val wasEnabled = _state.value.autoDjEnabled
-        _state.update { it.copy(autoDjEnabled = !wasEnabled) }
-        if (wasEnabled) {
-            // Turning off — reset session state
-            autoDjIgnoreList = emptyList()
-            recentlyPlayedArtists.clear()
-            similarArtistsCache.clear()
-        } else {
-            // Turning on — if already at the last track, fetch immediately
-            val s = _state.value
-            if (s.queue.isNotEmpty() && s.queueIndex == s.queue.lastIndex) {
-                fetchAndEnqueueAutoDjSong()
-            }
-        }
-    }
-
-    /**
-     * Fetch one new song using the Auto-DJ algorithm and append it to the queue.
-     *
-     * Priority order:
-     * 1. Similar artists (from Last.fm cache) + BPM (tight) + Camelot key
-     * 2. BPM (wide) + Camelot key  (if tight fails)
-     * 3. Plain random  (fallback — no constraints)
-     *
-     * The ignoreList is persisted across calls so no song repeats during the session.
-     */
-    private fun fetchAndEnqueueAutoDjSong() {
-        viewModelScope.launch {
-            val serverSettings = settings()
-            val token = serverSettings.jwtToken.ifEmpty { return@launch }
-            val current = _state.value.currentSong
-            val velvet = VelvetRepository(VelvetClient.build(serverSettings.serverUrl))
-
-            // 1. Similar artists (cached per artist)
-            val similarArtists: List<String>? = if (autoDjSettings.useSimilarArtists
-                && !current?.artist.isNullOrBlank()
-            ) {
-                similarArtistsCache.getOrPut(current!!.artist!!) {
-                    when (val r = velvet.getSimilarArtists(token, current.artist!!)) {
-                        is Result.Success -> r.data
-                        else              -> emptyList()
-                    }
-                }.takeIf { it.isNotEmpty() }
-            } else null
-
-            // 2. BPM ranges from current track
-            val bpmTight: List<BpmRange>? = if (autoDjSettings.useBpm && current?.bpm != null) {
-                listOf(BpmRange(
-                    current.bpm!! - autoDjSettings.bpmTightRange,
-                    current.bpm!! + autoDjSettings.bpmTightRange
-                ))
-            } else null
-            val bpmWide: List<BpmRange>? = if (autoDjSettings.useBpm && current?.bpm != null) {
-                listOf(BpmRange(
-                    current.bpm!! - autoDjSettings.bpmWideRange,
-                    current.bpm!! + autoDjSettings.bpmWideRange
-                ))
-            } else null
-
-            // 3. Compatible Camelot keys
-            val keys: List<String>? = if (autoDjSettings.useHarmonicMixing
-                && !current?.musicalKey.isNullOrBlank()
-            ) {
-                CamelotWheel.compatibleKeys(current!!.musicalKey!!)
-            } else null
-
-            // 4. Artist cooldown
-            val cooldownArtists: List<String>? = recentlyPlayedArtists.toList().takeIf { it.isNotEmpty() }
-
-            // 5. Genre filter
-            val genreList: List<String>? = if (autoDjSettings.genreMode != "off") autoDjSettings.genres.takeIf { it.isNotEmpty() } else null
-            val genreMode: String?       = if (autoDjSettings.genreMode != "off") autoDjSettings.genreMode else null
-            val minRating: Int?          = if (autoDjSettings.minRating > 0) autoDjSettings.minRating else null
-
-            // Source-folder filter — compute the vpaths to exclude from random selection
-            val sourceFolders = autoDjSettings.sourceFolders
-            val ignoreVPaths: List<String>? = if (sourceFolders.isNotEmpty() && cachedVpaths.isNotEmpty()) {
-                cachedVpaths.filter { it !in sourceFolders }.takeIf { it.isNotEmpty() }
-            } else null
-
-            // Build primary request (tight BPM + similar artists + Camelot)
-            val primaryRequest = VelvetRandomSongsRequest(
-                ignoreList          = autoDjIgnoreList,
-                ignoreVPaths        = ignoreVPaths,
-                bpmRanges           = bpmTight,
-                bpmRangesWide       = bpmWide,
-                requireBpm          = if (autoDjSettings.requireBpm) true else null,
-                musicalKeys         = keys,
-                requireMusicalKey   = if (autoDjSettings.requireKey) true else null,
-                artists             = similarArtists,
-                ignoreArtists       = cooldownArtists,
-                genres              = genreList,
-                genreMode           = genreMode,
-                minRating           = minRating
-            )
-
-            // Client-side Keyword Filter — Velvet has no equivalent server field,
-            // so blocked songs are filtered by re-fetching. Each attempt advances
-            // autoDjIgnoreList from the response BEFORE the keyword check, so the
-            // server never returns the same blocked song twice; a pathological
-            // filter word ("a") caps at MAX_KEYWORD_ATTEMPTS and gives up silently
-            // (Auto-DJ retries on the next track transition — same contract as
-            // before). Filter off ⇒ single attempt, byte-identical to old behavior.
-            suspend fun fetchOnce(): EntryDto? {
-                when (val r = velvet.fetchAutoDjSong(
-                    token,
-                    primaryRequest.copy(ignoreList = autoDjIgnoreList)
-                )) {
-                    is Result.Success -> {
-                        autoDjIgnoreList = r.data.second
-                        return r.data.first
-                    }
-                    is Result.Error -> Unit   // fall through to fallback
-                }
-                return when (val fallback = velvet.fetchAutoDjSong(
-                    token,
-                    VelvetRandomSongsRequest(ignoreList = autoDjIgnoreList, ignoreVPaths = ignoreVPaths)
-                )) {
-                    is Result.Success -> {
-                        autoDjIgnoreList = fallback.data.second
-                        fallback.data.first
-                    }
-                    is Result.Error -> null
-                }
-            }
-
-            val filterWords = autoDjSettings.keywordFilterWords
-            val filterOn = autoDjSettings.keywordFilterEnabled && filterWords.isNotEmpty()
-
-            repeat(MAX_KEYWORD_ATTEMPTS) {
-                val song = fetchOnce() ?: return@launch
-                if (!filterOn || !KeywordFilter.isBlocked(song, filterWords)) {
-                    addToQueue(song)
-                    return@launch
-                }
-                // Blocked — ignoreList already advanced; loop refetches a different song.
-            }
-            // MAX_KEYWORD_ATTEMPTS consecutive blocks: give up this cycle silently.
-        }
-    }
-
-    private companion object {
-        /** Cap Keyword Filter refetch attempts so a too-broad word can't loop forever. */
-        const val MAX_KEYWORD_ATTEMPTS = 10
+        val next = !_state.value.autoDjEnabled
+        viewModelScope.launch { settingsRepo.saveAutoDjEnabled(next) }
     }
 
     // ── Share ─────────────────────────────────────────────────────────────────
