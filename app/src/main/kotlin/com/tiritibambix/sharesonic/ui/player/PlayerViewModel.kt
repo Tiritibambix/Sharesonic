@@ -37,7 +37,9 @@ import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 
@@ -220,38 +222,33 @@ class PlayerViewModel(
                         autoDj.fetchNext(viewModelScope)
                     }
                 }
-                // Republish snapshot so the widget picks up the flag change from
-                // outside sources (Now Playing toggle in-app) too.
-                publishWidgetSnapshot()
+                // The _state.copy(autoDjEnabled = enabled) above will re-emit
+                // through the throttled snapshot collector below — no need to
+                // publish here explicitly.
             }
         }
-        // Republish widget snapshot on every state change (rating updates,
-        // isPlaying, currentSong changes). The service also publishes on player
-        // events; the VM stays authoritative for rating (which the service
-        // doesn't see) and for cover-art URL / artist / filepath (data that
-        // lives on EntryDto, not on MediaMetadata).
+        // Republish the widget snapshot only when a widget-relevant field
+        // actually changes. Without the map + distinctUntilChanged, the
+        // 500 ms position-polling loop was flooding DataStore + updateAll()
+        // twice a second, which visibly slowed the whole app down.
         viewModelScope.launch {
-            _state.collect { publishWidgetSnapshot() }
+            _state
+                .map { s ->
+                    val song = s.currentSong
+                    WidgetSnapshot(
+                        title         = song?.title ?: song?.name,
+                        artist        = song?.artist,
+                        filepath      = song?.id?.takeUnless { it.isSubsonicNumericId() },
+                        coverArtUrl   = s.coverArtUrl,
+                        isPlaying     = s.isPlaying,
+                        rating        = (song?.rating ?: 0) / 2,
+                        autoDjEnabled = s.autoDjEnabled,
+                    )
+                }
+                .distinctUntilChanged()
+                .collect { snap -> widgetState.update { snap } }
         }
         startPositionPolling()
-    }
-
-    private fun publishWidgetSnapshot() {
-        val s = _state.value
-        val song = s.currentSong
-        viewModelScope.launch {
-            widgetState.update {
-                WidgetSnapshot(
-                    title         = song?.title ?: song?.name,
-                    artist        = song?.artist,
-                    filepath      = song?.id?.takeUnless { it.isSubsonicNumericId() },
-                    coverArtUrl   = s.coverArtUrl,
-                    isPlaying     = s.isPlaying,
-                    rating        = (song?.rating ?: 0) / 2,
-                    autoDjEnabled = s.autoDjEnabled,
-                )
-            }
-        }
     }
 
     // ── Position polling ──────────────────────────────────────────────────────

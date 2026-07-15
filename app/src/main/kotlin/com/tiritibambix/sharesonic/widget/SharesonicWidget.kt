@@ -118,19 +118,31 @@ class SharesonicWidget : GlanceAppWidget() {
 
     @Composable
     private fun MediumLayout(snapshot: WidgetSnapshot, coverBitmap: android.graphics.Bitmap?) {
-        Row(
-            modifier = GlanceModifier.fillMaxSize(),
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            CoverThumb(coverBitmap, sizeDp = 56)
-            Spacer(GlanceModifier.width(10.dp))
-            Column(modifier = GlanceModifier.defaultWeight()) {
-                TrackText(snapshot)
-                Spacer(GlanceModifier.size(6.dp))
-                TransportRow(isPlaying = snapshot.isPlaying)
+        Column(modifier = GlanceModifier.fillMaxSize()) {
+            Row(
+                modifier = GlanceModifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                CoverThumb(coverBitmap, sizeDp = 48)
+                Spacer(GlanceModifier.width(10.dp))
+                Column(modifier = GlanceModifier.defaultWeight()) {
+                    TrackText(snapshot)
+                }
+                Spacer(GlanceModifier.width(6.dp))
+                AutoDjBadge(enabled = snapshot.autoDjEnabled)
             }
-            Spacer(GlanceModifier.width(10.dp))
-            AutoDjBadge(enabled = snapshot.autoDjEnabled)
+            Spacer(GlanceModifier.size(6.dp))
+            Row(
+                modifier = GlanceModifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalAlignment = Alignment.CenterHorizontally,
+            ) {
+                TransportRow(isPlaying = snapshot.isPlaying)
+                if (snapshot.filepath != null) {
+                    Spacer(GlanceModifier.width(10.dp))
+                    RatingRow(rating = snapshot.rating, starSize = 22)
+                }
+            }
         }
     }
 
@@ -211,12 +223,8 @@ class SharesonicWidget : GlanceAppWidget() {
     }
 
     @Composable
-    private fun RatingRow(rating: Int) {
-        Row(
-            modifier = GlanceModifier.fillMaxWidth(),
-            horizontalAlignment = Alignment.CenterHorizontally,
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
+    private fun RatingRow(rating: Int, starSize: Int = 28) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
             (1..5).forEach { star ->
                 val filled = star <= rating
                 IconButton(
@@ -225,7 +233,7 @@ class SharesonicWidget : GlanceAppWidget() {
                     onClickAction = actionRunCallback<RateCallback>(
                         actionParametersOf(RateCallback.StarsKey to star),
                     ),
-                    size = 28,
+                    size = starSize,
                 )
                 if (star != 5) Spacer(GlanceModifier.width(2.dp))
             }
