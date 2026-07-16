@@ -31,7 +31,6 @@ import androidx.glance.layout.Spacer
 import androidx.glance.layout.fillMaxHeight
 import androidx.glance.layout.fillMaxSize
 import androidx.glance.layout.fillMaxWidth
-import androidx.glance.layout.height
 import androidx.glance.layout.padding
 import androidx.glance.layout.size
 import androidx.glance.layout.width
@@ -45,102 +44,67 @@ import kotlinx.coroutines.flow.first
 
 class SharesonicWidget : GlanceAppWidget() {
 
-    // Two responsive buckets — one compact (roughly 2×1), one full (3×2 and up).
-    // Below the compact threshold, Glance falls back to the compact bucket.
+    // Two buckets. COMPACT drops the rating row (no vertical room). FULL shows
+    // everything. Glance falls back to COMPACT below the FULL width threshold.
     companion object {
-        private val COMPACT_SIZE = DpSize(180.dp, 90.dp)
-        private val FULL_SIZE    = DpSize(260.dp, 150.dp)
+        private val COMPACT_SIZE = DpSize(200.dp, 100.dp)
+        private val FULL_SIZE    = DpSize(280.dp, 160.dp)
     }
 
     override val sizeMode = SizeMode.Responsive(setOf(COMPACT_SIZE, FULL_SIZE))
     override val stateDefinition: GlanceStateDefinition<*>? = null
 
     override suspend fun provideGlance(context: Context, id: GlanceId) {
-        val repo = WidgetStateRepository(context)
-        val snapshot = repo.snapshot.first()
+        val snapshot = WidgetStateRepository(context).snapshot.first()
         val bitmap = loadCoverArtBitmap(context, snapshot.coverArtUrl)
         provideContent {
             GlanceTheme {
-                WidgetContent(snapshot = snapshot, coverBitmap = bitmap)
+                WidgetContent(snapshot, bitmap)
             }
         }
     }
 
     @Composable
-    private fun WidgetContent(snapshot: WidgetSnapshot, coverBitmap: android.graphics.Bitmap?) {
+    private fun WidgetContent(snapshot: WidgetSnapshot, cover: android.graphics.Bitmap?) {
         val size = LocalSize.current
-        val compact = size.width < FULL_SIZE.width
+        val full = size.height >= FULL_SIZE.height && size.width >= FULL_SIZE.width
         val openApp = actionStartActivity<MainActivity>()
 
-        // No outer clickable — Glance's nested-click routing is unreliable, so
-        // tap-to-open is restricted to the cover art and the title stack (the
-        // areas where a "tap" naturally reads as "open the full player").
+        // No outer clickable: Glance's nested-click routing swallows child taps
+        // when a parent is also clickable, which is why the buttons "did
+        // nothing". Tap-to-open lives on the cover and title only.
         Box(
             modifier = GlanceModifier
                 .fillMaxSize()
                 .background(GlanceTheme.colors.widgetBackground)
-                .cornerRadius(20.dp)
-                .padding(10.dp)
+                .cornerRadius(24.dp)
+                .padding(14.dp)
         ) {
-            if (compact) CompactLayout(snapshot, coverBitmap, openApp)
-            else         FullLayout(snapshot, coverBitmap, openApp)
-        }
-    }
-
-    // ── Layouts ────────────────────────────────────────────────────────────
-
-    /** ~2×1: cover + transport + AutoDJ. No rating (not enough room). */
-    @Composable
-    private fun CompactLayout(
-        snapshot: WidgetSnapshot,
-        coverBitmap: android.graphics.Bitmap?,
-        openApp: Action,
-    ) {
-        Row(
-            modifier = GlanceModifier.fillMaxSize(),
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            CoverThumb(coverBitmap, sizeDp = 56, onClick = openApp)
-            Spacer(GlanceModifier.width(10.dp))
-            Column(
-                modifier = GlanceModifier.defaultWeight(),
+            Row(
+                modifier = GlanceModifier.fillMaxSize(),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
-                TrackText(snapshot, onClick = openApp)
-                Spacer(GlanceModifier.height(6.dp))
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    TransportRow(isPlaying = snapshot.isPlaying, size = 34)
-                    Spacer(GlanceModifier.width(6.dp))
-                    AutoDjToggle(enabled = snapshot.autoDjEnabled, size = 34)
-                }
-            }
-        }
-    }
-
-    /** ~3×2 and up: cover + full track info + transport + AutoDJ + rating stars. */
-    @Composable
-    private fun FullLayout(
-        snapshot: WidgetSnapshot,
-        coverBitmap: android.graphics.Bitmap?,
-        openApp: Action,
-    ) {
-        Row(
-            modifier = GlanceModifier.fillMaxSize(),
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            CoverThumb(coverBitmap, sizeDp = 84, onClick = openApp)
-            Spacer(GlanceModifier.width(12.dp))
-            Column(modifier = GlanceModifier.defaultWeight().fillMaxHeight()) {
-                TrackText(snapshot, onClick = openApp)
-                Spacer(GlanceModifier.defaultWeight())
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    TransportRow(isPlaying = snapshot.isPlaying, size = 38)
-                    Spacer(GlanceModifier.width(8.dp))
-                    AutoDjToggle(enabled = snapshot.autoDjEnabled, size = 38)
-                }
-                if (snapshot.filepath != null) {
-                    Spacer(GlanceModifier.height(6.dp))
-                    RatingRow(rating = snapshot.rating, starSize = 26)
+                // Big square cover filling the widget height — the visual anchor.
+                CoverThumb(cover, onClick = openApp)
+                Spacer(GlanceModifier.width(14.dp))
+                Column(modifier = GlanceModifier.defaultWeight().fillMaxHeight()) {
+                    Spacer(GlanceModifier.defaultWeight())
+                    TrackText(snapshot, onClick = openApp)
+                    Spacer(GlanceModifier.defaultWeight())
+                    // Transport centred, with the Auto-DJ pill pinned to the right.
+                    Row(
+                        modifier = GlanceModifier.fillMaxWidth(),
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        TransportRow(isPlaying = snapshot.isPlaying)
+                        Spacer(GlanceModifier.defaultWeight())
+                        AutoDjToggle(enabled = snapshot.autoDjEnabled)
+                    }
+                    if (full && snapshot.filepath != null) {
+                        Spacer(GlanceModifier.defaultWeight())
+                        RatingRow(rating = snapshot.rating)
+                    }
+                    Spacer(GlanceModifier.defaultWeight())
                 }
             }
         }
@@ -152,11 +116,11 @@ class SharesonicWidget : GlanceAppWidget() {
     private fun TrackText(snapshot: WidgetSnapshot, onClick: Action) {
         Column(modifier = GlanceModifier.fillMaxWidth().clickable(onClick)) {
             Text(
-                text = snapshot.title?.takeIf { it.isNotBlank() } ?: "—",
+                text = snapshot.title?.takeIf { it.isNotBlank() } ?: "Nothing playing",
                 style = TextStyle(
                     color = GlanceTheme.colors.onSurface,
-                    fontSize = 14.sp,
-                    fontWeight = FontWeight.Medium,
+                    fontSize = 15.sp,
+                    fontWeight = FontWeight.Bold,
                 ),
                 maxLines = 1,
             )
@@ -174,65 +138,74 @@ class SharesonicWidget : GlanceAppWidget() {
     }
 
     @Composable
-    private fun TransportRow(isPlaying: Boolean, size: Int) {
+    private fun TransportRow(isPlaying: Boolean) {
         Row(verticalAlignment = Alignment.CenterVertically) {
-            IconButton(
+            CircleButton(
                 iconRes = R.drawable.ic_widget_prev,
                 contentDescription = "Previous",
                 onClickAction = actionRunCallback<PrevCallback>(),
-                size = size,
+                diameter = 44,
             )
-            Spacer(GlanceModifier.width(2.dp))
-            IconButton(
+            Spacer(GlanceModifier.width(6.dp))
+            CircleButton(
                 iconRes = if (isPlaying) R.drawable.ic_widget_pause else R.drawable.ic_widget_play,
                 contentDescription = if (isPlaying) "Pause" else "Play",
                 onClickAction = actionRunCallback<PlayPauseCallback>(),
-                size = size + 6,
-                filled = true,
+                diameter = 52,
+                accent = true,
             )
-            Spacer(GlanceModifier.width(2.dp))
-            IconButton(
+            Spacer(GlanceModifier.width(6.dp))
+            CircleButton(
                 iconRes = R.drawable.ic_widget_next,
                 contentDescription = "Next",
                 onClickAction = actionRunCallback<NextCallback>(),
-                size = size,
+                diameter = 44,
             )
         }
     }
 
     @Composable
-    private fun RatingRow(rating: Int, starSize: Int) {
+    private fun RatingRow(rating: Int) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             (1..5).forEach { star ->
                 val filled = star <= rating
-                IconButton(
-                    iconRes = if (filled) R.drawable.ic_widget_star_filled else R.drawable.ic_widget_star_outline,
-                    contentDescription = "$star star${if (star > 1) "s" else ""}",
-                    onClickAction = actionRunCallback<RateCallback>(
-                        actionParametersOf(RateCallback.StarsKey to star),
-                    ),
-                    size = starSize,
-                    // Filled stars get a subtle primary tint on top of the same
-                    // filled asset so on/off contrast is unmistakable.
-                    tintFilled = filled,
-                )
+                Box(
+                    modifier = GlanceModifier
+                        .size(30.dp)
+                        .clickable(
+                            actionRunCallback<RateCallback>(
+                                actionParametersOf(RateCallback.StarsKey to star),
+                            ),
+                        ),
+                    contentAlignment = Alignment.Center,
+                ) {
+                    Image(
+                        provider = ImageProvider(
+                            if (filled) R.drawable.ic_widget_star_filled else R.drawable.ic_widget_star_outline,
+                        ),
+                        contentDescription = "$star star${if (star > 1) "s" else ""}",
+                        modifier = GlanceModifier.size(22.dp),
+                        colorFilter = ColorFilter.tint(
+                            if (filled) GlanceTheme.colors.primary else GlanceTheme.colors.onSurfaceVariant,
+                        ),
+                    )
+                }
             }
         }
     }
 
     /**
-     * Auto-DJ pill. Filled-primary background when ON, hollow border-only when
-     * OFF — the visual difference is deliberately loud so a glance tells the
-     * user which mode they're in (the previous subtler tint-swap wasn't enough).
+     * Auto-DJ pill. Filled-primary when ON, hollow grey when OFF — a loud
+     * visual difference so a glance tells the user the mode.
      */
     @Composable
-    private fun AutoDjToggle(enabled: Boolean, size: Int) {
+    private fun AutoDjToggle(enabled: Boolean) {
         val bg = if (enabled) GlanceTheme.colors.primary else GlanceTheme.colors.surfaceVariant
         val fg = if (enabled) GlanceTheme.colors.onPrimary else GlanceTheme.colors.onSurfaceVariant
         Box(
             modifier = GlanceModifier
-                .size(size.dp)
-                .cornerRadius((size / 2).dp)
+                .size(44.dp)
+                .cornerRadius(22.dp)
                 .background(bg)
                 .clickable(actionRunCallback<ToggleAutoDjCallback>()),
             contentAlignment = Alignment.Center,
@@ -240,18 +213,18 @@ class SharesonicWidget : GlanceAppWidget() {
             Image(
                 provider = ImageProvider(R.drawable.ic_widget_autodj),
                 contentDescription = if (enabled) "Auto-DJ on" else "Auto-DJ off",
-                modifier = GlanceModifier.size((size * 5 / 8).dp),
+                modifier = GlanceModifier.size(24.dp),
                 colorFilter = ColorFilter.tint(fg),
             )
         }
     }
 
     @Composable
-    private fun CoverThumb(bitmap: android.graphics.Bitmap?, sizeDp: Int, onClick: Action) {
+    private fun CoverThumb(bitmap: android.graphics.Bitmap?, onClick: Action) {
         Box(
             modifier = GlanceModifier
-                .size(sizeDp.dp)
-                .cornerRadius(8.dp)
+                .fillMaxHeight()
+                .cornerRadius(12.dp)
                 .background(GlanceTheme.colors.surfaceVariant)
                 .clickable(onClick),
             contentAlignment = Alignment.Center,
@@ -260,49 +233,46 @@ class SharesonicWidget : GlanceAppWidget() {
                 Image(
                     provider = ImageProvider(bitmap),
                     contentDescription = null,
-                    modifier = GlanceModifier.fillMaxSize().cornerRadius(8.dp),
+                    modifier = GlanceModifier.fillMaxHeight().width(96.dp).cornerRadius(12.dp),
                     contentScale = ContentScale.Crop,
                 )
             } else {
-                Image(
-                    provider = ImageProvider(R.drawable.ic_widget_music),
-                    contentDescription = null,
-                    modifier = GlanceModifier.size((sizeDp / 2).dp),
-                    colorFilter = ColorFilter.tint(GlanceTheme.colors.onSurfaceVariant),
-                )
+                // Give the placeholder a concrete width so it doesn't collapse.
+                Box(
+                    modifier = GlanceModifier.fillMaxHeight().width(96.dp),
+                    contentAlignment = Alignment.Center,
+                ) {
+                    Image(
+                        provider = ImageProvider(R.drawable.ic_widget_music),
+                        contentDescription = null,
+                        modifier = GlanceModifier.size(36.dp),
+                        colorFilter = ColorFilter.tint(GlanceTheme.colors.onSurfaceVariant),
+                    )
+                }
             }
         }
     }
 
     /**
-     * Generic icon button. When [filled] is true the button has a primary
-     * background — used for the play/pause target so it stands out from
-     * prev/next. When [tintFilled] is true the icon is tinted with `primary`
-     * (used for the "on" star to make filled vs empty visually loud).
-     *
-     * Each button gets its OWN background — a Box with a transparent
-     * background may not register as a click target in some Glance / launcher
-     * combinations, hence the `.background` call even when we want it plain.
+     * A circular icon button. Every button carries its OWN background circle —
+     * a transparent Box may fail to register as a click target in some
+     * launcher / Glance combinations, and the filled circle also makes the
+     * controls read as tappable.
      */
     @Composable
-    private fun IconButton(
+    private fun CircleButton(
         iconRes: Int,
         contentDescription: String,
         onClickAction: Action,
-        size: Int,
-        filled: Boolean = false,
-        tintFilled: Boolean = false,
+        diameter: Int,
+        accent: Boolean = false,
     ) {
-        val bg = if (filled) GlanceTheme.colors.primary else GlanceTheme.colors.surfaceVariant
-        val fg = when {
-            filled     -> GlanceTheme.colors.onPrimary
-            tintFilled -> GlanceTheme.colors.primary
-            else       -> GlanceTheme.colors.onSurfaceVariant
-        }
+        val bg = if (accent) GlanceTheme.colors.primary else GlanceTheme.colors.surfaceVariant
+        val fg = if (accent) GlanceTheme.colors.onPrimary else GlanceTheme.colors.onSurface
         Box(
             modifier = GlanceModifier
-                .size(size.dp)
-                .cornerRadius((size / 2).dp)
+                .size(diameter.dp)
+                .cornerRadius((diameter / 2).dp)
                 .background(bg)
                 .clickable(onClickAction),
             contentAlignment = Alignment.Center,
@@ -310,7 +280,7 @@ class SharesonicWidget : GlanceAppWidget() {
             Image(
                 provider = ImageProvider(iconRes),
                 contentDescription = contentDescription,
-                modifier = GlanceModifier.size((size * 9 / 16).dp),
+                modifier = GlanceModifier.size((diameter * 9 / 16).dp),
                 colorFilter = ColorFilter.tint(fg),
             )
         }
