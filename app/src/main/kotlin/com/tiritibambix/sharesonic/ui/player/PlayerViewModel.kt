@@ -245,18 +245,23 @@ class PlayerViewModel(
                 }
                 .distinctUntilChanged()
                 .collect { snap ->
-                    // Push text/buttons FIRST — instant, no network. Then, only
-                    // when the cover URL changes, download it OFF the render
-                    // path and push again so the artwork fills in. The cover
-                    // download must never gate the text render (that was the
-                    // ~2-minute-latency bug).
-                    pushWidgetState(context, snap)
-                    if (snap.coverArtUrl != lastWidgetCoverUrl) {
+                    val coverChanged = snap.coverArtUrl != lastWidgetCoverUrl
+                    // Drop the stale artwork BEFORE the push so the new track
+                    // never briefly shows the previous cover.
+                    if (coverChanged) {
                         lastWidgetCoverUrl = snap.coverArtUrl
-                        deleteWidgetCover(context)          // clear stale artwork immediately
-                        pushWidgetState(context, snap)      // re-render → placeholder while loading
+                        deleteWidgetCover(context)
+                    }
+                    // Push text/buttons first — instant, no network in this path.
+                    pushWidgetState(context, snap)
+                    if (coverChanged) {
+                        // Download OFF the render path, then bump coverVersion so
+                        // the composition re-decodes the new file. Without the
+                        // bump the snapshot would be identical and the dedup in
+                        // pushWidgetState would (correctly) skip the update.
                         cacheWidgetCover(context, snap.coverArtUrl)
-                        pushWidgetState(context, snap)      // re-render → new artwork
+                        val version = System.currentTimeMillis()
+                        pushWidgetState(context) { it.copy(coverVersion = version) }
                     }
                 }
         }

@@ -2,15 +2,18 @@ package com.tiritibambix.sharesonic.widget
 
 import android.content.Context
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.remember
 import androidx.compose.ui.unit.DpSize
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.datastore.preferences.core.Preferences
 import androidx.glance.ColorFilter
 import androidx.glance.GlanceId
 import androidx.glance.GlanceModifier
 import androidx.glance.GlanceTheme
 import androidx.glance.Image
 import androidx.glance.ImageProvider
+import androidx.glance.LocalContext
 import androidx.glance.LocalSize
 import androidx.glance.action.Action
 import androidx.glance.action.actionParametersOf
@@ -21,8 +24,8 @@ import androidx.glance.appwidget.SizeMode
 import androidx.glance.appwidget.action.actionRunCallback
 import androidx.glance.appwidget.cornerRadius
 import androidx.glance.appwidget.provideContent
-import androidx.glance.appwidget.state.getAppWidgetState
 import androidx.glance.background
+import androidx.glance.currentState
 import androidx.glance.layout.Alignment
 import androidx.glance.layout.Box
 import androidx.glance.layout.Column
@@ -59,17 +62,23 @@ class SharesonicWidget : GlanceAppWidget() {
     override val stateDefinition = PreferencesGlanceStateDefinition
 
     override suspend fun provideGlance(context: Context, id: GlanceId) {
-        // Read the current snapshot + the cached cover bitmap. BOTH are local,
-        // synchronous reads — NO network here. The cover download happens off
-        // the render path (see PlayerViewModel + cacheWidgetCover); this only
-        // decodes the cached file. Keeping provideGlance instant is what makes
-        // every update() re-render immediately (Auto-DJ pill, rating, content).
-        val snapshot = getAppWidgetState(
-            context, PreferencesGlanceStateDefinition, id
-        ).toWidgetSnapshot()
-        val cover = decodeWidgetCover(context)
+        // CRITICAL — do NOT read state out here. From the Glance source:
+        // "update and updateAll do not restart provideGlance if it is already
+        // running" (GlanceAppWidget.kt). Anything read before provideContent is
+        // captured ONCE and frozen for the life of the session, so the widget
+        // could never reflect a change. AppWidgetSession.kt shows the only path
+        // a refresh takes: updateGlance() re-reads the stateDefinition into
+        // `glanceState`, which is exposed as LocalState — i.e. via currentState
+        // INSIDE the composition. That is why everything below reads there.
         provideContent {
             GlanceTheme {
+                val snapshot = currentState<Preferences>().toWidgetSnapshot()
+                val ctx = LocalContext.current
+                // Decode the cached cover only when the artwork actually
+                // changed (URL or file version), not on every recomposition.
+                val cover = remember(snapshot.coverArtUrl, snapshot.coverVersion) {
+                    decodeWidgetCover(ctx)
+                }
                 WidgetContent(snapshot, cover)
             }
         }

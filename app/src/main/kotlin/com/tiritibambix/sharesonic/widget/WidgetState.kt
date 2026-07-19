@@ -4,6 +4,7 @@ import android.content.Context
 import androidx.datastore.preferences.core.Preferences
 import androidx.datastore.preferences.core.booleanPreferencesKey
 import androidx.datastore.preferences.core.intPreferencesKey
+import androidx.datastore.preferences.core.longPreferencesKey
 import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.glance.appwidget.GlanceAppWidgetManager
 import androidx.glance.appwidget.state.updateAppWidgetState
@@ -31,6 +32,10 @@ data class WidgetSnapshot(
     /** UI-scale rating 0..5 (native scale is 0..10, already divided by 2). */
     val rating: Int = 0,
     val autoDjEnabled: Boolean = false,
+    /** Bumped whenever the cached cover FILE is rewritten. The composition keys
+     *  its bitmap decode on this, so a new artwork forces a re-decode even
+     *  though every other field stayed the same. */
+    val coverVersion: Long = 0L,
 )
 
 /** Preference keys inside the widget's Glance state. */
@@ -42,6 +47,7 @@ object WidgetKeys {
     val IS_PLAYING = booleanPreferencesKey("is_playing")
     val RATING     = intPreferencesKey("rating")
     val AUTO_DJ    = booleanPreferencesKey("auto_dj")
+    val COVER_VER  = longPreferencesKey("cover_version")
 }
 
 /** Read a [WidgetSnapshot] out of a Glance state [Preferences] blob. */
@@ -53,6 +59,7 @@ fun Preferences.toWidgetSnapshot(): WidgetSnapshot = WidgetSnapshot(
     isPlaying     = this[WidgetKeys.IS_PLAYING] ?: false,
     rating        = this[WidgetKeys.RATING] ?: 0,
     autoDjEnabled = this[WidgetKeys.AUTO_DJ] ?: false,
+    coverVersion  = this[WidgetKeys.COVER_VER] ?: 0L,
 )
 
 /**
@@ -67,21 +74,33 @@ fun Preferences.toWidgetSnapshot(): WidgetSnapshot = WidgetSnapshot(
 suspend fun pushWidgetState(context: Context, transform: (WidgetSnapshot) -> WidgetSnapshot) {
     val manager = GlanceAppWidgetManager(context)
     val ids = manager.getGlanceIds(SharesonicWidget::class.java)
+    if (ids.isEmpty()) return
     val widget = SharesonicWidget()
     ids.forEach { id ->
+        // Only write + update when something actually changed. Glance serialises
+        // updates through a session; spamming it with no-op updates can starve
+        // the real ones (and on placement can leave the widget blank).
+        var changed = false
         updateAppWidgetState(context, PreferencesGlanceStateDefinition, id) { prefs ->
-            val next = transform(prefs.toWidgetSnapshot())
-            prefs.toMutablePreferences().apply {
-                this[WidgetKeys.TITLE]      = next.title.orEmpty()
-                this[WidgetKeys.ARTIST]     = next.artist.orEmpty()
-                this[WidgetKeys.FILEPATH]   = next.filepath.orEmpty()
-                this[WidgetKeys.COVER_URL]  = next.coverArtUrl.orEmpty()
-                this[WidgetKeys.IS_PLAYING] = next.isPlaying
-                this[WidgetKeys.RATING]     = next.rating
-                this[WidgetKeys.AUTO_DJ]    = next.autoDjEnabled
+            val current = prefs.toWidgetSnapshot()
+            val next = transform(current)
+            changed = next != current
+            if (!changed) {
+                prefs
+            } else {
+                prefs.toMutablePreferences().apply {
+                    this[WidgetKeys.TITLE]      = next.title.orEmpty()
+                    this[WidgetKeys.ARTIST]     = next.artist.orEmpty()
+                    this[WidgetKeys.FILEPATH]   = next.filepath.orEmpty()
+                    this[WidgetKeys.COVER_URL]  = next.coverArtUrl.orEmpty()
+                    this[WidgetKeys.IS_PLAYING] = next.isPlaying
+                    this[WidgetKeys.RATING]     = next.rating
+                    this[WidgetKeys.AUTO_DJ]    = next.autoDjEnabled
+                    this[WidgetKeys.COVER_VER]  = next.coverVersion
+                }
             }
         }
-        widget.update(context, id)
+        if (changed) widget.update(context, id)
     }
 }
 
