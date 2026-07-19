@@ -12,7 +12,7 @@ import androidx.media3.session.MediaSession
 import androidx.media3.session.MediaSessionService
 import com.tiritibambix.sharesonic.MainActivity
 import com.tiritibambix.sharesonic.data.settings.SettingsRepository
-import com.tiritibambix.sharesonic.widget.WidgetStateRepository
+import com.tiritibambix.sharesonic.widget.pushWidgetState
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -27,7 +27,6 @@ class PlaybackService : MediaSessionService() {
 
     // Populated in onCreate; kept as fields so Player.Listener callbacks can
     // reach them without holding the whole player.
-    private lateinit var widgetState: WidgetStateRepository
     private lateinit var settingsRepo: SettingsRepository
     private lateinit var autoDj: AutoDjOrchestrator
 
@@ -47,7 +46,6 @@ class PlaybackService : MediaSessionService() {
         EqualizerController.attach(audioSessionId)
         applySavedEqualizer()
 
-        widgetState = WidgetStateRepository(applicationContext)
         settingsRepo = SettingsRepository(applicationContext)
         autoDj = AutoDjOrchestrator(
             context = applicationContext,
@@ -80,6 +78,31 @@ class PlaybackService : MediaSessionService() {
         // Keep vpaths in sync for Auto-DJ source-folder filtering.
         serviceScope.launch {
             settingsRepo.vpaths.collect { cachedVpaths = it }
+        }
+
+        // Widget transport command channel. The widget writes "<CMD>@<nonce>"
+        // to DataStore; we execute it on the ExoPlayer directly here — the
+        // reliable widget→playback path (same DataStore-observed mechanism as
+        // Auto-DJ, no MediaController IPC). serviceScope is Main, so ExoPlayer
+        // is touched on the right thread. We ignore the value replayed on
+        // subscription (baseline nonce) so a stale command isn't re-run on
+        // service start.
+        serviceScope.launch {
+            var lastNonce: String? = null
+            settingsRepo.widgetCommand.collect { raw ->
+                if (raw.isBlank()) return@collect
+                val parts = raw.split("@")
+                val cmd = parts.getOrNull(0) ?: return@collect
+                val nonce = parts.getOrNull(1)
+                if (lastNonce == null) { lastNonce = nonce; return@collect }
+                if (nonce == lastNonce) return@collect
+                lastNonce = nonce
+                when (cmd) {
+                    "PLAY_PAUSE" -> player.playWhenReady = !player.playWhenReady
+                    "NEXT" -> if (player.hasNextMediaItem()) player.seekToNextMediaItem()
+                    "PREV" -> if (player.hasPreviousMediaItem()) player.seekToPreviousMediaItem()
+                }
+            }
         }
 
         // Player events → widget snapshot + Auto-DJ trigger on track end.
@@ -122,14 +145,13 @@ class PlaybackService : MediaSessionService() {
     override fun onGetSession(controllerInfo: MediaSession.ControllerInfo): MediaSession? =
         mediaSession
 
-    /** Publish an isPlaying-focused snapshot. The ViewModel supplies the richer
-     *  fields (title/artist/rating/coverArtUrl) when it's alive — this ensures
-     *  isPlaying stays fresh even after the Activity is destroyed. */
+    /** Push isPlaying into the widget's Glance state. The ViewModel supplies the
+     *  richer fields (title/artist/rating/coverArtUrl) when it's alive — this
+     *  keeps isPlaying fresh even after the Activity is destroyed. */
     private fun publishSnapshot(player: Player) {
+        val playing = player.isPlaying
         serviceScope.launch {
-            widgetState.update { current ->
-                current.copy(isPlaying = player.isPlaying)
-            }
+            pushWidgetState(applicationContext) { it.copy(isPlaying = playing) }
         }
     }
 

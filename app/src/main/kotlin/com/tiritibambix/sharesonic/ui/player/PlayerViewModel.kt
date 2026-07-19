@@ -30,7 +30,7 @@ import com.tiritibambix.sharesonic.data.settings.SettingsRepository
 import com.tiritibambix.sharesonic.playback.AutoDjOrchestrator
 import com.tiritibambix.sharesonic.playback.PlaybackService
 import com.tiritibambix.sharesonic.widget.WidgetSnapshot
-import com.tiritibambix.sharesonic.widget.WidgetStateRepository
+import com.tiritibambix.sharesonic.widget.pushWidgetState
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
@@ -100,12 +100,6 @@ class PlayerViewModel(
         getCurrentTrack = { _state.value.currentSong },
         getCachedVpaths = { cachedVpaths },
     )
-
-    // ── Widget snapshot writer ────────────────────────────────────────────────
-    /** Publishes changes to the home-screen widget's persistent snapshot on top
-     *  of the [PlaybackService]'s own publishes — needed for state the service
-     *  doesn't observe on its own (star rating). */
-    private val widgetState = WidgetStateRepository(context)
 
     // ── Sleep timer ───────────────────────────────────────────────────────────
     /** Wall-clock time (SystemClock.elapsedRealtime) at which playback should pause,
@@ -227,10 +221,9 @@ class PlayerViewModel(
                 // publish here explicitly.
             }
         }
-        // Republish the widget snapshot only when a widget-relevant field
-        // actually changes. Without the map + distinctUntilChanged, the
-        // 500 ms position-polling loop was flooding DataStore + updateAll()
-        // twice a second, which visibly slowed the whole app down.
+        // Push the widget's Glance state only when a widget-relevant field
+        // actually changes. The map + distinctUntilChanged keeps the 500 ms
+        // position-polling loop from re-pushing (which visibly slowed the app).
         viewModelScope.launch {
             _state
                 .map { s ->
@@ -246,7 +239,7 @@ class PlayerViewModel(
                     )
                 }
                 .distinctUntilChanged()
-                .collect { snap -> widgetState.update { snap } }
+                .collect { snap -> pushWidgetState(context, snap) }
         }
         startPositionPolling()
     }

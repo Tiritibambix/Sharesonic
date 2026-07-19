@@ -1,6 +1,7 @@
 package com.tiritibambix.sharesonic.widget
 
 import android.content.Context
+import android.content.Intent
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.unit.DpSize
 import androidx.compose.ui.unit.dp
@@ -11,6 +12,7 @@ import androidx.glance.GlanceModifier
 import androidx.glance.GlanceTheme
 import androidx.glance.Image
 import androidx.glance.ImageProvider
+import androidx.glance.LocalContext
 import androidx.glance.LocalSize
 import androidx.glance.action.Action
 import androidx.glance.action.actionParametersOf
@@ -21,6 +23,7 @@ import androidx.glance.appwidget.SizeMode
 import androidx.glance.appwidget.action.actionRunCallback
 import androidx.glance.appwidget.cornerRadius
 import androidx.glance.appwidget.provideContent
+import androidx.glance.appwidget.state.getAppWidgetState
 import androidx.glance.background
 import androidx.glance.layout.Alignment
 import androidx.glance.layout.Box
@@ -34,13 +37,12 @@ import androidx.glance.layout.fillMaxWidth
 import androidx.glance.layout.padding
 import androidx.glance.layout.size
 import androidx.glance.layout.width
-import androidx.glance.state.GlanceStateDefinition
+import androidx.glance.state.PreferencesGlanceStateDefinition
 import androidx.glance.text.FontWeight
 import androidx.glance.text.Text
 import androidx.glance.text.TextStyle
 import com.tiritibambix.sharesonic.MainActivity
 import com.tiritibambix.sharesonic.R
-import kotlinx.coroutines.flow.first
 
 class SharesonicWidget : GlanceAppWidget() {
 
@@ -52,23 +54,42 @@ class SharesonicWidget : GlanceAppWidget() {
     }
 
     override val sizeMode = SizeMode.Responsive(setOf(COMPACT_SIZE, FULL_SIZE))
-    override val stateDefinition: GlanceStateDefinition<*>? = null
+
+    // Native Glance state: the widget content is driven by a per-instance
+    // Preferences store that pushWidgetState() writes to. This is the
+    // documented mechanism that reliably re-composes on state change.
+    override val stateDefinition = PreferencesGlanceStateDefinition
 
     override suspend fun provideGlance(context: Context, id: GlanceId) {
-        val snapshot = WidgetStateRepository(context).snapshot.first()
-        val bitmap = loadCoverArtBitmap(context, snapshot.coverArtUrl)
+        // Read the snapshot once here (suspend) so the cover bitmap can be
+        // resolved via Coil before composing — RemoteViews can't do async
+        // image loads. provideGlance re-runs on every update(id), re-reading
+        // fresh state, so this is still fully reactive.
+        val snapshot = getAppWidgetState(
+            context, PreferencesGlanceStateDefinition, id
+        ).toWidgetSnapshot()
+        val cover = loadCoverArtBitmap(context, snapshot.coverArtUrl)
         provideContent {
             GlanceTheme {
-                WidgetContent(snapshot, bitmap)
+                WidgetContent(snapshot, cover)
             }
         }
     }
 
     @Composable
     private fun WidgetContent(snapshot: WidgetSnapshot, cover: android.graphics.Bitmap?) {
+        val context = LocalContext.current
         val size = LocalSize.current
         val full = size.height >= FULL_SIZE.height && size.width >= FULL_SIZE.width
-        val openApp = actionStartActivity<MainActivity>()
+        // Same flags as the media notification's PendingIntent (which works):
+        // bring the EXISTING MainActivity forward instead of spawning a new
+        // instance, so the player ViewModel + queue survive and the mini-player
+        // doesn't vanish. MainActivity is launchMode=singleTop in the manifest.
+        val openApp = actionStartActivity(
+            Intent(context, MainActivity::class.java).apply {
+                flags = Intent.FLAG_ACTIVITY_SINGLE_TOP or Intent.FLAG_ACTIVITY_CLEAR_TOP
+            }
+        )
 
         // No outer clickable: Glance's nested-click routing swallows child taps
         // when a parent is also clickable, which is why the buttons "did

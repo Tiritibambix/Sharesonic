@@ -59,6 +59,13 @@ class SettingsRepository(private val context: Context) {
          *  playback service after an Activity kill) share the same on/off state
          *  with the app UI. */
         val AUTO_DJ_ENABLED = booleanPreferencesKey("auto_dj_enabled")
+        /** Transport command channel for the home-screen widget. Stored as
+         *  "<CMD>@<nonce>" so repeated identical commands still change the value
+         *  and re-trigger the service's collector. The service executes the
+         *  command on the ExoPlayer directly — the one widget→playback path
+         *  that works reliably (same DataStore-observed mechanism as Auto-DJ),
+         *  avoiding MediaController-from-a-background-callback entirely. */
+        val WIDGET_COMMAND = stringPreferencesKey("widget_command")
     }
 
     val settings: Flow<ServerSettings> = context.dataStore.data.map { prefs ->
@@ -131,6 +138,17 @@ class SettingsRepository(private val context: Context) {
 
     suspend fun saveAutoDjEnabled(enabled: Boolean) {
         context.dataStore.edit { prefs -> prefs[Keys.AUTO_DJ_ENABLED] = enabled }
+    }
+
+    /** Widget transport command channel. Emits "<CMD>@<nonce>"; the playback
+     *  service observes this and runs the command on its ExoPlayer. */
+    val widgetCommand: Flow<String> = context.dataStore.data.map { it[Keys.WIDGET_COMMAND] ?: "" }
+
+    /** Send a widget transport command ("PLAY_PAUSE" / "NEXT" / "PREV"). The
+     *  nanoTime nonce makes every send a distinct value so the service's
+     *  collector fires even for the same command twice in a row. */
+    suspend fun sendWidgetCommand(cmd: String) {
+        context.dataStore.edit { prefs -> prefs[Keys.WIDGET_COMMAND] = "$cmd@${System.nanoTime()}" }
     }
 
     /** Persisted equalizer state; applied by [com.tiritibambix.sharesonic.playback.PlaybackService] on start. */
