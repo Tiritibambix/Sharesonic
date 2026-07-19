@@ -34,6 +34,13 @@ class PrevCallback : ActionCallback {
 
 class PlayPauseCallback : ActionCallback {
     override suspend fun onAction(context: Context, glanceId: GlanceId, parameters: ActionParameters) {
+        // Optimistic icon flip — mirror the Auto-DJ pattern that works: push
+        // the toggled isPlaying to the widget's Glance state immediately so the
+        // play/pause glyph switches on tap. The service's Player.Listener push
+        // then confirms/corrects it with the real value.
+        val prefs = getAppWidgetState(context, PreferencesGlanceStateDefinition, glanceId)
+        val playing = prefs.toWidgetSnapshot().isPlaying
+        pushWidgetState(context) { it.copy(isPlaying = !playing) }
         SettingsRepository(context).sendWidgetCommand("PLAY_PAUSE")
     }
 }

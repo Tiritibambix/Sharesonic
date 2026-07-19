@@ -85,6 +85,11 @@ class SharesonicWidget : GlanceAppWidget() {
         // Intent overload, so flags come from the manifest launch mode.
         val openApp = actionStartActivity<MainActivity>()
 
+        // Square cover sized from the widget height (minus the 14dp top+bottom
+        // padding), clamped so it stays reasonable at any size. Using a fixed
+        // square avoids the previous fillMaxHeight×fixed-width rectangle.
+        val coverSize = (size.height.value.toInt() - 28).coerceIn(56, 120)
+
         // No outer clickable: Glance's nested-click routing swallows child taps
         // when a parent is also clickable, which is why the buttons "did
         // nothing". Tap-to-open lives on the cover and title only.
@@ -92,15 +97,15 @@ class SharesonicWidget : GlanceAppWidget() {
             modifier = GlanceModifier
                 .fillMaxSize()
                 .background(GlanceTheme.colors.widgetBackground)
-                .cornerRadius(24.dp)
+                .cornerRadius(16.dp)
                 .padding(14.dp)
         ) {
             Row(
                 modifier = GlanceModifier.fillMaxSize(),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
-                // Big square cover filling the widget height — the visual anchor.
-                CoverThumb(cover, onClick = openApp)
+                // Square cover — the visual anchor, centred vertically.
+                CoverThumb(cover, sizeDp = coverSize, onClick = openApp)
                 Spacer(GlanceModifier.width(14.dp))
                 Column(modifier = GlanceModifier.defaultWeight().fillMaxHeight()) {
                     Spacer(GlanceModifier.defaultWeight())
@@ -235,11 +240,13 @@ class SharesonicWidget : GlanceAppWidget() {
     }
 
     @Composable
-    private fun CoverThumb(bitmap: android.graphics.Bitmap?, onClick: Action) {
+    private fun CoverThumb(bitmap: android.graphics.Bitmap?, sizeDp: Int, onClick: Action) {
+        // Square box: width == height == sizeDp. Crop the (usually already
+        // square) artwork to fill it.
         Box(
             modifier = GlanceModifier
-                .fillMaxHeight()
-                .cornerRadius(12.dp)
+                .size(sizeDp.dp)
+                .cornerRadius(10.dp)
                 .background(GlanceTheme.colors.surfaceVariant)
                 .clickable(onClick),
             contentAlignment = Alignment.Center,
@@ -248,22 +255,16 @@ class SharesonicWidget : GlanceAppWidget() {
                 Image(
                     provider = ImageProvider(bitmap),
                     contentDescription = null,
-                    modifier = GlanceModifier.fillMaxHeight().width(96.dp).cornerRadius(12.dp),
+                    modifier = GlanceModifier.size(sizeDp.dp).cornerRadius(10.dp),
                     contentScale = ContentScale.Crop,
                 )
             } else {
-                // Give the placeholder a concrete width so it doesn't collapse.
-                Box(
-                    modifier = GlanceModifier.fillMaxHeight().width(96.dp),
-                    contentAlignment = Alignment.Center,
-                ) {
-                    Image(
-                        provider = ImageProvider(R.drawable.ic_widget_music),
-                        contentDescription = null,
-                        modifier = GlanceModifier.size(36.dp),
-                        colorFilter = ColorFilter.tint(GlanceTheme.colors.onSurfaceVariant),
-                    )
-                }
+                Image(
+                    provider = ImageProvider(R.drawable.ic_widget_music),
+                    contentDescription = null,
+                    modifier = GlanceModifier.size((sizeDp / 2).dp),
+                    colorFilter = ColorFilter.tint(GlanceTheme.colors.onSurfaceVariant),
+                )
             }
         }
     }
