@@ -59,14 +59,15 @@ class SharesonicWidget : GlanceAppWidget() {
     override val stateDefinition = PreferencesGlanceStateDefinition
 
     override suspend fun provideGlance(context: Context, id: GlanceId) {
-        // Read the snapshot once here (suspend) so the cover bitmap can be
-        // resolved via Coil before composing — RemoteViews can't do async
-        // image loads. provideGlance re-runs on every update(id), re-reading
-        // fresh state, so this is still fully reactive.
+        // Read the current snapshot + the cached cover bitmap. BOTH are local,
+        // synchronous reads — NO network here. The cover download happens off
+        // the render path (see PlayerViewModel + cacheWidgetCover); this only
+        // decodes the cached file. Keeping provideGlance instant is what makes
+        // every update() re-render immediately (Auto-DJ pill, rating, content).
         val snapshot = getAppWidgetState(
             context, PreferencesGlanceStateDefinition, id
         ).toWidgetSnapshot()
-        val cover = loadCoverArtBitmap(context, snapshot.coverArtUrl)
+        val cover = decodeWidgetCover(context)
         provideContent {
             GlanceTheme {
                 WidgetContent(snapshot, cover)

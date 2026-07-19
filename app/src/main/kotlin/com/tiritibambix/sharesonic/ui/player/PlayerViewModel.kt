@@ -30,6 +30,8 @@ import com.tiritibambix.sharesonic.data.settings.SettingsRepository
 import com.tiritibambix.sharesonic.playback.AutoDjOrchestrator
 import com.tiritibambix.sharesonic.playback.PlaybackService
 import com.tiritibambix.sharesonic.widget.WidgetSnapshot
+import com.tiritibambix.sharesonic.widget.cacheWidgetCover
+import com.tiritibambix.sharesonic.widget.deleteWidgetCover
 import com.tiritibambix.sharesonic.widget.pushWidgetState
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.async
@@ -111,6 +113,9 @@ class PlayerViewModel(
     private var scrobbleNowPlayingFiredFor: String? = null
     /** ID of the last song for which a 50% scrobble was sent. */
     private var scrobbleFiredFor: String? = null
+
+    /** Cover URL last cached for the widget — only re-download when it changes. */
+    private var lastWidgetCoverUrl: String? = null
 
     init {
         val sessionToken = SessionToken(
@@ -239,7 +244,21 @@ class PlayerViewModel(
                     )
                 }
                 .distinctUntilChanged()
-                .collect { snap -> pushWidgetState(context, snap) }
+                .collect { snap ->
+                    // Push text/buttons FIRST — instant, no network. Then, only
+                    // when the cover URL changes, download it OFF the render
+                    // path and push again so the artwork fills in. The cover
+                    // download must never gate the text render (that was the
+                    // ~2-minute-latency bug).
+                    pushWidgetState(context, snap)
+                    if (snap.coverArtUrl != lastWidgetCoverUrl) {
+                        lastWidgetCoverUrl = snap.coverArtUrl
+                        deleteWidgetCover(context)          // clear stale artwork immediately
+                        pushWidgetState(context, snap)      // re-render → placeholder while loading
+                        cacheWidgetCover(context, snap.coverArtUrl)
+                        pushWidgetState(context, snap)      // re-render → new artwork
+                    }
+                }
         }
         startPositionPolling()
     }

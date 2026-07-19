@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+    Rounded dark card used as the widget's initialLayout background. Matches the
+    Glance widgetBackground + 16dp corner radius so the pre-render frame (shown
+    briefly on placement / return to home) looks like the real widget instead of
+    a square block — no more "square then round" flash.
+-->
+<shape xmlns:android="http://schemas.android.com/apk/res/android"
+    android:shape="rectangle">
+    <solid android:color="#1E1E1E" />
+    <corners android:radius="16dp" />
+</shape>
