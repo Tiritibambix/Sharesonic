@@ -1,7 +1,6 @@
 package com.tiritibambix.sharesonic.widget
 
 import android.content.Context
-import android.content.Intent
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.unit.DpSize
 import androidx.compose.ui.unit.dp
@@ -12,7 +11,6 @@ import androidx.glance.GlanceModifier
 import androidx.glance.GlanceTheme
 import androidx.glance.Image
 import androidx.glance.ImageProvider
-import androidx.glance.LocalContext
 import androidx.glance.LocalSize
 import androidx.glance.action.Action
 import androidx.glance.action.actionParametersOf
@@ -78,18 +76,14 @@ class SharesonicWidget : GlanceAppWidget() {
 
     @Composable
     private fun WidgetContent(snapshot: WidgetSnapshot, cover: android.graphics.Bitmap?) {
-        val context = LocalContext.current
         val size = LocalSize.current
         val full = size.height >= FULL_SIZE.height && size.width >= FULL_SIZE.width
-        // Same flags as the media notification's PendingIntent (which works):
-        // bring the EXISTING MainActivity forward instead of spawning a new
-        // instance, so the player ViewModel + queue survive and the mini-player
-        // doesn't vanish. MainActivity is launchMode=singleTop in the manifest.
-        val openApp = actionStartActivity(
-            Intent(context, MainActivity::class.java).apply {
-                flags = Intent.FLAG_ACTIVITY_SINGLE_TOP or Intent.FLAG_ACTIVITY_CLEAR_TOP
-            }
-        )
+        // MainActivity is launchMode=singleTop (manifest): this reified launch
+        // brings the EXISTING instance forward (NEW_TASK reuses the running
+        // task) rather than spawning a fresh one, so the player ViewModel +
+        // queue survive and the mini-player doesn't vanish. Glance 1.1.x has no
+        // Intent overload, so flags come from the manifest launch mode.
+        val openApp = actionStartActivity<MainActivity>()
 
         // No outer clickable: Glance's nested-click routing swallows child taps
         // when a parent is also clickable, which is why the buttons "did
