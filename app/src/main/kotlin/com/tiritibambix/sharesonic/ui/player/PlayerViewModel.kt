@@ -24,6 +24,8 @@ import com.tiritibambix.sharesonic.data.api.SubsonicClient
 import com.tiritibambix.sharesonic.data.api.models.EntryDto
 import com.tiritibambix.sharesonic.data.api.models.VelvetInnerMetadata
 import com.tiritibambix.sharesonic.data.api.models.NativePlaylist
+import com.tiritibambix.sharesonic.data.playback.PlaybackStateStore
+import com.tiritibambix.sharesonic.data.playback.SavedPlayback
 import com.tiritibambix.sharesonic.data.settings.AutoDjSettings
 import com.tiritibambix.sharesonic.data.settings.ServerSettings
 import com.tiritibambix.sharesonic.data.settings.SettingsRepository
@@ -117,6 +119,14 @@ class PlayerViewModel(
     /** Cover URL last cached for the widget — only re-download when it changes. */
     private var lastWidgetCoverUrl: String? = null
 
+    // ── Resume-where-you-left-off ─────────────────────────────────────────────
+    private val playbackStore = PlaybackStateStore(context)
+    /** True until the saved session has been restored, so the position-polling
+     *  loop doesn't persist a half-initialised (empty) state over it. */
+    private var restoreDone = false
+    /** Wall clock of the last position write — throttles the periodic save. */
+    private var lastPositionSaveMs = 0L
+
     init {
         val sessionToken = SessionToken(
             context,
@@ -129,6 +139,9 @@ class PlayerViewModel(
                 ctrl.addListener(object : Player.Listener {
                     override fun onIsPlayingChanged(isPlaying: Boolean) {
                         _state.update { it.copy(isPlaying = isPlaying) }
+                        // Pausing is the moment the user is most likely to leave
+                        // — capture the resume point right away.
+                        if (!isPlaying) savePlayback()
                     }
                     override fun onMediaItemTransition(mediaItem: MediaItem?, reason: Int) {
                         ctrl.volume = 1f   // restore from any crossfade fade-out
@@ -149,6 +162,8 @@ class PlayerViewModel(
                                 scrobbleNowPlayingFiredFor = song.id
                                 fireNowPlaying(song)
                             }
+                            // New track = new resume point.
+                            savePlayback()
                             // Auto-DJ: track artist for cooldown
                             autoDj.onTrackChanged(song, autoDjSettings.artistCooldown)
                             // Auto-DJ: when we reach the last queued track, pre-fetch the next one
@@ -265,7 +280,68 @@ class PlayerViewModel(
                     }
                 }
         }
+        restoreSavedPlayback()
         startPositionPolling()
+    }
+
+    // ── Resume-where-you-left-off ─────────────────────────────────────────────
+
+    /**
+     * Reload the queue / track / position saved by the previous session and hand
+     * it to the player **paused**, so the mini bar comes back exactly where the
+     * user left it and a single tap resumes. We deliberately don't auto-play:
+     * launching the app shouldn't start making noise on its own.
+     *
+     * Skipped when the service is already playing something (e.g. the Activity
+     * was destroyed but playback kept going) — the live session wins over the
+     * saved one.
+     */
+    private fun restoreSavedPlayback() {
+        viewModelScope.launch {
+            val saved = playbackStore.load()
+            val ctrl = controllerDeferred.await()
+            if (saved == null || saved.queue.isEmpty()) { restoreDone = true; return@launch }
+            // A live session already running? Leave it alone.
+            if (ctrl.mediaItemCount > 0) { restoreDone = true; return@launch }
+
+            val settings = settings()
+            val index = saved.index.coerceIn(0, saved.queue.lastIndex)
+            val song = saved.queue[index]
+            _state.update {
+                it.copy(
+                    queue = saved.queue,
+                    queueIndex = index,
+                    currentSong = song,
+                    coverArtUrl = coverArtUrl(settings, song),
+                    currentPositionMs = saved.positionMs,
+                )
+            }
+            val items = saved.queue.map { MediaItem.fromUri(streamUrl(settings, it)) }
+            ctrl.setMediaItems(items, index, saved.positionMs)
+            ctrl.prepare()          // ready to play, but playWhenReady stays false
+            restoreDone = true
+        }
+    }
+
+    private companion object {
+        /** How often the resume point is rewritten while playing. */
+        const val POSITION_SAVE_INTERVAL_MS = 5_000L
+    }
+
+    /** Persist queue + index + position. Called on meaningful changes. */
+    private fun savePlayback() {
+        if (!restoreDone) return
+        val s = _state.value
+        if (s.queue.isEmpty()) return
+        viewModelScope.launch {
+            playbackStore.save(
+                SavedPlayback(
+                    queue = s.queue,
+                    index = s.queueIndex,
+                    positionMs = s.currentPositionMs,
+                )
+            )
+        }
     }
 
     // ── Position polling ──────────────────────────────────────────────────────
@@ -281,6 +357,13 @@ class PlayerViewModel(
                     ctrl.duration else 0L
                 // Only update position/duration — isPlaying is managed by Player.Listener
                 _state.update { it.copy(currentPositionMs = pos, durationMs = dur) }
+                // Persist the resume point every ~5 s while playing. Throttled so
+                // we're not rewriting the queue JSON twice a second.
+                val nowMs = android.os.SystemClock.elapsedRealtime()
+                if (ctrl.isPlaying && nowMs - lastPositionSaveMs >= POSITION_SAVE_INTERVAL_MS) {
+                    lastPositionSaveMs = nowMs
+                    savePlayback()
+                }
                 // 50% scrobble threshold
                 val song = _state.value.currentSong
                 if (song != null && dur > 0L && pos >= dur / 2L && scrobbleFiredFor != song.id) {

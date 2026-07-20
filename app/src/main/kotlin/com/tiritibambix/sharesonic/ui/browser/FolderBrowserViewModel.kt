@@ -157,13 +157,21 @@ class FolderBrowserViewModel(
 
     // ── Shuffle ───────────────────────────────────────────────────────────────
 
+    /**
+     * Shuffle [path] — defaults to the folder currently being browsed.
+     *
+     * The long-press context menu passes the *pressed* folder's id here; it used
+     * to call this with no target and shuffle [folderId], i.e. the parent folder
+     * being displayed rather than the folder the user actually long-pressed.
+     */
     fun shuffleCurrent(
+        path: String = folderId,
         onReady: (List<EntryDto>) -> Unit,
         onError: (String) -> Unit
     ) {
         viewModelScope.launch {
             val settings = settingsRepo.settings.first()
-            if (folderId == Screen.Browser.ROOT) {
+            if (path == Screen.Browser.ROOT) {
                 // Shuffle whole library via native Velvet random-songs endpoint
                 val token = ensureToken(settings) ?: run { onError("Authentication failed"); return@launch }
                 val velvet = VelvetRepository(VelvetClient.build(settings.serverUrl))
@@ -182,7 +190,7 @@ class FolderBrowserViewModel(
                 // can take well over the normal 60 s read timeout.
                 val token = ensureToken(settings) ?: run { onError("Authentication failed"); return@launch }
                 val velvet = VelvetRepository(VelvetClient.buildLongTimeout(settings.serverUrl))
-                val songs = velvet.collectSongsFast(token, folderId)
+                val songs = velvet.collectSongsFast(token, path)
                 if (songs.isEmpty()) onError("No songs found")
                 else onReady(songs.shuffled())
             }

@@ -91,19 +91,23 @@ fun FolderBrowserScreen(
     var shuffleLoading by remember { mutableStateOf(false) }
     var shuffleError by remember { mutableStateOf<String?>(null) }
 
-    fun triggerShuffle() {
+    /**
+     * Shuffle [path], or the folder currently on screen when null (FAB / top bar).
+     * The long-press context menu passes the pressed folder's id.
+     */
+    fun triggerShuffle(path: String? = null) {
         shuffleLoading = true
-        viewModel.shuffleCurrent(
-            onReady = { songs ->
-                shuffleLoading = false
-                playerViewModel.playQueue(songs)
-                onOpenNowPlaying()
-            },
-            onError = { err ->
-                shuffleLoading = false
-                shuffleError = err
-            }
-        )
+        val onReady: (List<EntryDto>) -> Unit = { songs ->
+            shuffleLoading = false
+            playerViewModel.playQueue(songs)
+            onOpenNowPlaying()
+        }
+        val onError: (String) -> Unit = { err ->
+            shuffleLoading = false
+            shuffleError = err
+        }
+        if (path == null) viewModel.shuffleCurrent(onReady = onReady, onError = onError)
+        else viewModel.shuffleCurrent(path = path, onReady = onReady, onError = onError)
     }
 
     // ── Swipe-to-add-to-playlist state ────────────────────────────────────────
@@ -241,7 +245,7 @@ fun FolderBrowserScreen(
                                 Icon(Icons.Default.PlayArrow, contentDescription = stringResource(R.string.browser_play_all), modifier = Modifier.size(20.dp))
                             }
                         }
-                        IconButton(onClick = ::triggerShuffle, modifier = Modifier.size(36.dp)) {
+                        IconButton(onClick = { triggerShuffle() }, modifier = Modifier.size(36.dp)) {
                             if (shuffleLoading)
                                 CircularProgressIndicator(modifier = Modifier.size(16.dp), strokeWidth = 2.dp)
                             else
@@ -281,7 +285,7 @@ fun FolderBrowserScreen(
                         }
                     }
                     FloatingActionButton(
-                        onClick = ::triggerShuffle,
+                        onClick = { triggerShuffle() },
                         containerColor = MaterialTheme.colorScheme.primary,
                         contentColor = MaterialTheme.colorScheme.onPrimary,
                     ) {
@@ -647,7 +651,9 @@ fun FolderBrowserScreen(
                                 label = stringResource(R.string.browser_shuffle),
                                 onClick = {
                                     showContextMenu = false
-                                    triggerShuffle()
+                                    // Shuffle the long-pressed folder, not the one
+                                    // currently displayed (its parent).
+                                    triggerShuffle(entry.id)
                                 }
                             )
                         }
