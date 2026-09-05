@@ -49,6 +49,9 @@ class SettingsRepository(private val context: Context) {
         /** User-picked accent colour override as an ARGB int, or absent to use the
          *  current theme's built-in primary. */
         val ACCENT_COLOR = intPreferencesKey("accent_color")
+        /** When true, the accent follows the current track's artwork (the same
+         *  seed the Now Playing fireflies use), overriding [ACCENT_COLOR]. */
+        val ACCENT_DYNAMIC = booleanPreferencesKey("accent_dynamic")
         /** Equalizer on/off. */
         val EQ_ENABLED = booleanPreferencesKey("eq_enabled")
         /** Equalizer band gains in millibels, comma-joined in band order. */
@@ -122,6 +125,13 @@ class SettingsRepository(private val context: Context) {
             if (argb == null) prefs.remove(Keys.ACCENT_COLOR)
             else prefs[Keys.ACCENT_COLOR] = argb
         }
+    }
+
+    /** Dynamic (artwork-driven) accent flag; when true it overrides [accentColor]. */
+    val accentDynamic: Flow<Boolean> = context.dataStore.data.map { it[Keys.ACCENT_DYNAMIC] ?: false }
+
+    suspend fun saveAccentDynamic(enabled: Boolean) {
+        context.dataStore.edit { prefs -> prefs[Keys.ACCENT_DYNAMIC] = enabled }
     }
 
     /** Selected UI language as a BCP-47 tag; "" means follow the system locale. */

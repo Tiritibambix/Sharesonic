@@ -62,6 +62,8 @@
     <string name="theme_legacy_desc">Grigi scuri neutri con accento ambra — look nostalgico.</string>
     <string name="theme_accent">Colore d\'accento</string>
     <string name="theme_accent_desc">Sovrascrive il colore primario. Preset + selettore HSV.</string>
+    <string name="theme_accent_dynamic">Dinamico</string>
+    <string name="theme_accent_dynamic_desc">Segue la copertina del brano corrente.</string>
     <string name="theme_accent_sheet_title">Colore d\'accento</string>
     <string name="theme_accent_use_theme">Usa quello del tema</string>
     <string name="theme_accent_presets">Preset</string>

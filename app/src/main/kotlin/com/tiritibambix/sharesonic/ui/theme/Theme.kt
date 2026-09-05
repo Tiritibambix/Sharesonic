@@ -5,6 +5,7 @@ import androidx.compose.material3.darkColorScheme
 import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.ui.graphics.Color
 import com.tiritibambix.sharesonic.data.settings.AppTheme
 
 /**
@@ -268,10 +269,22 @@ private val ColorblindColorScheme = darkColorScheme(
     inversePrimary    = CbPrimaryHov,
 )
 
+/** The theme's built-in primary — the accent to fall back to when no override /
+ *  dynamic seed applies. Shared by the accent picker and the dynamic-accent
+ *  fallback so there's one source of truth. */
+fun AppTheme.defaultPrimary(): Color = when (this) {
+    AppTheme.VELVET          -> VelvetColorScheme.primary
+    AppTheme.DARK            -> DarkAppColorScheme.primary
+    AppTheme.LIGHT           -> LightAppColorScheme.primary
+    AppTheme.HIGH_CONTRAST   -> HighContrastColorScheme.primary
+    AppTheme.COLORBLIND_SAFE -> ColorblindColorScheme.primary
+    AppTheme.LEGACY          -> LegacyColorScheme.primary
+}
+
 @Composable
 fun SharesonicTheme(
     appTheme: AppTheme = AppTheme.VELVET,
-    accent: androidx.compose.ui.graphics.Color? = null,
+    accent: Color? = null,
     content: @Composable () -> Unit
 ) {
     val baseScheme = when (appTheme) {

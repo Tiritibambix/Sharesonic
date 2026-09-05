@@ -62,6 +62,8 @@
     <string name="theme_legacy_desc">Нейтральные тёмно-серые тона с янтарным акцентом — ностальгический вид.</string>
     <string name="theme_accent">Цвет акцента</string>
     <string name="theme_accent_desc">Переопределить основной цвет. Пресеты + HSV.</string>
+    <string name="theme_accent_dynamic">Динамический</string>
+    <string name="theme_accent_dynamic_desc">Следует за обложкой текущего трека.</string>
     <string name="theme_accent_sheet_title">Цвет акцента</string>
     <string name="theme_accent_use_theme">По умолчанию из темы</string>
     <string name="theme_accent_presets">Пресеты</string>

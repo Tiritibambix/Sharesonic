@@ -66,6 +66,8 @@
     <string name="theme_legacy_desc">Gris foncés neutres avec accent ambre — look nostalgique.</string>
     <string name="theme_accent">Couleur d\'accent</string>
     <string name="theme_accent_desc">Remplacer la couleur primaire du thème. Préréglages + sélecteur TSV.</string>
+    <string name="theme_accent_dynamic">Dynamique</string>
+    <string name="theme_accent_dynamic_desc">Suit la pochette de la piste en cours.</string>
     <string name="theme_accent_sheet_title">Couleur d\'accent</string>
     <string name="theme_accent_use_theme">Utiliser la valeur du thème</string>
     <string name="theme_accent_presets">Préréglages</string>

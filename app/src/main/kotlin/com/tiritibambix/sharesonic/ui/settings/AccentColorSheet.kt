@@ -23,6 +23,7 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.AutoAwesome
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.FormatColorReset
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -144,7 +145,9 @@ private fun Color.toHsv(): Hsv {
 fun AccentColorSheet(
     currentArgb: Int?,
     themeDefault: Color,
+    dynamic: Boolean,
     onPick: (Int?) -> Unit,
+    onPickDynamic: () -> Unit,
     onDismiss: () -> Unit,
 ) {
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
@@ -180,16 +183,23 @@ fun AccentColorSheet(
                 horizontalArrangement = Arrangement.spacedBy(14.dp),
                 verticalArrangement = Arrangement.spacedBy(14.dp),
             ) {
+                // Dynamic — follows the current track's artwork (same seed as the
+                // Now Playing fireflies). Rendered as the hue spectrum so it reads
+                // as "any colour", with a sparkle to say it's automatic.
+                DynamicSwatch(
+                    selected = dynamic,
+                    onTap = { onPickDynamic(); onDismiss() },
+                )
                 Swatch(
                     color = themeDefault,
-                    selected = currentArgb == null,
+                    selected = !dynamic && currentArgb == null,
                     icon = Icons.Default.FormatColorReset,
                     onTap = { onPick(null); onDismiss() },
                 )
                 AccentPresets.forEach { c ->
                     Swatch(
                         color = c,
-                        selected = currentArgb == c.toArgb(),
+                        selected = !dynamic && currentArgb == c.toArgb(),
                         onTap = { onPick(c.toArgb()); onDismiss() },
                     )
                 }
@@ -218,7 +228,7 @@ fun AccentColorSheet(
                         .border(1.dp, MaterialTheme.colorScheme.borderStrong, RoundedCornerShape(12.dp)),
                     contentAlignment = Alignment.Center,
                 ) {
-                    if (currentArgb == custom.toArgb()) {
+                    if (!dynamic && currentArgb == custom.toArgb()) {
                         Icon(
                             Icons.Default.Check,
                             contentDescription = null,
@@ -262,6 +272,31 @@ fun AccentColorSheet(
                 }
             }
         }
+    }
+}
+
+/** The "Dynamic" chip — a hue-spectrum circle with a sparkle overlay, marking
+ *  the artwork-driven accent mode. */
+@Composable
+private fun DynamicSwatch(selected: Boolean, onTap: () -> Unit) {
+    Box(
+        modifier = Modifier
+            .size(46.dp)
+            .clip(CircleShape)
+            .background(Brush.sweepGradient(HueTrack))
+            .border(
+                width = if (selected) 3.dp else 1.dp,
+                color = if (selected) MaterialTheme.colorScheme.onSurface else Color.Black.copy(alpha = 0.24f),
+                shape = CircleShape,
+            )
+            .clickable(onClick = onTap),
+        contentAlignment = Alignment.Center,
+    ) {
+        Icon(
+            if (selected) Icons.Default.Check else Icons.Default.AutoAwesome,
+            contentDescription = stringResource(R.string.theme_accent_dynamic),
+            tint = Color.White,
+        )
     }
 }
 

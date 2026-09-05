@@ -5,6 +5,8 @@ import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
+import androidx.compose.animation.animateColorAsState
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.text.selection.SelectionContainer
 import androidx.compose.foundation.verticalScroll
@@ -22,15 +24,22 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.stringResource
 import androidx.lifecycle.lifecycleScope
+import androidx.lifecycle.viewmodel.compose.viewModel
 import com.tiritibambix.sharesonic.R
 import com.tiritibambix.sharesonic.data.settings.AppTheme
 import com.tiritibambix.sharesonic.data.settings.SettingsRepository
 import com.tiritibambix.sharesonic.ui.navigation.AppNavGraph
+import com.tiritibambix.sharesonic.ui.player.PlayerViewModel
+import com.tiritibambix.sharesonic.ui.player.PlayerViewModelFactory
+import com.tiritibambix.sharesonic.ui.player.rememberAmbientColor
 import com.tiritibambix.sharesonic.ui.theme.SharesonicTheme
+import com.tiritibambix.sharesonic.ui.theme.defaultPrimary
 import com.tiritibambix.sharesonic.utils.LocalIsTV
 import com.tiritibambix.sharesonic.utils.isTV
 import kotlinx.coroutines.flow.SharingStarted
+import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.runBlocking
 
@@ -70,6 +79,8 @@ class MainActivity : ComponentActivity() {
             .stateIn(lifecycleScope, SharingStarted.Eagerly, AppTheme.VELVET)
         val accentColorFlow = settingsRepo.accentColor
             .stateIn(lifecycleScope, SharingStarted.Eagerly, null)
+        val accentDynamicFlow = settingsRepo.accentDynamic
+            .stateIn(lifecycleScope, SharingStarted.Eagerly, false)
 
         // Pick up a stack trace saved by the last crash (see SharesonicApp) so it
         // can be shown + copied on this launch — no adb needed to diagnose crashes.
@@ -80,9 +91,32 @@ class MainActivity : ComponentActivity() {
         setContent {
             val appTheme by appThemeFlow.collectAsState()
             val accentArgb by accentColorFlow.collectAsState()
+            val accentDynamic by accentDynamicFlow.collectAsState()
+
+            // Dynamic accent: follow the current track's artwork with the SAME
+            // seed the Now Playing fireflies/halo use (rememberAmbientColor shares
+            // a process-wide cache, so this adds no extra extraction). Only the
+            // cover URL is observed here — not the whole player state — so the
+            // theme root doesn't recompose on every 500 ms position tick.
+            // This is the same viewModel() instance AppNavGraph resolves (both
+            // against the Activity's store), so no second VM is created.
+            val playerVm: PlayerViewModel = viewModel(factory = PlayerViewModelFactory(applicationContext))
+            val coverUrl by remember(playerVm) {
+                playerVm.state.map { it.coverArtUrl }.distinctUntilChanged()
+            }.collectAsState(initial = null)
+            val dynamicSeed = if (accentDynamic) rememberAmbientColor(coverUrl, vibrant = true) else null
+            // Animate toward the seed, or the theme's own primary when there's no
+            // usable seed (grayscale art / nothing playing) — mirrors the
+            // fireflies' `seed ?: primary` fallback and the halo's crossfade.
+            val animatedAccent by animateColorAsState(
+                targetValue = dynamicSeed ?: appTheme.defaultPrimary(),
+                animationSpec = tween(600),
+                label = "dynamicAccent",
+            )
+
             SharesonicTheme(
                 appTheme = appTheme,
-                accent = accentArgb?.let { Color(it) },
+                accent = if (accentDynamic) animatedAccent else accentArgb?.let { Color(it) },
             ) {
                 CompositionLocalProvider(LocalIsTV provides runningOnTV) {
                     AppNavGraph()

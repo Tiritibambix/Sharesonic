@@ -62,6 +62,8 @@
     <string name="theme_legacy_desc">Neutralne ciemne szarości z bursztynowym akcentem — nostalgiczny wygląd.</string>
     <string name="theme_accent">Kolor akcentu</string>
     <string name="theme_accent_desc">Zastąp kolor podstawowy. Presety + wybór HSV.</string>
+    <string name="theme_accent_dynamic">Dynamiczny</string>
+    <string name="theme_accent_dynamic_desc">Podąża za okładką bieżącego utworu.</string>
     <string name="theme_accent_sheet_title">Kolor akcentu</string>
     <string name="theme_accent_use_theme">Użyj z motywu</string>
     <string name="theme_accent_presets">Presety</string>

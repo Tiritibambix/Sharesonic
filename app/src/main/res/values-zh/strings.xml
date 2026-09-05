@@ -62,6 +62,8 @@
     <string name="theme_legacy_desc">中性深灰配琥珀色强调——怀旧风格。</string>
     <string name="theme_accent">强调色</string>
     <string name="theme_accent_desc">覆盖主题主色。预设 + HSV 选择器。</string>
+    <string name="theme_accent_dynamic">动态</string>
+    <string name="theme_accent_dynamic_desc">跟随当前曲目的封面。</string>
     <string name="theme_accent_sheet_title">强调色</string>
     <string name="theme_accent_use_theme">使用主题默认</string>
     <string name="theme_accent_presets">预设</string>

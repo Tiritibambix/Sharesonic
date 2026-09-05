@@ -62,6 +62,8 @@
     <string name="theme_legacy_desc">Cinzentos escuros neutros com destaque âmbar — visual nostálgico.</string>
     <string name="theme_accent">Cor de destaque</string>
     <string name="theme_accent_desc">Substitui a cor primária. Predefinições + seletor HSV.</string>
+    <string name="theme_accent_dynamic">Dinâmico</string>
+    <string name="theme_accent_dynamic_desc">Segue a capa da faixa atual.</string>
     <string name="theme_accent_sheet_title">Cor de destaque</string>
     <string name="theme_accent_use_theme">Usar a do tema</string>
     <string name="theme_accent_presets">Predefinições</string>

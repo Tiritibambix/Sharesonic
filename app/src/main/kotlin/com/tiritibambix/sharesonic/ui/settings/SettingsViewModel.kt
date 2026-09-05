@@ -37,6 +37,10 @@ class SettingsViewModel(private val repo: SettingsRepository) : ViewModel() {
     val accentColor: StateFlow<Int?> = repo.accentColor
         .stateIn(viewModelScope, SharingStarted.Eagerly, null)
 
+    /** When true, the accent follows the current track's artwork (overrides [accentColor]). */
+    val accentDynamic: StateFlow<Boolean> = repo.accentDynamic
+        .stateIn(viewModelScope, SharingStarted.Eagerly, false)
+
     /** UI language as a BCP-47 tag. "" means follow the system locale. */
     val appLanguage: StateFlow<String> = repo.appLanguage
         .stateIn(viewModelScope, SharingStarted.Eagerly, "")
@@ -93,10 +97,20 @@ class SettingsViewModel(private val repo: SettingsRepository) : ViewModel() {
         }
     }
 
-    /** Persists (or clears with [argb] = null) the user's accent override. */
+    /** Persists (or clears with [argb] = null) the user's accent override. Also
+     *  leaves Dynamic mode — picking a fixed colour or Theme default is an
+     *  explicit choice, so the two never conflict. */
     fun setAccentColor(argb: Int?) {
         viewModelScope.launch {
             repo.saveAccentColor(argb)
+            repo.saveAccentDynamic(false)
+        }
+    }
+
+    /** Turn on the artwork-driven accent (overrides the fixed [accentColor]). */
+    fun setAccentDynamic() {
+        viewModelScope.launch {
+            repo.saveAccentDynamic(true)
         }
     }
 

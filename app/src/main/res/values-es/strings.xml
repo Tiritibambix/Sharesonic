@@ -62,6 +62,8 @@
     <string name="theme_legacy_desc">Grises oscuros neutros con acento ámbar — aspecto nostálgico.</string>
     <string name="theme_accent">Color de acento</string>
     <string name="theme_accent_desc">Sobrescribe el color primario. Preajustes + selector HSV.</string>
+    <string name="theme_accent_dynamic">Dinámico</string>
+    <string name="theme_accent_dynamic_desc">Sigue la carátula de la pista actual.</string>
     <string name="theme_accent_sheet_title">Color de acento</string>
     <string name="theme_accent_use_theme">Usar el del tema</string>
     <string name="theme_accent_presets">Preajustes</string>

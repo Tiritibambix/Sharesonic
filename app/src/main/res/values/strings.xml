@@ -66,6 +66,8 @@
     <string name="theme_legacy_desc">Neutral dark greys with amber accent — nostalgic look.</string>
     <string name="theme_accent">Accent color</string>
     <string name="theme_accent_desc">Override the theme\'s primary. Presets + HSV picker.</string>
+    <string name="theme_accent_dynamic">Dynamic</string>
+    <string name="theme_accent_dynamic_desc">Follows the current track\'s artwork.</string>
     <string name="theme_accent_sheet_title">Accent color</string>
     <string name="theme_accent_use_theme">Use theme default</string>
     <string name="theme_accent_presets">Presets</string>

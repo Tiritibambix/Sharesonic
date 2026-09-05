@@ -36,6 +36,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
@@ -71,6 +72,7 @@ fun ThemeSettingsScreen(
 ) {
     val appTheme by viewModel.appTheme.collectAsState()
     val accentArgb by viewModel.accentColor.collectAsState()
+    val accentDynamic by viewModel.accentDynamic.collectAsState()
     var showAccentSheet by remember { mutableStateOf(false) }
 
     Scaffold(
@@ -108,8 +110,11 @@ fun ThemeSettingsScreen(
             }
 
             AccentRow(
-                current = accentArgb?.let { Color(it) }
-                    ?: currentThemeDefault(appTheme),
+                // In dynamic mode the live scheme primary IS the current track's
+                // seed at this scope, so the dot shows the colour in effect now.
+                current = if (accentDynamic) MaterialTheme.colorScheme.primary
+                    else accentArgb?.let { Color(it) } ?: currentThemeDefault(appTheme),
+                dynamic = accentDynamic,
                 onTap = { showAccentSheet = true },
             )
             // Clear the mini player bar (66 dp) so the last row stays reachable.
@@ -121,7 +126,9 @@ fun ThemeSettingsScreen(
         AccentColorSheet(
             currentArgb = accentArgb,
             themeDefault = currentThemeDefault(appTheme),
+            dynamic = accentDynamic,
             onPick = viewModel::setAccentColor,
+            onPickDynamic = viewModel::setAccentDynamic,
             onDismiss = { showAccentSheet = false },
         )
     }
@@ -209,7 +216,7 @@ private fun ThemeRow(spec: ThemeSpec, selected: Boolean, onSelect: () -> Unit) {
 }
 
 @Composable
-private fun AccentRow(current: Color, onTap: () -> Unit) {
+private fun AccentRow(current: Color, dynamic: Boolean, onTap: () -> Unit) {
     Surface(
         modifier = Modifier
             .fillMaxWidth()
@@ -225,18 +232,36 @@ private fun AccentRow(current: Color, onTap: () -> Unit) {
             Column(modifier = Modifier.weight(1f)) {
                 Text(stringResource(R.string.theme_accent), style = MaterialTheme.typography.bodyLarge)
                 Text(
-                    stringResource(R.string.theme_accent_desc),
+                    stringResource(
+                        if (dynamic) R.string.theme_accent_dynamic_desc else R.string.theme_accent_desc
+                    ),
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.textSecondary,
                 )
             }
+            // The dot shows the colour currently in effect; in dynamic mode a
+            // rainbow ring around it signals that it's artwork-driven.
             Box(
                 modifier = Modifier
                     .size(32.dp)
                     .clip(CircleShape)
-                    .background(current)
-                    .border(1.dp, MaterialTheme.colorScheme.borderSoft, CircleShape),
+                    .then(
+                        if (dynamic) Modifier.border(
+                            2.dp,
+                            Brush.sweepGradient(AccentRainbow),
+                            CircleShape,
+                        ) else Modifier.border(1.dp, MaterialTheme.colorScheme.borderSoft, CircleShape)
+                    )
+                    .padding(if (dynamic) 3.dp else 0.dp)
+                    .clip(CircleShape)
+                    .background(current),
             )
         }
     }
 }
+
+/** Hue wheel for the dynamic-accent ring. */
+private val AccentRainbow = listOf(
+    Color(0xFFFF0000), Color(0xFFFFFF00), Color(0xFF00FF00),
+    Color(0xFF00FFFF), Color(0xFF0000FF), Color(0xFFFF00FF), Color(0xFFFF0000),
+)

@@ -62,6 +62,8 @@
     <string name="theme_legacy_desc">Neutrale dunkle Grautöne mit Bernstein-Akzent — nostalgischer Look.</string>
     <string name="theme_accent">Akzentfarbe</string>
     <string name="theme_accent_desc">Überschreibt die Primärfarbe. Presets + HSV-Auswahl.</string>
+    <string name="theme_accent_dynamic">Dynamisch</string>
+    <string name="theme_accent_dynamic_desc">Folgt dem Cover des aktuellen Titels.</string>
     <string name="theme_accent_sheet_title">Akzentfarbe</string>
     <string name="theme_accent_use_theme">Design-Standard verwenden</string>
     <string name="theme_accent_presets">Voreinstellungen</string>

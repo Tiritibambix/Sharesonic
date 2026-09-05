@@ -62,6 +62,8 @@
     <string name="theme_legacy_desc">Neutrale donkere grijstinten met amberkleurig accent — nostalgische look.</string>
     <string name="theme_accent">Accentkleur</string>
     <string name="theme_accent_desc">Overschrijft de primaire kleur. Presets + HSV-kiezer.</string>
+    <string name="theme_accent_dynamic">Dynamisch</string>
+    <string name="theme_accent_dynamic_desc">Volgt de albumhoes van het huidige nummer.</string>
     <string name="theme_accent_sheet_title">Accentkleur</string>
     <string name="theme_accent_use_theme">Thema-standaard gebruiken</string>
     <string name="theme_accent_presets">Voorinstellingen</string>

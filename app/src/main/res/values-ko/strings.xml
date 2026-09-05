@@ -62,6 +62,8 @@
     <string name="theme_legacy_desc">중립적인 어두운 회색에 호박색 포인트 — 향수를 자극하는 느낌.</string>
     <string name="theme_accent">강조 색상</string>
     <string name="theme_accent_desc">기본 색상 재정의. 프리셋 + HSV 선택기.</string>
+    <string name="theme_accent_dynamic">다이내믹</string>
+    <string name="theme_accent_dynamic_desc">현재 트랙의 아트워크를 따릅니다.</string>
     <string name="theme_accent_sheet_title">강조 색상</string>
     <string name="theme_accent_use_theme">테마 기본값 사용</string>
     <string name="theme_accent_presets">프리셋</string>
