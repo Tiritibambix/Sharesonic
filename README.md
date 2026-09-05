@@ -44,13 +44,15 @@ Sharesonic is built for the other scenario: the large, chaotic, lovingly disorga
 | **Folder browsing** | Navigate your full directory tree from root to individual tracks |
 | **Shuffle library** | Server-side random pick via native Velvet API, 30 tracks, no repeats |
 | **Shuffle folder** | Shuffle every track under any sub-directory. Gathered server-side (recursive scan + batch metadata) so it scales to huge folders; very large folders (100k+ tracks) are randomly sampled down to 5000 |
-| **Auto-DJ** | Continuous smart queue: BPM continuity, harmonic mixing (Camelot wheel), similar artists, artist cooldown, genre filter, keyword filter (skip songs whose title / artist / album / filename contains any of these words), crossfade. Toggle the headphones icon in the mini player or Now Playing |
+| **Play folder** | Play everything under a folder in order, in one tap — from the folder's play button or its long-press menu |
+| **Auto-DJ** | Continuous smart queue that scores a batch of candidates and always plays the best fit: similar artists, BPM continuity, harmonic mixing (Camelot wheel), genre, year/era, artist cooldown, a track-length window, keyword filter (skip songs whose title / artist / album / filename contains any of these words), crossfade. Toggle the headphones icon in the mini player or Now Playing |
 | **Share link on track** | Native Velvet share API → public `server/shared/XXXXXXXXXX` URL → Android share sheet |
 | **Share link on folder** | Long-press any folder → recursively collects every track inside it (including subfolders) and generates a single public link for the whole folder |
 | **Share queue** | Generate one public link for the *entire current queue* in a single tap, straight from the queue view |
 | **Manage shared links** | "Public Links" screen (drawer) lists every link you've created with its song count and expiry: copy, open, or revoke each one |
 | **Star ratings** | Rate the current track 0-5 stars from Now Playing, synced live to Velvet's native rating, with an explicit one-tap way back to "unrated" |
 | **Now Playing** | Non-scrolling full-screen player: cover art with an ambient gradient tinted by the artwork's dominant colour, waveform seek bar (tap or drag to seek), title/artist/album, format/bitrate, star rating, generously spaced controls, and Share / Playlist actions |
+| **Themes & accent** | Six built-in themes plus a runtime accent colour: presets, a full HSV picker, or a **Dynamic** mode that re-tints the whole app from the current track's artwork — the same colour as the Now Playing glow |
 | **Track info dialog** | Full metadata for the current track: title, artist, album, year, track, genres, BPM, key, duration, format, bitrate, sample rate, channels, rating, and the selectable file path. Missing fields are fetched fresh from the server on open |
 | **Sleep timer** | Set a countdown (15 / 30 / 45 / 60 / 90 min presets or a custom value) from the Now Playing "More" sheet. Playback pauses when it fires; the remaining time shows live |
 | **Lyrics** | Fetch and display lyrics for the current track from the Now Playing "More" sheet (synced or plain, whichever the server has). Loading / found / "none" / error states handled |
@@ -89,7 +91,7 @@ Sharesonic is built for the other scenario: the large, chaotic, lovingly disorga
 
 ## Server compatibility
 
-Sharesonic is built for **[Velvet](https://github.com/aroundmyroom/Velvet)** (v0.3.5). It uses Velvet's native API for everything: browsing, streaming, sharing, shuffle, Auto-DJ, playlist management, and search. The Subsonic compatibility layer is now only a dormant legacy fallback.
+Sharesonic is built for **[Velvet](https://github.com/aroundmyroom/Velvet)** (v0.4+; Auto-DJ tracks Velvet's soft-scoring redesign and its track-length filter). It uses Velvet's native API for everything: browsing, streaming, sharing, shuffle, Auto-DJ, playlist management, and search. The Subsonic compatibility layer is now only a dormant legacy fallback.
 
 Generic Subsonic servers (Navidrome, Airsonic, etc.) are not supported yet, planned for a future release.
 
@@ -175,7 +177,7 @@ Sharesonic runs entirely on Velvet's native API; a Subsonic compatibility layer 
 | `POST /api/v1/db/rate-song` | Rate / clear the rating of a track (native 0–10 half-star scale) |
 | `GET /api/v1/share/list` | List own share links |
 | `DELETE /api/v1/share/:id` | Revoke a share link |
-| `POST /api/v1/db/random-songs` | Random song for shuffle (called 30×) and Auto-DJ (called 1× with BPM/key/artist filters) |
+| `POST /api/v1/db/random-songs` | Random song for shuffle (called 30×); Auto-DJ candidate batch (`returnAll`, scored client-side) |
 | `GET /api/v1/lastfm/similar-artists` | Similar artists for Auto-DJ (proxied from Last.fm) |
 | `GET /api/v1/playlist/getall` | List playlists |
 | `POST /api/v1/playlist/load` | Load playlist tracks |

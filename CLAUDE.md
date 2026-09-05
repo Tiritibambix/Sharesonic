@@ -8,7 +8,7 @@ The goal is an app that does a handful of things well:
 
 * Browse music by real filesystem folder structure via Velvet's native API
 * Shuffle play on a folder or the entire library
-* Auto-DJ: continuous smart queue with BPM continuity, harmonic mixing (Camelot wheel), similar artists (Last.fm), artist cooldown, genre filter, crossfade
+* Auto-DJ: continuous smart queue with client-side soft-scoring — similar artists (Last.fm), BPM continuity, harmonic mixing (Camelot wheel), genre, year/era, artist cooldown, plus track-length window, keyword filter and crossfade
 * Generate a public share link for any track — or for the entire current queue in one tap
 * Rate tracks 0–5 stars from Now Playing, with an explicit way to clear back to "unrated"
 * Manage playlists (create, rename, delete; add/remove tracks; play all / shuffle)
@@ -25,7 +25,7 @@ The goal is an app that does a handful of things well:
 
 * Folder-based browsing as the primary navigation mode using Velvet's native `/api/v1/file-explorer` endpoint (not the Subsonic API — Subsonic on Velvet returns tag-based artist/album views, not real folders)
 * Shuffle play on any folder or on the full library
-* Auto-DJ: when enabled, the queue never stops — the app continuously fetches the next track using BPM continuity, harmonic key (Camelot wheel), similar artists via Last.fm, artist cooldown, genre filter, and optional crossfade
+* Auto-DJ: when enabled, the queue never stops — the app fetches a broad candidate batch and scores every one client-side (similar artists via Last.fm, BPM continuity, harmonic key, genre, year/era, artist diversity), with a track-length window, keyword filter and optional crossfade as extra filters
 * Share link generation: tap a track → generate a `server/shared/XXXXXXXXXX` public URL via the Velvet native share API → Android share sheet opens with that URL ready to send
 * Share queue: from the queue view, generate a single public link covering every track currently queued (same native share endpoint, fed the queue's filepaths); Subsonic-search-origin tracks are skipped since they aren't shareable through it
 * Star ratings: rate the current track 0–5 stars from Now Playing (synced to Velvet's native 0–10 half-star scale); tapping the active star — or an explicit always-visible clear button — resets it back to "unrated", mirroring the Auto-DJ "minimum rating" picker's affordance
@@ -69,7 +69,7 @@ The goal is an app that does a handful of things well:
 
 1. **Navigation drawer** — hamburger menu opening a frosted-glass sheet sized to ~80% of the screen width (`Modifier.width(maxWidth * 0.8f)` + `Modifier.blur()` on the content behind it via `animateDpAsState`), so a blurred sliver of the browser stays visible and tappable on the right — making the swipe-to-dismiss gesture obvious without anyone having to discover it. Lists **Server**, **Auto-DJ**, **Equalizer**, **Themes**, **Public Links**; each destination keeps the hamburger glyph as its `navigationIcon` so tapping it again exits straight back out
 2. **Server / Auto-DJ / Equalizer / Themes / Public Links settings** — each is its own screen reachable only via the drawer; Server holds the Velvet URL, username, password and connection test. The Equalizer screen exposes an on/off toggle, per-band gain sliders and a "reset to flat" action (see [Equalizer](#equalizer) below). The Themes screen (`ThemeSettingsScreen.kt`) shows 6 tappable theme rows (colour-dot previews + radio buttons) plus an accent-color row that opens `AccentColorSheet` — 5 curated preset swatches + a "Theme default" reset chip + an HSV picker (three `GradientBar`s: hue / saturation / value). Every settings screen passes `miniPlayerVisible` so its scrollable content clears the collapsed mini bar
-3. **Folder Browser** — real filesystem tree via native API; swipe right → add to playlist (frosted-glass picker with inline "New playlist" create + existing playlists), swipe left → add to queue; long press → frosted-glass context menu (Material icons, left-aligned labels: Play, Add to queue, Add to playlist, Shuffle (folders), Share); alphabetical letter strip; Search and Playlists icons are pinned in the top-right of the `TopAppBar` at all times (not folded into the drawer); Home icon in the top bar jumps back to the library root in one tap (pops the whole browser stack). Play/Shuffle FABs use explicit `containerColor = primary` to stay vivid when an accent override is active
+3. **Folder Browser** — real filesystem tree via native API; swipe right → add to playlist (frosted-glass picker with inline "New playlist" create + existing playlists), swipe left → add to queue; long press → frosted-glass context menu (Material icons, left-aligned labels: Play, Add to queue, Add to playlist, Play all + Shuffle (folders), Share); alphabetical letter strip; Search and Playlists icons are pinned in the top-right of the `TopAppBar` at all times (not folded into the drawer); Home icon in the top bar jumps back to the library root in one tap (pops the whole browser stack). Play/Shuffle FABs use explicit `containerColor = primary` to stay vivid when an accent override is active
 4. **Now Playing** — non-scrolling full-screen player reached by dragging up the mini player (`PlayerPanel.kt`, `Animatable<Float>` 0..1, replaces the old `Screen.NowPlaying` route): an OKLCH radial ambient halo seeded from the artwork's vibrant pixels (`AmbientEngine.kt` + `AmbientColor.kt`, Crossfade 700 ms), floating firefly particles (`FloatingParticles.kt`, 22 dots, Lissajous drift), the cover art centred in a flexible (`weight(1f)`) area sized by `BoxWithConstraints` so the layout fits any screen without ever scrolling, title/artist/album, format/bitrate + star-rating row, generously spaced playback controls with a radial primary-colour glow behind the play/pause button (`drawBehind` + `Brush.radialGradient`), a 112-bar waveform-style seek bar (`WaveformSeekBar`, Canvas of vertical bars seeded deterministically per-track by `EntryDto.id`; tap or drag to seek) with a blur-based glow on the played portion (sibling Canvas drawing the same bars at alpha 0.85 + `Modifier.blur(8.dp)`), a Share / Playlist action row (both open the shared frosted-glass modals — `FrostedShareExpiryDialog` and `FrostedPlaylistPicker` with inline "New playlist" create — hoisted to `NowPlayingScreen` so the whole Scaffold blurs behind them), and a "⋮ More" button opening a Material 3 `ModalBottomSheet` (`MoreActionsSheet`) with entries for **Sleep timer**, **Lyrics** and **Track info** (track info opens over a frosted-glass backdrop). Translucent TopAppBar (surface @ 35 % alpha) lets the ambient gradient bleed through; on the **Queue** page it fades to a near-opaque surface (92 % alpha) once the list is scrolled, so rows passing under the bar stay readable. Swipe left for queue view
 5. **Queue** — scrollable queue, tap to jump; **swipe right → add to playlist** (opens the same shared `FrostedPlaylistPicker` as everywhere else, targeting that queued row — works on the currently-playing track too), **swipe left → remove from queue** (disabled on the current track); two top-bar icons visible only here — **Save queue as playlist** (opens the shared `FrostedTextPromptDialog` to name a new playlist, then bulk-saves every native queue track via `PlayerViewModel.saveQueueAsPlaylist` → `VelvetRepository.createPlaylistWithSongs`, one `create` + one `save` call) and **Share queue** (one public link for the whole queue). The shared queue `LazyListState` is hoisted to `NowPlayingScreen` so the top bar can react to its scroll position (see item 4). Because the right-swipe is now consumed by add-to-playlist, returning to Now Playing is done via the **hierarchical Back** (see item 6) or the top-bar dots/label toggle
 6. **Mini player / Player panel** — `PlayerPanel.kt` is a unified overlay drawn on top of the nav host: at `t=0` it shows a persistent mini bar (thumbnail, title/artist, skip/play-pause, Auto-DJ toggle, live progress strip); dragging up (or tapping) expands it to the full Now Playing screen at `t=1`. The mini bar fades out by `t=0.4`, the full sheet fades in from `t=0.1`. Snap threshold 50%, velocity 300 dp/s. No grab handle pill — the drag gesture is on the whole sheet and the back arrow handles dismissal. The Now Playing ⇆ Queue `PagerState` is owned here (not in `NowPlayingScreen`) so the single `BackHandler` is **hierarchical**: from the Queue page, both system Back and the top-bar back arrow step back to Now Playing first; only from Now Playing does Back collapse the whole panel
@@ -271,27 +271,42 @@ Songs have `filepath` as identifier — identical to `file-explorer` `pullMetada
 Replaces Subsonic `getRandomSongs`. (Per-**folder** shuffle uses a different, scalable mechanism —
 see "Folder shuffle" below.)
 
-For Auto-DJ, the same endpoint is called with additional filter fields:
+For Auto-DJ, the app uses the **soft-scoring** design ported from Velvet v0.4.0
+(`playback/AutoDjOrchestrator.kt`, mirrors the webapp's `docs/autodj-scoring.md`).
+It sends `returnAll: true` to get a broad candidate batch scoped only by the true
+**hard filters**, then scores every candidate client-side and queues the best —
+BPM / musical-key / genre are NOT sent as server filters, they're scoring signals:
 
 ```json
 {
   "ignoreList": [3, 17, 42],
+  "returnAll": true,
   "ignoreVPaths": ["Podcasts"],
-  "bpmRanges": [{ "min": 115, "max": 135 }],
-  "bpmRangesWide": [{ "min": 105, "max": 145 }],
-  "requireBpm": false,
-  "musicalKeys": ["8A", "7A", "9A", "8B"],
-  "requireMusicalKey": false,
   "artists": ["Similar Artist 1", "Similar Artist 2"],
   "ignoreArtists": ["Recent Artist"],
-  "genres": ["Jazz"],
-  "genreMode": "whitelist",
-  "minRating": 3
+  "minRating": 6,
+  "minDuration": 90,
+  "maxDuration": 600,
+  "allowUnknownDuration": false
 }
 ```
 
-`bpmRanges` = tight window (preferred); `bpmRangesWide` = fallback window. The app tries the
-full request first, then falls back to a plain random request if no match is found.
+* Client scoring weights (when Last.fm data exists): similar-artist 35% · BPM 25% ·
+  genre 13% · harmonic (Camelot) 7% · year 10% · diversity 10%; the 35% is
+  redistributed into BPM/genre/harmonic when there's no similar-artist data. A hard
+  artist-repeat floor excludes the last 3 played artists. `CamelotWheel.toCamelot()`
+  converts the server's long-form `musical_key` ("A minor") to a Camelot code for
+  harmonic scoring — the field is NOT already Camelot.
+* `minRating` is the native **0–10** scale, so the 0–5 star setting is sent as
+  `stars * 2`.
+* `minDuration` / `maxDuration` (seconds) + `allowUnknownDuration` — the v0.4.24
+  track-length window; a hard scope filter like `minRating` (never relaxed).
+* **Prefetch timing:** the next pick is fetched near the END of the current track
+  (`max(25, crossfade + 15)` s before it ends), from the position-polling loop in
+  `PlayerViewModel` — NOT at track start, which used to fire the heavy batch request
+  at the same instant ExoPlayer opened the stream and delayed playback. The scoring
+  runs on `Dispatchers.Default`. `PlaybackService` still fetches on `STATE_ENDED`
+  as the app-killed fallback.
 
 ### Auto-DJ — similar artists
 
@@ -406,12 +421,12 @@ not the normalized name). Response shape = `VelvetFileMetaWrapper` (same as `db/
 Used when an artist is tapped in search: `SearchViewModel.fetchArtistSongsRaw()` →
 `ArtistResultsScreen` lists the tracks; each plays by its own server-verified filepath.
 
-### Folder shuffle (recursive scan + batch metadata)
+### Folder shuffle / play-all (recursive scan + batch metadata)
 
-Per-folder shuffle must gather every track under a folder — but a genre-sized folder can hold 100k+
-files across thousands of sub-directories. A client-side recursive `file-explorer` walk (one request
-per sub-folder) hangs forever at that scale, so `VelvetRepository.collectSongsFast()` uses two
-server-side requests instead:
+Per-folder shuffle **and "Play all"** must gather every track under a folder — but a genre-sized
+folder can hold 100k+ files across thousands of sub-directories. A client-side recursive
+`file-explorer` walk (one request per sub-folder) hangs forever at that scale, so
+`VelvetRepository.collectSongsFast(token, path, ordered)` uses two server-side requests instead:
 
 ```
 POST /api/v1/file-explorer/recursive   { "directory": "/Music/Reggae" }
@@ -423,13 +438,18 @@ POST /api/v1/db/metadata/batch          ["Music/Reggae/.../track.mp3", ...]
 
 * The recursive scan can take a while server-side on huge folders, so these calls use a **longer read
   timeout** — `VelvetClient.buildLongTimeout()` (300 s) instead of the default 60 s.
-* The result is **capped at `SHUFFLE_MAX` (5000) tracks, sampled randomly across the whole folder**
-  (shuffle the filepaths, then take the cap) — materializing a 100k-track queue + its metadata is
-  infeasible on-device. Folders under the cap are taken in full. Metadata is fetched in chunks of
-  `METADATA_CHUNK` (2000) to bound each payload; unindexed files fall back to a minimal `EntryDto`
-  (filepath only) so they stay playable.
+* The result is **capped at `SHUFFLE_MAX` (5000) tracks**. Shuffle (`ordered = false`) samples
+  randomly across the whole folder (shuffle the filepaths, then take the cap); **Play all**
+  (`ordered = true`) sorts the filepaths and takes the cap as a **prefix**, in deterministic
+  path order (the recursive endpoint has no `sort` field). Folders under the cap are taken in full.
+  Metadata is fetched in chunks of `METADATA_CHUNK` (2000) to bound each payload; unindexed files
+  fall back to a minimal `EntryDto` (filepath only) so they stay playable.
+* Entry points (`FolderBrowserViewModel`): `shuffleCurrent()` (random) and `playAllFolder()`
+  (ordered, never at the library root). In the Folder Browser both are FABs when the folder holds a
+  track — a leaf folder plays its visible rows in order with no network; a folder with subfolders
+  collects the subtree — and both are rows in a folder's long-press / TV `⋮` menu.
 * `collectSongs()` (the old recursive client walk) is **still used by `shareFolder()`** — only
-  shuffle switched to the fast path.
+  shuffle / play-all switched to the fast path.
 
 ### Scrobbling
 
