@@ -3,46 +3,71 @@ package com.tiritibambix.sharesonic.utils
 /**
  * Camelot Wheel utility for harmonic mixing.
  *
- * The Camelot system maps each musical key to a position on a wheel with 24 slots:
- *   1A–12A  = minor keys
- *   1B–12B  = major keys
+ * The Camelot system maps each musical key to a position on a 24-slot wheel:
+ *   1A–12A = minor keys, 1B–12B = major keys.
  *
- * Two tracks are harmonically compatible when their Camelot keys are:
- *   - Identical (same energy)
- *   - Adjacent by ±1 on the wheel (same letter, number differs by 1 — energy increase/decrease)
- *   - Relative major/minor (same number, A ↔ B — tonal shift)
- *
- * Example: "8A" is compatible with "7A", "8A", "9A", and "8B".
- * The wheel wraps: "12A" → "1A" and "1A" → "12A".
+ * **Important — key notation on the wire.** Velvet stores and returns the
+ * musical key in *long-form musical notation* (e.g. `"A minor"`, `"C major"`,
+ * `"F# minor"`) in the `musical-key` field — NOT as a Camelot code. The web
+ * player converts it to Camelot with the same [CODE_BY_KEY] table ported here.
+ * (A previous Sharesonic assumption that the field was already Camelot meant
+ * harmonic scoring silently never matched.) Always run a raw key through
+ * [toCamelot] before comparing.
  */
 object CamelotWheel {
 
+    /** Long-form musical key name → Camelot code. Ported from Velvet's web app. */
+    private val CODE_BY_KEY: Map<String, String> = mapOf(
+        "Ab minor" to "1A", "G# minor" to "1A", "B major" to "1B",
+        "Eb minor" to "2A", "D# minor" to "2A", "F# major" to "2B", "Gb major" to "2B",
+        "Bb minor" to "3A", "A# minor" to "3A", "Db major" to "3B", "C# major" to "3B",
+        "F minor" to "4A", "Ab major" to "4B", "G# major" to "4B",
+        "C minor" to "5A", "Eb major" to "5B", "D# major" to "5B",
+        "G minor" to "6A", "Bb major" to "6B", "A# major" to "6B",
+        "D minor" to "7A", "F major" to "7B",
+        "A minor" to "8A", "C major" to "8B",
+        "E minor" to "9A", "G major" to "9B",
+        "B minor" to "10A", "D major" to "10B",
+        "F# minor" to "11A", "A major" to "11B",
+        "C# minor" to "12A", "E major" to "12B",
+    )
+
+    private val CAMELOT_CODE = Regex("^(1[0-2]|[1-9])[AB]$")
+
     /**
-     * Returns all Camelot keys that are harmonically compatible with [key].
-     * Returns [key] alone if the input is not a valid Camelot notation (e.g. unknown format).
-     *
-     * @param key A Camelot key string such as "8A", "11B", "1A", etc.
+     * Normalise a raw key value to its canonical Camelot code, or null if it
+     * isn't a key we recognise. Accepts both long-form names (`"A minor"`) and
+     * values that are already Camelot codes (`"8a"` → `"8A"`).
      */
-    fun compatibleKeys(key: String): List<String> {
-        val trimmed = key.trim()
-        if (trimmed.length < 2) return listOf(key)
+    fun toCamelot(key: String?): String? {
+        val raw = key?.trim() ?: return null
+        if (raw.isEmpty()) return null
+        val upper = raw.uppercase()
+        if (CAMELOT_CODE.matches(upper)) return upper
+        return CODE_BY_KEY[raw]
+    }
 
-        val letter = trimmed.last().uppercaseChar()
-        val numberStr = trimmed.dropLast(1)
-        val number = numberStr.toIntOrNull() ?: return listOf(key)
-
-        if (letter != 'A' && letter != 'B') return listOf(key)
-        if (number < 1 || number > 12) return listOf(key)
-
-        val oppositeLetter = if (letter == 'A') 'B' else 'A'
-        val prevNumber = if (number == 1) 12 else number - 1
-        val nextNumber = if (number == 12) 1 else number + 1
-
-        return listOf(
-            "${number}${letter}",          // same key
-            "${prevNumber}${letter}",       // step down (same mode)
-            "${nextNumber}${letter}",       // step up (same mode)
-            "${number}${oppositeLetter}"    // relative major/minor
-        ).distinct()
+    /**
+     * The set of Camelot codes harmonically adjacent to [code] — the current
+     * position, its relative major/minor, and the ±1 steps with their relatives
+     * (6 codes total). Mirrors the web player's `camelotNeighbours`. Returns an
+     * empty set for an invalid code.
+     *
+     * @param code A canonical Camelot code (run the raw key through [toCamelot] first).
+     */
+    fun neighbours(code: String?): Set<String> {
+        if (code.isNullOrEmpty()) return emptySet()
+        val num = code.dropLast(1).toIntOrNull() ?: return emptySet()
+        if (num < 1 || num > 12) return emptySet()
+        val letter = code.last()
+        if (letter != 'A' && letter != 'B') return emptySet()
+        val other = if (letter == 'A') 'B' else 'A'
+        val prev = ((num - 2 + 12) % 12) + 1
+        val next = (num % 12) + 1
+        return setOf(
+            "$num$letter", "$num$other",
+            "$prev$letter", "$prev$other",
+            "$next$letter", "$next$other",
+        )
     }
 }

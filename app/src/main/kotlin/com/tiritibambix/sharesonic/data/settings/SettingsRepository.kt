@@ -187,6 +187,10 @@ class SettingsRepository(private val context: Context) {
         val SOURCE_FOLDERS         = stringPreferencesKey("autodj_source_folders")
         val KEYWORD_FILTER_ENABLED = booleanPreferencesKey("autodj_keyword_filter_enabled")
         val KEYWORD_FILTER_WORDS   = stringPreferencesKey("autodj_keyword_filter_words")
+        val DURATION_FILTER_ENABLED = booleanPreferencesKey("autodj_duration_filter_enabled")
+        val MIN_DURATION_SEC        = intPreferencesKey("autodj_min_duration_sec")
+        val MAX_DURATION_SEC        = intPreferencesKey("autodj_max_duration_sec")
+        val ALLOW_UNKNOWN_DURATION  = booleanPreferencesKey("autodj_allow_unknown_duration")
     }
 
     val autoDjSettings: Flow<AutoDjSettings> = context.dataStore.data.map { prefs ->
@@ -214,7 +218,11 @@ class SettingsRepository(private val context: Context) {
             keywordFilterWords   = prefs[AutoDjKeys.KEYWORD_FILTER_WORDS]
                                        ?.split("|")
                                        ?.filter { it.isNotBlank() }
-                                   ?: emptyList()
+                                   ?: emptyList(),
+            durationFilterEnabled = prefs[AutoDjKeys.DURATION_FILTER_ENABLED] ?: false,
+            minDurationSec        = (prefs[AutoDjKeys.MIN_DURATION_SEC] ?: 0).coerceAtLeast(0),
+            maxDurationSec        = (prefs[AutoDjKeys.MAX_DURATION_SEC] ?: 0).coerceAtLeast(0),
+            allowUnknownDuration  = prefs[AutoDjKeys.ALLOW_UNKNOWN_DURATION] ?: false
         )
     }
 
@@ -235,6 +243,10 @@ class SettingsRepository(private val context: Context) {
             prefs[AutoDjKeys.SOURCE_FOLDERS]          = settings.sourceFolders.joinToString("|")
             prefs[AutoDjKeys.KEYWORD_FILTER_ENABLED]  = settings.keywordFilterEnabled
             prefs[AutoDjKeys.KEYWORD_FILTER_WORDS]    = settings.keywordFilterWords.joinToString("|")
+            prefs[AutoDjKeys.DURATION_FILTER_ENABLED] = settings.durationFilterEnabled
+            prefs[AutoDjKeys.MIN_DURATION_SEC]        = settings.minDurationSec
+            prefs[AutoDjKeys.MAX_DURATION_SEC]        = settings.maxDurationSec
+            prefs[AutoDjKeys.ALLOW_UNKNOWN_DURATION]  = settings.allowUnknownDuration
         }
     }
 }

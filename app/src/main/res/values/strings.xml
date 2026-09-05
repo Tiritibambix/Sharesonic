@@ -269,6 +269,15 @@
     <string name="autodj_keyword_desc">Skip songs whose title, artist, album or filename contains any of these words</string>
     <string name="autodj_keywords_label">Keywords (comma-separated)</string>
     <string name="autodj_keywords_placeholder">remix, acapella, live…</string>
+    <string name="autodj_section_duration">Track Length</string>
+    <string name="autodj_duration_enable">Enable track-length filter</string>
+    <string name="autodj_duration_desc">Skip tracks outside a length window — short interludes/skits and long DJ mixes or concert rips</string>
+    <string name="autodj_duration_min">Minimum length (min)</string>
+    <string name="autodj_duration_min_desc">0 = no lower bound</string>
+    <string name="autodj_duration_max">Maximum length (min)</string>
+    <string name="autodj_duration_max_desc">0 = no upper bound</string>
+    <string name="autodj_duration_allow_unknown">Include unknown length</string>
+    <string name="autodj_duration_allow_unknown_desc">Also allow tracks whose length hasn\'t been scanned yet</string>
     <string name="autodj_section_crossfade">Crossfade</string>
     <string name="autodj_crossfade_off">Crossfade: Off</string>
     <string name="autodj_crossfade_value">Crossfade: %1$ds</string>

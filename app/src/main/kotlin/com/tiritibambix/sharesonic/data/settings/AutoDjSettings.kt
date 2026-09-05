@@ -36,6 +36,18 @@ data class AutoDjSettings(
     val minRating: Int = 0,
 
     /**
+     * Track-length window (Velvet v0.4.24). When [durationFilterEnabled] and at
+     * least one bound is > 0, candidates outside the window are excluded
+     * server-side — a hard scope filter, same category as [minRating]. Bounds are
+     * in **seconds**; 0 means "no bound on this side". [allowUnknownDuration]
+     * lets tracks with no scanned duration ride along (default excludes them).
+     */
+    val durationFilterEnabled: Boolean = false,
+    val minDurationSec: Int = 0,
+    val maxDurationSec: Int = 0,
+    val allowUnknownDuration: Boolean = false,
+
+    /**
      * Crossfade duration in seconds (0 = disabled, 1–12 = fade-out length).
      * Only active while Auto-DJ is enabled — fades the current track out in the last N seconds.
      */

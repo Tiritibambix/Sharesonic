@@ -24,6 +24,7 @@ import com.tiritibambix.sharesonic.data.api.models.NativePlaylistNewRequest
 import com.tiritibambix.sharesonic.data.api.models.NativePlaylistRemoveSongRequest
 import com.tiritibambix.sharesonic.data.api.models.NativePlaylistRenameRequest
 import com.tiritibambix.sharesonic.data.api.models.NativePlaylistSaveRequest
+import com.tiritibambix.sharesonic.data.api.models.SimilarArtistsResponse
 import com.tiritibambix.sharesonic.data.api.models.VelvetRandomSongsRequest
 import com.tiritibambix.sharesonic.data.api.models.VelvetRateSongRequest
 import com.tiritibambix.sharesonic.data.api.models.VelvetShareListItem
@@ -672,9 +673,19 @@ class VelvetRepository(private val api: VelvetApiService) {
     } catch (e: Exception) { Result.Error(e.message ?: "Network error") }
 
     /**
-     * Fetch exactly one random song for Auto-DJ.
-     * Returns the [EntryDto] together with the updated ignoreList (to pass on the next call).
-     * Uses the full [request] with all Auto-DJ filters applied by the caller.
+     * Fetch similar artists WITH their similarity ranks — the shape the
+     * soft-scoring Auto-DJ needs. [SimilarArtistsResponse.artists] is the DB
+     * variant list (the server-side `artists` filter), and
+     * [SimilarArtistsResponse.variantRankMap] maps each variant to its 1-indexed
+     * rank (lower = more similar) for client-side scoring.
+     */
+    suspend fun getSimilarArtistsRanked(token: String, artist: String): Result<SimilarArtistsResponse> = try {
+        Result.Success(api.getSimilarArtists(token, artist))
+    } catch (e: Exception) { Result.Error(e.message ?: "Network error") }
+
+    /**
+     * Fetch exactly one random song for Auto-DJ (legacy single-song path).
+     * Returns the [EntryDto] together with the updated ignoreList.
      */
     suspend fun fetchAutoDjSong(
         token: String,
@@ -687,6 +698,28 @@ class VelvetRepository(private val api: VelvetApiService) {
             val entry = fileMetaWrapperToEntryDto(wrapper)
                 ?: return Result.Error("Could not parse song")
             Result.Success(Pair(entry, resp.ignoreList))
+        } catch (e: Exception) {
+            Result.Error(e.message ?: "Network error")
+        }
+    }
+
+    /**
+     * Fetch a broad Auto-DJ candidate batch (`returnAll = true`) and return every
+     * parsed candidate together with the updated ignoreList. The caller
+     * ([com.tiritibambix.sharesonic.playback.AutoDjOrchestrator]) scores the whole
+     * batch client-side and keeps the best. [request] should carry only the hard
+     * scope filters (rating, similar-artist list, cooldown, vpath scope, duration
+     * window) — never BPM/key/genre, which are scored client-side.
+     */
+    suspend fun fetchAutoDjBatch(
+        token: String,
+        request: VelvetRandomSongsRequest
+    ): Result<Pair<List<EntryDto>, List<Int>>> {
+        return try {
+            val resp = api.randomSong(token, request.copy(returnAll = true))
+            val entries = resp.songs.mapNotNull { fileMetaWrapperToEntryDto(it) }
+            if (entries.isEmpty()) return Result.Error("No songs returned")
+            Result.Success(Pair(entries, resp.ignoreList))
         } catch (e: Exception) {
             Result.Error(e.message ?: "Network error")
         }
@@ -738,6 +771,10 @@ class VelvetRepository(private val api: VelvetApiService) {
             bpm = meta?.bpm,
             musicalKey = meta?.musicalKey,
             genres = meta?.genres,
+            // year/duration power Auto-DJ year-continuity scoring and the track-info
+            // dialog; the random-songs response carries both.
+            year = meta?.year,
+            duration = meta?.duration?.toInt(),
             rating = meta?.rating
         )
     }

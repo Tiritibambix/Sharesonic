@@ -59,10 +59,7 @@ class AutoDjSettingsViewModel(
 
     fun setUseBpm(value: Boolean) = update { it.copy(useBpm = value) }
     fun setBpmTightRange(value: Int) = update { it.copy(bpmTightRange = value) }
-    fun setBpmWideRange(value: Int) = update { it.copy(bpmWideRange = value) }
-    fun setRequireBpm(value: Boolean) = update { it.copy(requireBpm = value) }
     fun setUseHarmonicMixing(value: Boolean) = update { it.copy(useHarmonicMixing = value) }
-    fun setRequireKey(value: Boolean) = update { it.copy(requireKey = value) }
     fun setUseSimilarArtists(value: Boolean) = update { it.copy(useSimilarArtists = value) }
     fun setArtistCooldown(value: Int) = update { it.copy(artistCooldown = value.coerceIn(1, 10)) }
     fun setGenreMode(value: String) = update { it.copy(genreMode = value) }
@@ -72,6 +69,11 @@ class AutoDjSettingsViewModel(
     fun setSourceFolders(value: List<String>) = update { it.copy(sourceFolders = value) }
     fun setKeywordFilterEnabled(value: Boolean) = update { it.copy(keywordFilterEnabled = value) }
     fun setKeywordFilterWords(value: List<String>) = update { it.copy(keywordFilterWords = value) }
+
+    fun setDurationFilterEnabled(value: Boolean) = update { it.copy(durationFilterEnabled = value) }
+    fun setMinDurationSec(value: Int) = update { it.copy(minDurationSec = value.coerceAtLeast(0)) }
+    fun setMaxDurationSec(value: Int) = update { it.copy(maxDurationSec = value.coerceAtLeast(0)) }
+    fun setAllowUnknownDuration(value: Boolean) = update { it.copy(allowUnknownDuration = value) }
 
     private fun update(transform: (AutoDjSettings) -> AutoDjSettings) {
         _settings.update(transform)

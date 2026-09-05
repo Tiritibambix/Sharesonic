@@ -96,6 +96,8 @@ data class VelvetInnerMetadata(
     val genres: List<String>? = null,
     /** Release year (present in the fresh /db/metadata response). */
     val year: Int? = null,
+    /** Track length in seconds (present in the /db/random-songs response). */
+    val duration: Float? = null,
     /** Track number (present in the fresh /db/metadata response). */
     val track: Int? = null,
     /** User rating, 0–10 (Velvet's native scale — half-star precision; UI shows 0–5 stars = rating / 2). */
@@ -135,43 +137,63 @@ data class BpmRange(val min: Float, val max: Float)
 
 /**
  * Request body for POST /api/v1/db/random-songs.
- * The server returns one random song per call; pass the updated [ignoreList]
- * from each response back on the next call to avoid repeats.
  *
- * For Auto-DJ, additional fields narrow the selection to harmonically / rhythmically
- * compatible tracks.
+ * Two modes:
+ *  - **Single song** (default, [returnAll] null/false): the server returns one
+ *    random song per call — used by shuffle-all ([getRandomSongs]).
+ *  - **Batch** ([returnAll] = true): the server returns a broad candidate pool
+ *    (up to ~500) — used by the redesigned Auto-DJ, which scores every candidate
+ *    client-side (see [com.tiritibambix.sharesonic.playback.AutoDjOrchestrator]).
+ *
+ * Under the v0.4.0 soft-scoring redesign, Auto-DJ only sends the **hard scope**
+ * filters (rating, similar-artist list, cooldown, vpath scope, track-length
+ * window). BPM / musical-key / genre are scored client-side and are NEVER sent
+ * as server-side filters — the [bpmRanges] / [musicalKeys] / [genres] fields
+ * below are retained only for the legacy single-song path and are unused by the
+ * current Auto-DJ.
  */
 data class VelvetRandomSongsRequest(
     val ignoreList: List<Int> = emptyList(),
     val ignorePercentage: Float? = null,
     val ignoreVPaths: List<String>? = null,
     val filepathPrefix: String? = null,
-    /** Tight BPM range (preferred). */
+    /** Return a broad candidate batch instead of a single song (Auto-DJ soft-scoring). */
+    val returnAll: Boolean? = null,
+    /** Legacy tight BPM range — unused by the soft-scoring Auto-DJ. */
     val bpmRanges: List<BpmRange>? = null,
-    /** Wide BPM range fallback (used when tight yields no results). */
+    /** Legacy wide BPM range — unused by the soft-scoring Auto-DJ. */
     val bpmRangesWide: List<BpmRange>? = null,
-    /** When true, tracks without a BPM tag are excluded. */
+    /** Legacy — unused by the soft-scoring Auto-DJ. */
     val requireBpm: Boolean? = null,
-    /** List of compatible Camelot keys to filter by. */
+    /** Legacy Camelot key filter — unused by the soft-scoring Auto-DJ. */
     val musicalKeys: List<String>? = null,
-    /** When true, tracks without a musical_key tag are excluded. */
+    /** Legacy — unused by the soft-scoring Auto-DJ. */
     val requireMusicalKey: Boolean? = null,
-    /** Prefer tracks from these artists (similar artists list from Last.fm). */
+    /** Prefer tracks from these artists (similar-artist list from Last.fm). */
     val artists: List<String>? = null,
     /** Exclude tracks from these artists (artist cooldown). */
     val ignoreArtists: List<String>? = null,
-    /** Genre filter list (used together with [genreMode]). */
+    /** Legacy genre filter — unused by the soft-scoring Auto-DJ (scored client-side). */
     val genres: List<String>? = null,
-    /** Genre filter mode: "whitelist" (include only) or "blacklist" (exclude). */
+    /** Legacy genre filter mode — unused by the soft-scoring Auto-DJ. */
     val genreMode: String? = null,
-    /** Minimum track rating to include (0 = disabled). */
-    val minRating: Int? = null
+    /** Minimum track rating to include (0 = disabled). A true hard scope filter. */
+    val minRating: Int? = null,
+    /** Lower bound of the track-length window, in seconds. Omitted / 0 = no lower bound.
+     *  A hard scope filter (like [minRating]) — never relaxed server-side (v0.4.24). */
+    val minDuration: Int? = null,
+    /** Upper bound of the track-length window, in seconds. Omitted / 0 = no upper bound. */
+    val maxDuration: Int? = null,
+    /** When a duration bound is set, whether tracks with no scanned duration are
+     *  included. Default (null/false) excludes them. */
+    val allowUnknownDuration: Boolean? = null
 )
 
 /**
  * Response from POST /api/v1/db/random-songs.
- * [songs] contains exactly one entry per call.
- * [ignoreList] is the input list with the new song's positional index appended;
+ * [songs] contains exactly one entry in single-song mode, or the full candidate
+ * batch when the request set `returnAll = true`.
+ * [ignoreList] is the input list with the returned song indices appended;
  * pass it back on the next call.
  * Reuses [VelvetFileMetaWrapper] — same shape as pullMetadata=true file-explorer entries.
  */
@@ -364,7 +386,19 @@ data class ScrobbleFilepathRequest(val filePath: String)
 
 /**
  * Response from GET /api/v1/lastfm/similar-artists?artist=<name>.
- * The exact field name in the JSON response should be verified against the
- * Velvet server — this uses "artists" as a best-guess.
+ *
+ * Server shape (src/api/scrobbler.js):
+ *   { artists: [...db variants...], displayArtists: [...], displayVariantMap: {},
+ *     variantRankMap: { "<db artist variant>": <1-indexed rank> } }
+ *
+ * - [artists] — every DB artist-name variant that resolves from the Last.fm
+ *   similar list; passed back as the `artists` filter to /db/random-songs.
+ * - [variantRankMap] — DB variant → 1-indexed similarity rank (lower = more
+ *   similar). The Auto-DJ soft-scoring engine turns this into the similar-artist
+ *   score (rank 1 → 1.0, decaying with rank).
  */
-data class SimilarArtistsResponse(val artists: List<String> = emptyList())
+data class SimilarArtistsResponse(
+    val artists: List<String> = emptyList(),
+    val displayArtists: List<String> = emptyList(),
+    val variantRankMap: Map<String, Int> = emptyMap()
+)

@@ -66,31 +66,17 @@ fun AutoDjSettingsContent(
         }
         item {
             AnimatedVisibility(visible = s.useBpm) {
-                Column {
-                    SliderSetting(
-                        label = "${stringResource(R.string.autodj_bpm_tight)}  ±${s.bpmTightRange}",
-                        value = s.bpmTightRange.toFloat(),
-                        onValueChange = { viewModel.setBpmTightRange(it.roundToInt()) },
-                        valueRange = 5f..30f,
-                        steps = 4
-                    )
-                    SliderSetting(
-                        label = "${stringResource(R.string.autodj_bpm_wide)}  ±${s.bpmWideRange}",
-                        value = s.bpmWideRange.toFloat(),
-                        onValueChange = { viewModel.setBpmWideRange(it.roundToInt()) },
-                        valueRange = 10f..50f,
-                        steps = 7
-                    )
-                    SettingRow(
-                        label = stringResource(R.string.autodj_require_bpm),
-                        description = stringResource(R.string.autodj_require_bpm_desc)
-                    ) {
-                        Switch(
-                            checked = s.requireBpm,
-                            onCheckedChange = viewModel::setRequireBpm
-                        )
-                    }
-                }
+                // Soft-scoring: this is the BPM proximity tolerance — candidates
+                // within ±N of the blended reference score highest, tapering off
+                // beyond. (The old wide-range / "require BPM" hard filters are
+                // gone under the batch-scoring model.)
+                SliderSetting(
+                    label = "${stringResource(R.string.autodj_bpm_tight)}  ±${s.bpmTightRange}",
+                    value = s.bpmTightRange.toFloat(),
+                    onValueChange = { viewModel.setBpmTightRange(it.roundToInt()) },
+                    valueRange = 5f..30f,
+                    steps = 4
+                )
             }
         }
 
@@ -106,19 +92,6 @@ fun AutoDjSettingsContent(
                     checked = s.useHarmonicMixing,
                     onCheckedChange = viewModel::setUseHarmonicMixing
                 )
-            }
-        }
-        item {
-            AnimatedVisibility(visible = s.useHarmonicMixing) {
-                SettingRow(
-                    label = stringResource(R.string.autodj_require_key),
-                    description = stringResource(R.string.autodj_require_key_desc)
-                ) {
-                    Switch(
-                        checked = s.requireKey,
-                        onCheckedChange = viewModel::setRequireKey
-                    )
-                }
             }
         }
 
@@ -188,7 +161,7 @@ fun AutoDjSettingsContent(
 
         // ── Keyword Filter ────────────────────────────────────────────────
         // Client-side blocker (Velvet's server has no equivalent field). The
-        // PlayerViewModel refetches when a fetched candidate is blocked; see
+        // Auto-DJ engine drops blocked candidates from the scored batch; see
         // KeywordFilter.isBlocked for the exact matching rule.
         item { SectionDivider() }
         item { SectionHeader(stringResource(R.string.autodj_section_keyword)) }
@@ -209,6 +182,56 @@ fun AutoDjSettingsContent(
                     words = s.keywordFilterWords,
                     onUpdate = viewModel::setKeywordFilterWords
                 )
+            }
+        }
+
+        // ── Track length ──────────────────────────────────────────────────
+        // Velvet v0.4.24 hard scope filter: skip short interludes/skits and long
+        // DJ mixes/concert rips. Bounds are minutes here, sent as seconds.
+        item { SectionDivider() }
+        item { SectionHeader(stringResource(R.string.autodj_section_duration)) }
+        item {
+            SettingRow(
+                label = stringResource(R.string.autodj_duration_enable),
+                description = stringResource(R.string.autodj_duration_desc)
+            ) {
+                Switch(
+                    checked = s.durationFilterEnabled,
+                    onCheckedChange = viewModel::setDurationFilterEnabled
+                )
+            }
+        }
+        item {
+            AnimatedVisibility(visible = s.durationFilterEnabled) {
+                Column {
+                    StepperSetting(
+                        label = stringResource(R.string.autodj_duration_min),
+                        description = stringResource(R.string.autodj_duration_min_desc),
+                        value = s.minDurationSec / 60,
+                        onDecrement = { viewModel.setMinDurationSec((s.minDurationSec / 60 - 1).coerceAtLeast(0) * 60) },
+                        onIncrement = { viewModel.setMinDurationSec((s.minDurationSec / 60 + 1) * 60) },
+                        min = 0,
+                        max = 20
+                    )
+                    StepperSetting(
+                        label = stringResource(R.string.autodj_duration_max),
+                        description = stringResource(R.string.autodj_duration_max_desc),
+                        value = s.maxDurationSec / 60,
+                        onDecrement = { viewModel.setMaxDurationSec((s.maxDurationSec / 60 - 1).coerceAtLeast(0) * 60) },
+                        onIncrement = { viewModel.setMaxDurationSec((s.maxDurationSec / 60 + 1) * 60) },
+                        min = 0,
+                        max = 30
+                    )
+                    SettingRow(
+                        label = stringResource(R.string.autodj_duration_allow_unknown),
+                        description = stringResource(R.string.autodj_duration_allow_unknown_desc)
+                    ) {
+                        Switch(
+                            checked = s.allowUnknownDuration,
+                            onCheckedChange = viewModel::setAllowUnknownDuration
+                        )
+                    }
+                }
             }
         }
 
