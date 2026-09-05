@@ -58,6 +58,8 @@
     <string name="theme_hc_desc">Preto/branco puros com acento amarelo.</string>
     <string name="theme_cb">Compatível com daltonismo</string>
     <string name="theme_cb_desc">Azul + laranja, sem dependência de vermelho/verde.</string>
+    <string name="theme_legacy">Clássico</string>
+    <string name="theme_legacy_desc">Cinzentos escuros neutros com destaque âmbar — visual nostálgico.</string>
     <string name="theme_accent">Cor de destaque</string>
     <string name="theme_accent_desc">Substitui a cor primária. Predefinições + seletor HSV.</string>
     <string name="theme_accent_sheet_title">Cor de destaque</string>
@@ -206,6 +208,9 @@
     <string name="playlist_detail_shuffle">Aleatório</string>
     <string name="playlist_detail_add_songs">Adicionar músicas</string>
     <string name="playlist_detail_remove">Remover</string>
+    <string name="playlist_detail_move_up">Mover para cima</string>
+    <string name="playlist_detail_move_down">Mover para baixo</string>
+    <string name="playlist_detail_drag_handle">Arraste para reordenar</string>
 
     <string name="share_confirm_title">Link público</string>
     <string name="share_copy">Copiar</string>
@@ -247,6 +252,15 @@
     <string name="autodj_keyword_desc">Saltar músicas cujo título, artista, álbum ou nome de ficheiro contenha alguma destas palavras</string>
     <string name="autodj_keywords_label">Palavras-chave (separadas por vírgulas)</string>
     <string name="autodj_keywords_placeholder">remix, acapella, live…</string>
+    <string name="autodj_section_duration">Duração das faixas</string>
+    <string name="autodj_duration_enable">Ativar filtro de duração</string>
+    <string name="autodj_duration_desc">Ignorar faixas fora de uma janela de duração — interlúdios/esquetes curtos e misturas de DJ ou gravações de concertos longas</string>
+    <string name="autodj_duration_min">Duração mínima (min)</string>
+    <string name="autodj_duration_min_desc">0 = sem limite inferior</string>
+    <string name="autodj_duration_max">Duração máxima (min)</string>
+    <string name="autodj_duration_max_desc">0 = sem limite superior</string>
+    <string name="autodj_duration_allow_unknown">Incluir duração desconhecida</string>
+    <string name="autodj_duration_allow_unknown_desc">Permitir também faixas cuja duração ainda não foi analisada</string>
     <string name="autodj_section_crossfade">Crossfade</string>
     <string name="autodj_crossfade_off">Crossfade: Desligado</string>
     <string name="autodj_crossfade_value">Crossfade: %1$ds</string>
@@ -258,4 +272,6 @@
     <string name="autodj_source_all">Todas as bibliotecas</string>
 
     <string name="crash_title">Crash anterior</string>
+
+    <string name="widget_description">Controlos de reprodução, classificação e interruptor de Auto-DJ para a faixa atual.</string>
 </resources>

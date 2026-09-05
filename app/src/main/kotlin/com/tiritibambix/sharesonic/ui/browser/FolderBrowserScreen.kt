@@ -89,7 +89,10 @@ fun FolderBrowserScreen(
     // Entry awaiting an expiry-days choice before its share link is created.
     var shareExpiryTarget by remember { mutableStateOf<EntryDto?>(null) }
     var shuffleLoading by remember { mutableStateOf(false) }
-    var shuffleError by remember { mutableStateOf<String?>(null) }
+    var playAllLoading by remember { mutableStateOf(false) }
+    // (title string res, message) of a failed folder action — Shuffle or Play all —
+    // so the error dialog is titled after the action that actually failed.
+    var actionError by remember { mutableStateOf<Pair<Int, String>?>(null) }
 
     /**
      * Shuffle [path], or the folder currently on screen when null (FAB / top bar).
@@ -104,10 +107,30 @@ fun FolderBrowserScreen(
         }
         val onError: (String) -> Unit = { err ->
             shuffleLoading = false
-            shuffleError = err
+            actionError = R.string.browser_shuffle to err
         }
         if (path == null) viewModel.shuffleCurrent(onReady = onReady, onError = onError)
         else viewModel.shuffleCurrent(path = path, onReady = onReady, onError = onError)
+    }
+
+    /**
+     * Play [path]'s whole subtree in deterministic order, or the folder currently
+     * on screen when null. The long-press context menu passes the pressed
+     * folder's id — not the displayed parent.
+     */
+    fun triggerPlayAll(path: String? = null) {
+        playAllLoading = true
+        val onReady: (List<EntryDto>) -> Unit = { songs ->
+            playAllLoading = false
+            playerViewModel.playQueue(songs)
+            onOpenNowPlaying()
+        }
+        val onError: (String) -> Unit = { err ->
+            playAllLoading = false
+            actionError = R.string.browser_play_all to err
+        }
+        if (path == null) viewModel.playAllFolder(onReady = onReady, onError = onError)
+        else viewModel.playAllFolder(path = path, onReady = onReady, onError = onError)
     }
 
     // ── Swipe-to-add-to-playlist state ────────────────────────────────────────
@@ -129,9 +152,19 @@ fun FolderBrowserScreen(
     // Computed at top level (not inside `when`) to comply with Compose rules.
     val entries = (state as? BrowserState.Ready)?.entries ?: emptyList()
 
+    // "Play all" for the folder on screen. Leaf folder (tracks, no subfolders):
+    // play the visible tracks instantly in their displayed order — no network.
+    // Folder with subfolders: "all content" means the subtree, so collect it
+    // server-side in deterministic path order, the same way Shuffle collects it.
+    val hasTracks = entries.any { !it.isDir }
+    val isLeafFolder = hasTracks && entries.none { it.isDir }
     fun playInOrder() {
-        playerViewModel.playQueue(entries)
-        onOpenNowPlaying()
+        if (isLeafFolder) {
+            playerViewModel.playQueue(entries.filter { !it.isDir })
+            onOpenNowPlaying()
+        } else {
+            triggerPlayAll()
+        }
     }
 
     val letterIndex: Map<Char, Int> = remember(entries) {
@@ -240,9 +273,12 @@ fun FolderBrowserScreen(
                         }
                     }
                     if (isTV) {
-                        if (entries.isNotEmpty() && entries.none { it.isDir }) {
+                        if (hasTracks) {
                             IconButton(onClick = ::playInOrder, modifier = Modifier.size(36.dp)) {
-                                Icon(Icons.Default.PlayArrow, contentDescription = stringResource(R.string.browser_play_all), modifier = Modifier.size(20.dp))
+                                if (playAllLoading)
+                                    CircularProgressIndicator(modifier = Modifier.size(16.dp), strokeWidth = 2.dp)
+                                else
+                                    Icon(Icons.Default.PlayArrow, contentDescription = stringResource(R.string.browser_play_all), modifier = Modifier.size(20.dp))
                             }
                         }
                         IconButton(onClick = { triggerShuffle() }, modifier = Modifier.size(36.dp)) {
@@ -268,20 +304,24 @@ fun FolderBrowserScreen(
                 // Column + Spacer: the Spacer grows when the mini player is visible,
                 // pushing the FABs up above it without touching Scaffold's own FAB logic.
                 Column(horizontalAlignment = Alignment.End, verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                    // Leaf folder = contains tracks but no subfolders — offer to play
-                    // them in their displayed (sorted) order, alongside Shuffle.
+                    // Play all — shown whenever the folder holds at least one track
+                    // (instant for leaf folders, recursive ordered collect when it
+                    // has subfolders; see playInOrder), alongside Shuffle.
                     // Explicit primary/onPrimary — the M3 FAB default is
                     // primaryContainer, which the accent-override turns into a
                     // ~16 % alpha wash over surfaceVariant (dull/faded on a
                     // dark background). Using primary keeps Play + Shuffle
                     // visually alive whatever accent the user picks.
-                    if (entries.isNotEmpty() && entries.none { it.isDir }) {
+                    if (hasTracks) {
                         FloatingActionButton(
                             onClick = ::playInOrder,
                             containerColor = MaterialTheme.colorScheme.primary,
                             contentColor = MaterialTheme.colorScheme.onPrimary,
                         ) {
-                            Icon(Icons.Default.PlayArrow, contentDescription = stringResource(R.string.browser_play_all))
+                            if (playAllLoading)
+                                CircularProgressIndicator(modifier = Modifier.size(20.dp), strokeWidth = 2.dp)
+                            else
+                                Icon(Icons.Default.PlayArrow, contentDescription = stringResource(R.string.browser_play_all))
                         }
                     }
                     FloatingActionButton(
@@ -647,6 +687,16 @@ fun FolderBrowserScreen(
                         }
                         if (entry.isDir) {
                             ContextMenuRow(
+                                icon = Icons.Default.PlayArrow,
+                                label = stringResource(R.string.browser_play_all),
+                                onClick = {
+                                    showContextMenu = false
+                                    // Play the long-pressed folder's subtree in order —
+                                    // that folder, not the one currently displayed.
+                                    triggerPlayAll(entry.id)
+                                }
+                            )
+                            ContextMenuRow(
                                 icon = Icons.Default.Shuffle,
                                 label = stringResource(R.string.browser_shuffle),
                                 onClick = {
@@ -694,12 +744,12 @@ fun FolderBrowserScreen(
         )
     }
 
-    shuffleError?.let { err ->
+    actionError?.let { (titleRes, err) ->
         AlertDialog(
-            onDismissRequest = { shuffleError = null },
-            title = { Text(stringResource(R.string.browser_shuffle)) },
+            onDismissRequest = { actionError = null },
+            title = { Text(stringResource(titleRes)) },
             text = { Text(err) },
-            confirmButton = { TextButton(onClick = { shuffleError = null }) { Text(stringResource(R.string.common_ok)) } }
+            confirmButton = { TextButton(onClick = { actionError = null }) { Text(stringResource(R.string.common_ok)) } }
         )
     }
 }

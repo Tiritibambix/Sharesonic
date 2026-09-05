@@ -17,7 +17,7 @@
     <string name="common_ok">OK</string>
     <string name="common_more">Więcej</string>
     <string name="common_set">Ustaw</string>
-    <string name="common_reset">Reset</string>
+    <string name="common_reset">Resetuj</string>
     <string name="common_none">Brak</string>
     <string name="common_off">Wył.</string>
 
@@ -58,6 +58,8 @@
     <string name="theme_hc_desc">Czysty czarny/biały z żółtym akcentem.</string>
     <string name="theme_cb">Bezpieczny dla daltonistów</string>
     <string name="theme_cb_desc">Niebieski + pomarańczowy, bez czerwonego/zielonego.</string>
+    <string name="theme_legacy">Klasyczny</string>
+    <string name="theme_legacy_desc">Neutralne ciemne szarości z bursztynowym akcentem — nostalgiczny wygląd.</string>
     <string name="theme_accent">Kolor akcentu</string>
     <string name="theme_accent_desc">Zastąp kolor podstawowy. Presety + wybór HSV.</string>
     <string name="theme_accent_sheet_title">Kolor akcentu</string>
@@ -206,6 +208,9 @@
     <string name="playlist_detail_shuffle">Losowo</string>
     <string name="playlist_detail_add_songs">Dodaj utwory</string>
     <string name="playlist_detail_remove">Usuń</string>
+    <string name="playlist_detail_move_up">Przenieś wyżej</string>
+    <string name="playlist_detail_move_down">Przenieś niżej</string>
+    <string name="playlist_detail_drag_handle">Przeciągnij, aby zmienić kolejność</string>
 
     <string name="share_confirm_title">Link publiczny</string>
     <string name="share_copy">Kopiuj</string>
@@ -238,8 +243,8 @@
     <string name="autodj_section_genre">Filtr gatunku</string>
     <string name="autodj_filter_mode">Tryb filtra</string>
     <string name="autodj_filter_off">Wył.</string>
-    <string name="autodj_filter_whitelist">Whitelist</string>
-    <string name="autodj_filter_blacklist">Blacklist</string>
+    <string name="autodj_filter_whitelist">Biała lista</string>
+    <string name="autodj_filter_blacklist">Czarna lista</string>
     <string name="autodj_genres_label">Gatunki (po przecinku)</string>
     <string name="autodj_genres_placeholder">Rock, Jazz, Klasyczna…</string>
     <string name="autodj_section_keyword">Filtr słów kluczowych</string>
@@ -247,6 +252,15 @@
     <string name="autodj_keyword_desc">Pomiń utwory, których tytuł, wykonawca, album lub nazwa pliku zawiera jedno z tych słów</string>
     <string name="autodj_keywords_label">Słowa kluczowe (po przecinku)</string>
     <string name="autodj_keywords_placeholder">remix, acapella, live…</string>
+    <string name="autodj_section_duration">Długość utworu</string>
+    <string name="autodj_duration_enable">Włącz filtr długości</string>
+    <string name="autodj_duration_desc">Pomijaj utwory spoza zakresu długości — krótkie przerywniki/skecze oraz długie miksy DJ-skie lub nagrania koncertów</string>
+    <string name="autodj_duration_min">Minimalna długość (min)</string>
+    <string name="autodj_duration_min_desc">0 = brak dolnej granicy</string>
+    <string name="autodj_duration_max">Maksymalna długość (min)</string>
+    <string name="autodj_duration_max_desc">0 = brak górnej granicy</string>
+    <string name="autodj_duration_allow_unknown">Uwzględnij nieznaną długość</string>
+    <string name="autodj_duration_allow_unknown_desc">Zezwalaj też na utwory, których długość nie została jeszcze zeskanowana</string>
     <string name="autodj_section_crossfade">Crossfade</string>
     <string name="autodj_crossfade_off">Crossfade: Wył.</string>
     <string name="autodj_crossfade_value">Crossfade: %1$ds</string>
@@ -258,4 +272,6 @@
     <string name="autodj_source_all">Wszystkie biblioteki</string>
 
     <string name="crash_title">Poprzednia awaria</string>
+
+    <string name="widget_description">Sterowanie odtwarzaniem, ocena i przełącznik Auto-DJ dla bieżącego utworu.</string>
 </resources>

@@ -127,6 +127,9 @@ class PlayerViewModel(
     /** Wall clock of the last position write — throttles the periodic save. */
     private var lastPositionSaveMs = 0L
 
+    /** Song id for which the end-of-track Auto-DJ prefetch has already fired. */
+    private var prefetchedFor: String? = null
+
     init {
         val sessionToken = SessionToken(
             context,
@@ -164,12 +167,17 @@ class PlayerViewModel(
                             }
                             // New track = new resume point.
                             savePlayback()
-                            // Auto-DJ: track artist for cooldown
+                            // Auto-DJ: track artist for cooldown. The next-track
+                            // prefetch is deliberately NOT issued here: this listener
+                            // also fires for PLAYLIST_CHANGED (the instant a song
+                            // starts), and a single-song play is by definition the
+                            // last queue item — fetching here put the heavy
+                            // candidate-batch request on the server at the exact
+                            // moment ExoPlayer was opening the stream, delaying
+                            // playback start. The polling loop prefetches near the
+                            // END of the track instead (see startPositionPolling),
+                            // which is Velvet's own timing.
                             autoDj.onTrackChanged(song, autoDjSettings.artistCooldown)
-                            // Auto-DJ: when we reach the last queued track, pre-fetch the next one
-                            if (_state.value.autoDjEnabled && idx == queue.lastIndex) {
-                                autoDj.fetchNext(viewModelScope)
-                            }
                         }
                     }
                     override fun onTracksChanged(tracks: Tracks) {
@@ -229,12 +237,12 @@ class PlayerViewModel(
                 _state.update { it.copy(autoDjEnabled = enabled) }
                 if (!enabled && wasEnabled) autoDj.reset()
                 if (enabled && !wasEnabled) {
-                    // Turning on — if we're already sitting at the last track,
-                    // fetch immediately so the transition to Auto-DJ mode is felt.
-                    val s = _state.value
-                    if (s.queue.isNotEmpty() && s.queueIndex == s.queue.lastIndex) {
-                        autoDj.fetchNext(viewModelScope)
-                    }
+                    // Turning on issues no immediate fetch: the polling loop
+                    // prefetches the next pick inside the end-of-track window, so
+                    // enabling Auto-DJ mid-track never competes with the current
+                    // stream. Clear the per-track guard so the current track
+                    // qualifies for that prefetch again.
+                    prefetchedFor = null
                 }
                 // The _state.copy(autoDjEnabled = enabled) above will re-emit
                 // through the throttled snapshot collector below — no need to
@@ -394,6 +402,23 @@ class PlayerViewModel(
                             ctrl.volume = fadeProgress
                         } else if (ctrl.volume < 1f) {
                             ctrl.volume = 1f   // restore if user seeked back into the track
+                        }
+                    }
+                    // Prefetch the next Auto-DJ pick near the END of the last queued
+                    // track — Velvet's own timing: max(25, crossfade + 15) s before
+                    // it ends. Doing it here rather than at track start keeps the
+                    // heavy candidate-batch request off the server while ExoPlayer
+                    // is opening the stream. The 3 s floor covers very short or
+                    // unknown-duration tracks without firing at t=0; prefetchedFor
+                    // stops a re-fetch after the user seeks back.
+                    val s = _state.value
+                    val cur = s.currentSong
+                    if (cur != null && s.queueIndex == s.queue.lastIndex && prefetchedFor != cur.id) {
+                        val windowMs = maxOf(25, crossSec + 15) * 1000L
+                        val due = pos >= 3_000L && (dur <= 0L || dur - pos <= windowMs)
+                        if (due) {
+                            prefetchedFor = cur.id
+                            autoDj.fetchNext(viewModelScope)
                         }
                     }
                 }

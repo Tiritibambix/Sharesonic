@@ -197,6 +197,29 @@ class FolderBrowserViewModel(
         }
     }
 
+    /**
+     * Play every track under [path] (default: the folder being browsed) in
+     * deterministic order — the ordered counterpart of [shuffleCurrent]. Same
+     * server-side recursive collect and the same 5000-track cap, but taken as a
+     * path-sorted prefix rather than a random sample, and never shuffled. Not
+     * offered at the library root (a whole-library "play all" is meaningless).
+     */
+    fun playAllFolder(
+        path: String = folderId,
+        onReady: (List<EntryDto>) -> Unit,
+        onError: (String) -> Unit
+    ) {
+        viewModelScope.launch {
+            if (path == Screen.Browser.ROOT) { onError("Not available for the whole library"); return@launch }
+            val settings = settingsRepo.settings.first()
+            val token = ensureToken(settings) ?: run { onError("Authentication failed"); return@launch }
+            val velvet = VelvetRepository(VelvetClient.buildLongTimeout(settings.serverUrl))
+            val songs = velvet.collectSongsFast(token, path, ordered = true)
+            if (songs.isEmpty()) onError("No songs found")
+            else onReady(songs)
+        }
+    }
+
     // ── Share ─────────────────────────────────────────────────────────────────
 
     /**

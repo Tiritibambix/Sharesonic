@@ -58,6 +58,8 @@
     <string name="theme_hc_desc">純黒/白、黄色アクセント。</string>
     <string name="theme_cb">色覚多様性対応</string>
     <string name="theme_cb_desc">青 + オレンジ、赤緑非依存。</string>
+    <string name="theme_legacy">クラシック</string>
+    <string name="theme_legacy_desc">ニュートラルなダークグレーに琥珀色のアクセント — 懐かしい雰囲気。</string>
     <string name="theme_accent">アクセントカラー</string>
     <string name="theme_accent_desc">主色を上書き。プリセット + HSV ピッカー。</string>
     <string name="theme_accent_sheet_title">アクセントカラー</string>
@@ -206,6 +208,9 @@
     <string name="playlist_detail_shuffle">シャッフル</string>
     <string name="playlist_detail_add_songs">曲を追加</string>
     <string name="playlist_detail_remove">削除</string>
+    <string name="playlist_detail_move_up">上へ移動</string>
+    <string name="playlist_detail_move_down">下へ移動</string>
+    <string name="playlist_detail_drag_handle">ドラッグして並べ替え</string>
 
     <string name="share_confirm_title">公開リンク</string>
     <string name="share_copy">コピー</string>
@@ -247,6 +252,15 @@
     <string name="autodj_keyword_desc">タイトル、アーティスト、アルバム、ファイル名にいずれかの単語を含む曲をスキップ</string>
     <string name="autodj_keywords_label">キーワード（カンマ区切り）</string>
     <string name="autodj_keywords_placeholder">remix, acapella, live…</string>
+    <string name="autodj_section_duration">曲の長さ</string>
+    <string name="autodj_duration_enable">長さフィルターを有効にする</string>
+    <string name="autodj_duration_desc">指定した長さの範囲外の曲をスキップ — 短い間奏／スキットや長い DJ ミックス・ライブ録音など</string>
+    <string name="autodj_duration_min">最短の長さ（分）</string>
+    <string name="autodj_duration_min_desc">0 = 下限なし</string>
+    <string name="autodj_duration_max">最長の長さ（分）</string>
+    <string name="autodj_duration_max_desc">0 = 上限なし</string>
+    <string name="autodj_duration_allow_unknown">長さ不明の曲を含める</string>
+    <string name="autodj_duration_allow_unknown_desc">長さがまだスキャンされていない曲も許可します</string>
     <string name="autodj_section_crossfade">クロスフェード</string>
     <string name="autodj_crossfade_off">クロスフェード: オフ</string>
     <string name="autodj_crossfade_value">クロスフェード: %1$d 秒</string>
@@ -258,4 +272,6 @@
     <string name="autodj_source_all">すべてのライブラリ</string>
 
     <string name="crash_title">前回のクラッシュ</string>
+
+    <string name="widget_description">現在の曲の再生操作、評価、Auto-DJ の切り替え。</string>
 </resources>

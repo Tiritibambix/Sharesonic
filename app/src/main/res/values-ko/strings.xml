@@ -58,6 +58,8 @@
     <string name="theme_hc_desc">순수 검정/흰색, 노란색 강조.</string>
     <string name="theme_cb">색맹 친화적</string>
     <string name="theme_cb_desc">파랑 + 주황, 빨강/초록 배제.</string>
+    <string name="theme_legacy">클래식</string>
+    <string name="theme_legacy_desc">중립적인 어두운 회색에 호박색 포인트 — 향수를 자극하는 느낌.</string>
     <string name="theme_accent">강조 색상</string>
     <string name="theme_accent_desc">기본 색상 재정의. 프리셋 + HSV 선택기.</string>
     <string name="theme_accent_sheet_title">강조 색상</string>
@@ -206,6 +208,9 @@
     <string name="playlist_detail_shuffle">셔플</string>
     <string name="playlist_detail_add_songs">곡 추가</string>
     <string name="playlist_detail_remove">제거</string>
+    <string name="playlist_detail_move_up">위로 이동</string>
+    <string name="playlist_detail_move_down">아래로 이동</string>
+    <string name="playlist_detail_drag_handle">드래그하여 순서 변경</string>
 
     <string name="share_confirm_title">공개 링크</string>
     <string name="share_copy">복사</string>
@@ -247,6 +252,15 @@
     <string name="autodj_keyword_desc">제목, 아티스트, 앨범 또는 파일 이름에 다음 단어 중 하나가 포함된 곡 건너뛰기</string>
     <string name="autodj_keywords_label">키워드(쉼표로 구분)</string>
     <string name="autodj_keywords_placeholder">remix, acapella, live…</string>
+    <string name="autodj_section_duration">트랙 길이</string>
+    <string name="autodj_duration_enable">길이 필터 사용</string>
+    <string name="autodj_duration_desc">길이 범위를 벗어난 트랙 건너뛰기 — 짧은 간주/스킷과 긴 DJ 믹스 또는 공연 녹음</string>
+    <string name="autodj_duration_min">최소 길이(분)</string>
+    <string name="autodj_duration_min_desc">0 = 하한 없음</string>
+    <string name="autodj_duration_max">최대 길이(분)</string>
+    <string name="autodj_duration_max_desc">0 = 상한 없음</string>
+    <string name="autodj_duration_allow_unknown">길이 미상 포함</string>
+    <string name="autodj_duration_allow_unknown_desc">길이가 아직 스캔되지 않은 트랙도 허용합니다</string>
     <string name="autodj_section_crossfade">크로스페이드</string>
     <string name="autodj_crossfade_off">크로스페이드: 끄기</string>
     <string name="autodj_crossfade_value">크로스페이드: %1$d초</string>
@@ -258,4 +272,6 @@
     <string name="autodj_source_all">모든 라이브러리</string>
 
     <string name="crash_title">이전 크래시</string>
+
+    <string name="widget_description">현재 트랙의 재생 제어, 평가 및 Auto-DJ 전환.</string>
 </resources>

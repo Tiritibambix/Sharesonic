@@ -5,12 +5,14 @@ import com.tiritibambix.sharesonic.data.Result
 import com.tiritibambix.sharesonic.data.VelvetRepository
 import com.tiritibambix.sharesonic.data.api.VelvetClient
 import com.tiritibambix.sharesonic.data.api.models.EntryDto
+import com.tiritibambix.sharesonic.data.api.models.SimilarArtistsResponse
 import com.tiritibambix.sharesonic.data.api.models.VelvetRandomSongsRequest
 import com.tiritibambix.sharesonic.data.settings.AutoDjSettings
 import com.tiritibambix.sharesonic.data.settings.SettingsRepository
 import com.tiritibambix.sharesonic.utils.CamelotWheel
 import com.tiritibambix.sharesonic.utils.KeywordFilter
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import kotlin.math.abs
@@ -77,10 +79,18 @@ class AutoDjOrchestrator(
     @Volatile
     private var lastPickFree: Boolean = false
 
-    /** Similar-artist cache for the current anchor artist. */
-    private var similarFor: String? = null
+    /** Per-artist Last.fm similar-artist cache (artist → response) so alternating
+     *  artists don't re-hit the server on every fetch. Cleared by [reset]. */
+    private val similarCache = mutableMapOf<String, SimilarArtistsResponse>()
+    /** Similar-artist data in effect for the current fetch. */
     private var similarArtists: List<String> = emptyList()
     private var variantRankMap: Map<String, Int> = emptyMap()
+
+    /** Repository (and its OkHttp connection pool) reused across fetches; rebuilt
+     *  only when the server URL changes, so Auto-DJ doesn't open a fresh TCP+TLS
+     *  handshake next to ExoPlayer's stream on every pick. */
+    private var repoUrl: String? = null
+    private var repo: VelvetRepository? = null
 
     /**
      * Record a track becoming current (manual play or DJ advance) so the
@@ -101,9 +111,15 @@ class AutoDjOrchestrator(
         bpmHistory.clear()
         yearHistory.clear()
         lastPickFree = false
-        similarFor = null
+        similarCache.clear()
         similarArtists = emptyList()
         variantRankMap = emptyMap()
+    }
+
+    private fun repoFor(url: String): VelvetRepository {
+        val cached = repo
+        if (cached != null && repoUrl == url) return cached
+        return VelvetRepository(VelvetClient.build(url)).also { repo = it; repoUrl = url }
     }
 
     /**
@@ -111,29 +127,31 @@ class AutoDjOrchestrator(
      * [scope]. Silent no-op when unauthenticated or when the batch is empty.
      */
     fun fetchNext(scope: CoroutineScope) {
-        scope.launch {
+        // Dispatchers.Default: the callers' scopes are Main, but everything after
+        // the network — mapping ~500 candidates to EntryDtos and the scoring loop —
+        // is pure CPU work that must not run on the UI/looper thread (it stalled
+        // MediaSession dispatch). Both addTrackToQueue implementations launch on
+        // their own Main scope, so the enqueue itself stays thread-safe.
+        scope.launch(Dispatchers.Default) {
             val serverSettings = settingsRepo.settings.first()
             val token = serverSettings.jwtToken.ifEmpty { return@launch }
             val autoDj = settingsRepo.autoDjSettings.first()
             val current = getCurrentTrack()
-            val velvet = VelvetRepository(VelvetClient.build(serverSettings.serverUrl))
+            val velvet = repoFor(serverSettings.serverUrl)
 
-            // ── Similar artists (cached per anchor artist) ──────────────────────
+            // ── Similar artists (cached per artist) ───────────────────────────────
             if (autoDj.useSimilarArtists && !current?.artist.isNullOrBlank()) {
                 val artist = current!!.artist!!
-                if (similarFor != artist) {
-                    when (val r = velvet.getSimilarArtistsRanked(token, artist)) {
-                        is Result.Success -> {
-                            similarArtists = r.data.artists
-                            variantRankMap = r.data.variantRankMap
-                        }
-                        is Result.Error -> {
-                            similarArtists = emptyList()
-                            variantRankMap = emptyMap()
-                        }
+                val data = similarCache[artist] ?: run {
+                    val fetched = when (val r = velvet.getSimilarArtistsRanked(token, artist)) {
+                        is Result.Success -> r.data
+                        is Result.Error -> SimilarArtistsResponse()
                     }
-                    similarFor = artist
+                    similarCache[artist] = fetched
+                    fetched
                 }
+                similarArtists = data.artists
+                variantRankMap = data.variantRankMap
             } else {
                 similarArtists = emptyList()
                 variantRankMap = emptyMap()

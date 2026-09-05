@@ -58,6 +58,8 @@
     <string name="theme_hc_desc">纯黑/纯白，黄色强调。</string>
     <string name="theme_cb">色盲友好</string>
     <string name="theme_cb_desc">蓝 + 橙，避免红绿。</string>
+    <string name="theme_legacy">经典</string>
+    <string name="theme_legacy_desc">中性深灰配琥珀色强调——怀旧风格。</string>
     <string name="theme_accent">强调色</string>
     <string name="theme_accent_desc">覆盖主题主色。预设 + HSV 选择器。</string>
     <string name="theme_accent_sheet_title">强调色</string>
@@ -206,6 +208,9 @@
     <string name="playlist_detail_shuffle">随机</string>
     <string name="playlist_detail_add_songs">添加歌曲</string>
     <string name="playlist_detail_remove">移除</string>
+    <string name="playlist_detail_move_up">上移</string>
+    <string name="playlist_detail_move_down">下移</string>
+    <string name="playlist_detail_drag_handle">拖动以重新排序</string>
 
     <string name="share_confirm_title">公开链接</string>
     <string name="share_copy">复制</string>
@@ -247,6 +252,15 @@
     <string name="autodj_keyword_desc">跳过标题、艺术家、专辑或文件名包含任一关键词的歌曲</string>
     <string name="autodj_keywords_label">关键词（用逗号分隔）</string>
     <string name="autodj_keywords_placeholder">remix, acapella, live…</string>
+    <string name="autodj_section_duration">曲目时长</string>
+    <string name="autodj_duration_enable">启用时长筛选</string>
+    <string name="autodj_duration_desc">跳过时长范围之外的曲目——较短的间奏/小品以及较长的 DJ 混音或演唱会录音</string>
+    <string name="autodj_duration_min">最短时长（分钟）</string>
+    <string name="autodj_duration_min_desc">0 = 无下限</string>
+    <string name="autodj_duration_max">最长时长（分钟）</string>
+    <string name="autodj_duration_max_desc">0 = 无上限</string>
+    <string name="autodj_duration_allow_unknown">包含未知时长</string>
+    <string name="autodj_duration_allow_unknown_desc">同时允许尚未扫描时长的曲目</string>
     <string name="autodj_section_crossfade">交叉淡化</string>
     <string name="autodj_crossfade_off">交叉淡化：关</string>
     <string name="autodj_crossfade_value">交叉淡化：%1$d 秒</string>
@@ -258,4 +272,6 @@
     <string name="autodj_source_all">所有库</string>
 
     <string name="crash_title">上次崩溃</string>
+
+    <string name="widget_description">当前曲目的播放控制、评分和 Auto-DJ 开关。</string>
 </resources>

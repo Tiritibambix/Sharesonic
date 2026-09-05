@@ -58,6 +58,8 @@
     <string name="theme_hc_desc">Чистый чёрный/белый с жёлтым акцентом.</string>
     <string name="theme_cb">Безопасно при дальтонизме</string>
     <string name="theme_cb_desc">Синий + оранжевый, без красно-зелёных пар.</string>
+    <string name="theme_legacy">Классическая</string>
+    <string name="theme_legacy_desc">Нейтральные тёмно-серые тона с янтарным акцентом — ностальгический вид.</string>
     <string name="theme_accent">Цвет акцента</string>
     <string name="theme_accent_desc">Переопределить основной цвет. Пресеты + HSV.</string>
     <string name="theme_accent_sheet_title">Цвет акцента</string>
@@ -206,6 +208,9 @@
     <string name="playlist_detail_shuffle">Случайно</string>
     <string name="playlist_detail_add_songs">Добавить треки</string>
     <string name="playlist_detail_remove">Удалить</string>
+    <string name="playlist_detail_move_up">Переместить вверх</string>
+    <string name="playlist_detail_move_down">Переместить вниз</string>
+    <string name="playlist_detail_drag_handle">Перетащите, чтобы изменить порядок</string>
 
     <string name="share_confirm_title">Публичная ссылка</string>
     <string name="share_copy">Копировать</string>
@@ -247,6 +252,15 @@
     <string name="autodj_keyword_desc">Пропускать треки, у которых название, исполнитель, альбом или имя файла содержат одно из этих слов</string>
     <string name="autodj_keywords_label">Ключевые слова (через запятую)</string>
     <string name="autodj_keywords_placeholder">remix, acapella, live…</string>
+    <string name="autodj_section_duration">Длительность треков</string>
+    <string name="autodj_duration_enable">Включить фильтр по длительности</string>
+    <string name="autodj_duration_desc">Пропускать треки вне диапазона длительности — короткие интерлюдии/скиты и длинные DJ-миксы или записи концертов</string>
+    <string name="autodj_duration_min">Минимальная длительность (мин)</string>
+    <string name="autodj_duration_min_desc">0 = без нижней границы</string>
+    <string name="autodj_duration_max">Максимальная длительность (мин)</string>
+    <string name="autodj_duration_max_desc">0 = без верхней границы</string>
+    <string name="autodj_duration_allow_unknown">Включать неизвестную длительность</string>
+    <string name="autodj_duration_allow_unknown_desc">Также разрешать треки, длительность которых ещё не определена</string>
     <string name="autodj_section_crossfade">Кроссфейд</string>
     <string name="autodj_crossfade_off">Кроссфейд: Выкл.</string>
     <string name="autodj_crossfade_value">Кроссфейд: %1$dс</string>
@@ -258,4 +272,6 @@
     <string name="autodj_source_all">Все библиотеки</string>
 
     <string name="crash_title">Предыдущий сбой</string>
+
+    <string name="widget_description">Управление воспроизведением, оценка и переключатель Auto-DJ для текущего трека.</string>
 </resources>

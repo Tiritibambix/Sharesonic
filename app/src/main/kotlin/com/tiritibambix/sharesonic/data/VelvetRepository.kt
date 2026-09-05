@@ -158,14 +158,17 @@ class VelvetRepository(private val api: VelvetApiService) {
      *
      * A folder can hold 100k+ files (e.g. a whole-genre library); materializing that many
      * queue entries + their metadata is infeasible on-device, so the result is capped at
-     * [SHUFFLE_MAX], sampled randomly across the *whole* folder (shuffle filepaths, then
-     * take the cap). Folders under the cap are returned in full. Unindexed files fall back
-     * to a minimal EntryDto (filepath only) so they stay playable.
+     * [SHUFFLE_MAX]. For shuffle (default) it's sampled randomly across the *whole* folder
+     * (shuffle filepaths, then take the cap). With [ordered] = true ("play all") the
+     * filepaths are sorted and the cap taken as a prefix instead — the recursive endpoint
+     * has no sort field, so this is what makes the order deterministic. Folders under the
+     * cap are returned in full. Unindexed files fall back to a minimal EntryDto (filepath
+     * only) so they stay playable.
      *
      * Build the repo with [com.tiritibambix.sharesonic.data.api.VelvetClient.buildLongTimeout]
      * when calling this — the server-side recursive walk can exceed the normal read timeout.
      */
-    suspend fun collectSongsFast(token: String, path: String): List<EntryDto> {
+    suspend fun collectSongsFast(token: String, path: String, ordered: Boolean = false): List<EntryDto> {
         val filepaths = try {
             api.recursiveScan(token, RecursiveScanRequest(path))
         } catch (e: kotlinx.coroutines.CancellationException) {
@@ -175,7 +178,11 @@ class VelvetRepository(private val api: VelvetApiService) {
         }
         if (filepaths.isEmpty()) return emptyList()
 
-        val selected = if (filepaths.size > SHUFFLE_MAX) filepaths.shuffled().take(SHUFFLE_MAX) else filepaths
+        val selected = when {
+            ordered -> filepaths.sorted().take(SHUFFLE_MAX)
+            filepaths.size > SHUFFLE_MAX -> filepaths.shuffled().take(SHUFFLE_MAX)
+            else -> filepaths
+        }
 
         val meta = HashMap<String, VelvetFileMetaWrapper>(selected.size)
         for (chunk in selected.chunked(METADATA_CHUNK)) {

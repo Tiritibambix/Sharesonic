@@ -4,7 +4,7 @@
 
     <string name="common_back">Terug</string>
     <string name="common_menu">Menu</string>
-    <string name="common_home">Home</string>
+    <string name="common_home">Start</string>
     <string name="common_cancel">Annuleren</string>
     <string name="common_close">Sluiten</string>
     <string name="common_dismiss">Sluiten</string>
@@ -58,11 +58,13 @@
     <string name="theme_hc_desc">Puur zwart/wit met geel accent.</string>
     <string name="theme_cb">Kleurenblind-vriendelijk</string>
     <string name="theme_cb_desc">Blauw + oranje, geen rood/groen.</string>
+    <string name="theme_legacy">Klassiek</string>
+    <string name="theme_legacy_desc">Neutrale donkere grijstinten met amberkleurig accent — nostalgische look.</string>
     <string name="theme_accent">Accentkleur</string>
     <string name="theme_accent_desc">Overschrijft de primaire kleur. Presets + HSV-kiezer.</string>
     <string name="theme_accent_sheet_title">Accentkleur</string>
     <string name="theme_accent_use_theme">Thema-standaard gebruiken</string>
-    <string name="theme_accent_presets">Presets</string>
+    <string name="theme_accent_presets">Voorinstellingen</string>
     <string name="theme_accent_custom">Aangepast (HSV)</string>
     <string name="theme_accent_hue">Tint</string>
     <string name="theme_accent_saturation">Verzadiging</string>
@@ -90,10 +92,10 @@
     <string name="links_copied">Link naar klembord gekopieerd</string>
 
     <string name="browser_library">Bibliotheek</string>
-    <string name="browser_home">Home</string>
+    <string name="browser_home">Start</string>
     <string name="browser_search">Zoeken</string>
     <string name="browser_playlists">Afspeellijsten</string>
-    <string name="browser_shuffle">Shuffle</string>
+    <string name="browser_shuffle">Willekeurig</string>
     <string name="browser_play_all">Alles afspelen</string>
     <string name="browser_add_to_queue">Aan wachtrij toevoegen</string>
     <string name="browser_add_to_playlist">Aan afspeellijst toevoegen</string>
@@ -172,7 +174,7 @@
     <string name="info_duration">Duur</string>
     <string name="info_format">Formaat</string>
     <string name="info_bitrate">Bitrate</string>
-    <string name="info_sample_rate">Sample rate</string>
+    <string name="info_sample_rate">Samplefrequentie</string>
     <string name="info_channels">Kanalen</string>
     <string name="info_rating">Beoordeling</string>
     <string name="info_rating_value">%1$d / 5</string>
@@ -203,9 +205,12 @@
 
     <string name="playlist_detail_empty">Nog geen nummers in deze afspeellijst.</string>
     <string name="playlist_detail_play_all">Alles afspelen</string>
-    <string name="playlist_detail_shuffle">Shuffle</string>
+    <string name="playlist_detail_shuffle">Willekeurig</string>
     <string name="playlist_detail_add_songs">Nummers toevoegen</string>
     <string name="playlist_detail_remove">Verwijderen</string>
+    <string name="playlist_detail_move_up">Omhoog</string>
+    <string name="playlist_detail_move_down">Omlaag</string>
+    <string name="playlist_detail_drag_handle">Sleep om te herschikken</string>
 
     <string name="share_confirm_title">Openbare link</string>
     <string name="share_copy">Kopiëren</string>
@@ -238,8 +243,8 @@
     <string name="autodj_section_genre">Genrefilter</string>
     <string name="autodj_filter_mode">Filtermodus</string>
     <string name="autodj_filter_off">Uit</string>
-    <string name="autodj_filter_whitelist">Whitelist</string>
-    <string name="autodj_filter_blacklist">Blacklist</string>
+    <string name="autodj_filter_whitelist">Witte lijst</string>
+    <string name="autodj_filter_blacklist">Zwarte lijst</string>
     <string name="autodj_genres_label">Genres (kommagescheiden)</string>
     <string name="autodj_genres_placeholder">Rock, Jazz, Klassiek…</string>
     <string name="autodj_section_keyword">Zoekwoordfilter</string>
@@ -247,6 +252,15 @@
     <string name="autodj_keyword_desc">Nummers overslaan waarvan de titel, artiest, album of bestandsnaam een van deze woorden bevat</string>
     <string name="autodj_keywords_label">Zoekwoorden (kommagescheiden)</string>
     <string name="autodj_keywords_placeholder">remix, acapella, live…</string>
+    <string name="autodj_section_duration">Nummerlengte</string>
+    <string name="autodj_duration_enable">Lengtefilter inschakelen</string>
+    <string name="autodj_duration_desc">Sla nummers buiten een lengtevenster over — korte intermezzo\'s/sketches en lange dj-mixen of concertopnames</string>
+    <string name="autodj_duration_min">Minimale lengte (min)</string>
+    <string name="autodj_duration_min_desc">0 = geen ondergrens</string>
+    <string name="autodj_duration_max">Maximale lengte (min)</string>
+    <string name="autodj_duration_max_desc">0 = geen bovengrens</string>
+    <string name="autodj_duration_allow_unknown">Onbekende lengte meenemen</string>
+    <string name="autodj_duration_allow_unknown_desc">Sta ook nummers toe waarvan de lengte nog niet is gescand</string>
     <string name="autodj_section_crossfade">Crossfade</string>
     <string name="autodj_crossfade_off">Crossfade: Uit</string>
     <string name="autodj_crossfade_value">Crossfade: %1$ds</string>
@@ -258,4 +272,6 @@
     <string name="autodj_source_all">Alle bibliotheken</string>
 
     <string name="crash_title">Vorige crash</string>
+
+    <string name="widget_description">Afspeelbediening, beoordeling en Auto-DJ-schakelaar voor het huidige nummer.</string>
 </resources>
