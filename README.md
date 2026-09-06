@@ -97,6 +97,18 @@ Generic Subsonic servers (Navidrome, Airsonic, etc.) are not supported yet, plan
 
 ---
 
+## Why no iOS version?
+
+Sharesonic is Android-only by design, for three reasons:
+
+- **Philosophy** — Sharesonic is free, open, and installed by sideloading, kept up to date automatically through Obtainium. That matches Velvet's self-hosted spirit: your server, your music, your device, no gatekeeper. iOS has no equivalent open path; everything has to go through the App Store and its review.
+- **Hardware** — building, signing and shipping an iOS app requires a Mac and Xcode. Sharesonic is developed on Windows, so there is simply no machine that can produce an iOS build.
+- **Cost** — putting an app on iPhones means a paid Apple Developer account at $99/year, forever, just to hand out a free app.
+
+If you are on iOS, **Velvet's own web player** works in Safari and can be added to your home screen. It is the recommended way to reach your library from an iPhone or iPad.
+
+---
+
 ## Installation
 
 ### Direct download
