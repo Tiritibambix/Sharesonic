@@ -44,7 +44,7 @@ Sharesonic is built for the other scenario: the large, chaotic, lovingly disorga
 | **Folder browsing** | Navigate your full directory tree from root to individual tracks |
 | **Shuffle library** | Server-side random pick via native Velvet API, 30 tracks, no repeats |
 | **Shuffle folder** | Shuffle every track under any sub-directory. Gathered server-side (recursive scan + batch metadata) so it scales to huge folders; very large folders (100k+ tracks) are randomly sampled down to 5000 |
-| **Play folder** | Play everything under a folder in order, in one tap — from the folder's play button or its long-press menu |
+| **Play folder** | Play everything under a folder in order, in one tap, from the folder's play button or its long-press menu |
 | **Auto-DJ** | Continuous smart queue that scores a batch of candidates and always plays the best fit: similar artists, BPM continuity, harmonic mixing (Camelot wheel), genre, year/era, artist cooldown, a track-length window, keyword filter (skip songs whose title / artist / album / filename contains any of these words), crossfade. Toggle the headphones icon in the mini player or Now Playing |
 | **Share link on track** | Native Velvet share API → public `server/shared/XXXXXXXXXX` URL → Android share sheet |
 | **Share link on folder** | Long-press any folder → recursively collects every track inside it (including subfolders) and generates a single public link for the whole folder |
@@ -52,7 +52,7 @@ Sharesonic is built for the other scenario: the large, chaotic, lovingly disorga
 | **Manage shared links** | "Public Links" screen (drawer) lists every link you've created with its song count and expiry: copy, open, or revoke each one |
 | **Star ratings** | Rate the current track 0-5 stars from Now Playing, synced live to Velvet's native rating, with an explicit one-tap way back to "unrated" |
 | **Now Playing** | Non-scrolling full-screen player: cover art with an ambient gradient tinted by the artwork's dominant colour, waveform seek bar (tap or drag to seek), title/artist/album, format/bitrate, star rating, generously spaced controls, and Share / Playlist actions |
-| **Themes & accent** | Six built-in themes plus a runtime accent colour: presets, a full HSV picker, or a **Dynamic** mode that re-tints the whole app from the current track's artwork — the same colour as the Now Playing glow |
+| **Themes & accent** | Six built-in themes plus a runtime accent colour: presets, a full HSV picker, or a **Dynamic** mode that re-tints the whole app from the current track's artwork, the same colour as the Now Playing glow |
 | **Track info dialog** | Full metadata for the current track: title, artist, album, year, track, genres, BPM, key, duration, format, bitrate, sample rate, channels, rating, and the selectable file path. Missing fields are fetched fresh from the server on open |
 | **Sleep timer** | Set a countdown (15 / 30 / 45 / 60 / 90 min presets or a custom value) from the Now Playing "More" sheet. Playback pauses when it fires; the remaining time shows live |
 | **Lyrics** | Fetch and display lyrics for the current track from the Now Playing "More" sheet (synced or plain, whichever the server has). Loading / found / "none" / error states handled |
@@ -101,9 +101,9 @@ Generic Subsonic servers (Navidrome, Airsonic, etc.) are not supported yet, plan
 
 Sharesonic is Android-only by design, for three reasons:
 
-- **Philosophy** — Sharesonic is free, open, and installed by sideloading, kept up to date automatically through Obtainium. That matches Velvet's self-hosted spirit: your server, your music, your device, no gatekeeper. iOS has no equivalent open path; everything has to go through the App Store and its review.
-- **Hardware** — building, signing and shipping an iOS app requires a Mac and Xcode. Sharesonic is developed on Windows, so there is simply no machine that can produce an iOS build.
-- **Cost** — putting an app on iPhones means a paid Apple Developer account at $99/year, forever, just to hand out a free app.
+- **Philosophy**: Sharesonic is free, open, and installed by sideloading, kept up to date automatically through Obtainium. That matches Velvet's self-hosted spirit: your server, your music, your device, no gatekeeper. iOS has no equivalent open path; everything has to go through the App Store and its review.
+- **Hardware**: building, signing and shipping an iOS app requires a Mac and Xcode. Sharesonic is developed on Windows, so there is simply no machine that can produce an iOS build.
+- **Cost**: putting an app on iPhones means a paid Apple Developer account at $99/year, forever, just to hand out a free app.
 
 If you are on iOS, **Velvet's own web player** works in Safari and can be added to your home screen. It is the recommended way to reach your library from an iPhone or iPad.
 
