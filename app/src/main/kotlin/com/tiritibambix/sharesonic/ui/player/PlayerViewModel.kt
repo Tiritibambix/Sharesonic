@@ -146,8 +146,12 @@ class PlayerViewModel(
     /** Wall clock of the last position write — throttles the periodic save. */
     private var lastPositionSaveMs = 0L
 
-    /** Song id for which the end-of-track Auto-DJ prefetch has already fired. */
+    /** Song id for which the primary (early) Auto-DJ prefetch has already fired. */
     private var prefetchedFor: String? = null
+    /** Song id for which the near-end backstop prefetch has fired. Separate from
+     *  [prefetchedFor] so a failed early attempt can still be retried before the
+     *  track ends. */
+    private var prefetchBackstopFor: String? = null
 
     init {
         val sessionToken = SessionToken(
@@ -256,12 +260,12 @@ class PlayerViewModel(
                 _state.update { it.copy(autoDjEnabled = enabled) }
                 if (!enabled && wasEnabled) autoDj.reset()
                 if (enabled && !wasEnabled) {
-                    // Turning on issues no immediate fetch: the polling loop
-                    // prefetches the next pick inside the end-of-track window, so
-                    // enabling Auto-DJ mid-track never competes with the current
-                    // stream. Clear the per-track guard so the current track
-                    // qualifies for that prefetch again.
+                    // Turning on issues no immediate fetch: the polling loop picks
+                    // it up on its next tick (the current track is already past the
+                    // early-prefetch mark, so the pick lands right away). Clear the
+                    // per-track guards so the current track qualifies again.
                     prefetchedFor = null
+                    prefetchBackstopFor = null
                 }
                 // The _state.copy(autoDjEnabled = enabled) above will re-emit
                 // through the throttled snapshot collector below — no need to
@@ -353,6 +357,13 @@ class PlayerViewModel(
     private companion object {
         /** How often the resume point is rewritten while playing. */
         const val POSITION_SAVE_INTERVAL_MS = 5_000L
+
+        /** How far into a track the next Auto-DJ pick is prefetched. Late enough
+         *  that the stream is up and playing (firing at the transition instant
+         *  once cost a ~2-minute start delay), early enough that a manual skip
+         *  is an instant queue advance instead of a full fetch+score round-trip.
+         *  Raise this if a slow server hiccups around the 2 s mark. */
+        const val EARLY_PREFETCH_MS = 2_000L
     }
 
     /** Persist queue + index + position. Called on meaningful changes. */
@@ -423,20 +434,25 @@ class PlayerViewModel(
                             ctrl.volume = 1f   // restore if user seeked back into the track
                         }
                     }
-                    // Prefetch the next Auto-DJ pick near the END of the last queued
-                    // track — Velvet's own timing: max(25, crossfade + 15) s before
-                    // it ends. Doing it here rather than at track start keeps the
-                    // heavy candidate-batch request off the server while ExoPlayer
-                    // is opening the stream. The 3 s floor covers very short or
-                    // unknown-duration tracks without firing at t=0; prefetchedFor
-                    // stops a re-fetch after the user seeks back.
+                    // Prefetch the next Auto-DJ pick as soon as the current track is
+                    // the last queued one — Velvet's current timing. Firing ~2 s in
+                    // (not at the transition instant, which used to stall the start)
+                    // means the pick is already queued, so a manual skip is an
+                    // instant advance instead of a full fetch+score round-trip.
                     val s = _state.value
                     val cur = s.currentSong
-                    if (cur != null && s.queueIndex == s.queue.lastIndex && prefetchedFor != cur.id) {
-                        val windowMs = maxOf(25, crossSec + 15) * 1000L
-                        val due = pos >= 3_000L && (dur <= 0L || dur - pos <= windowMs)
-                        if (due) {
-                            prefetchedFor = cur.id
+                    if (cur != null && s.queueIndex == s.queue.lastIndex) {
+                        if (prefetchedFor != cur.id) {
+                            if (pos >= EARLY_PREFETCH_MS) {
+                                prefetchedFor = cur.id
+                                autoDj.fetchNext(viewModelScope)
+                            }
+                        } else if (prefetchBackstopFor != cur.id && dur > 0L &&
+                            dur - pos <= maxOf(25, crossSec + 15) * 1000L
+                        ) {
+                            // Backstop: still at the last item late in the track, so
+                            // the early attempt returned nothing — try once more.
+                            prefetchBackstopFor = cur.id
                             autoDj.fetchNext(viewModelScope)
                         }
                     }
