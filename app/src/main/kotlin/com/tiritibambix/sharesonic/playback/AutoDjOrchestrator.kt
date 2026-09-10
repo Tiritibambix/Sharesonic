@@ -15,6 +15,7 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import kotlin.math.abs
 import kotlin.math.max
 import kotlin.math.roundToInt
@@ -111,6 +112,7 @@ class AutoDjOrchestrator(
         bpmHistory.clear()
         yearHistory.clear()
         lastPickFree = false
+        fetching = false
         similarCache.clear()
         similarArtists = emptyList()
         variantRankMap = emptyMap()
@@ -122,19 +124,34 @@ class AutoDjOrchestrator(
         return VelvetRepository(VelvetClient.build(url)).also { repo = it; repoUrl = url }
     }
 
+    /** True while a fetch is in flight — mirrors Velvet's `_djPrefetching`. Stops
+     *  the end-of-track prefetch and an on-demand skip from double-firing; a skip
+     *  raised while a prefetch runs is satisfied by that fetch's own enqueue. */
+    @Volatile
+    private var fetching = false
+
     /**
      * Fetch one candidate batch, score it, and enqueue the best pick. Runs in
      * [scope]. Silent no-op when unauthenticated or when the batch is empty.
+     *
+     * [onUnavailable] (invoked on the main thread) fires only when the fetch
+     * cannot enqueue anything — no token, request error, or no candidate — so a
+     * caller waiting to skip to the result can clear its pending state. It does
+     * NOT fire when the guard short-circuits a concurrent call (the in-flight
+     * fetch will enqueue for both).
      */
-    fun fetchNext(scope: CoroutineScope) {
+    fun fetchNext(scope: CoroutineScope, onUnavailable: (() -> Unit)? = null) {
+        if (fetching) return
+        fetching = true
         // Dispatchers.Default: the callers' scopes are Main, but everything after
         // the network — mapping ~500 candidates to EntryDtos and the scoring loop —
         // is pure CPU work that must not run on the UI/looper thread (it stalled
         // MediaSession dispatch). Both addTrackToQueue implementations launch on
         // their own Main scope, so the enqueue itself stays thread-safe.
         scope.launch(Dispatchers.Default) {
+            try {
             val serverSettings = settingsRepo.settings.first()
-            val token = serverSettings.jwtToken.ifEmpty { return@launch }
+            val token = serverSettings.jwtToken.ifEmpty { notifyUnavailable(onUnavailable); return@launch }
             val autoDj = settingsRepo.autoDjSettings.first()
             val current = getCurrentTrack()
             val velvet = repoFor(serverSettings.serverUrl)
@@ -187,10 +204,10 @@ class AutoDjOrchestrator(
 
             val batch = when (val r = velvet.fetchAutoDjBatch(token, request)) {
                 is Result.Success -> { ignoreList = r.data.second; r.data.first }
-                is Result.Error   -> return@launch
+                is Result.Error   -> { notifyUnavailable(onUnavailable); return@launch }
             }
 
-            val pick = pickBest(batch, current, autoDj) ?: return@launch
+            val pick = pickBest(batch, current, autoDj) ?: run { notifyUnavailable(onUnavailable); return@launch }
 
             // Update anchors + histories from the actual pick before enqueueing.
             lastPickFree = pick.bpm == null
@@ -200,7 +217,15 @@ class AutoDjOrchestrator(
             pick.artist?.takeIf { it.isNotBlank() }?.let { pushArtistHistory(it) }
 
             addTrackToQueue(pick)
+            } finally {
+                fetching = false
+            }
         }
+    }
+
+    private suspend fun notifyUnavailable(onUnavailable: (() -> Unit)?) {
+        onUnavailable ?: return
+        withContext(Dispatchers.Main) { onUnavailable() }
     }
 
     // ── Candidate selection ─────────────────────────────────────────────────────

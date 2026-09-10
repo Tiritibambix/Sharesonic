@@ -34,6 +34,11 @@ class PlaybackService : MediaSessionService() {
     // DataStore in onCreate (the ConnectionTest step of settings populates it).
     private var cachedVpaths: List<String> = emptyList()
 
+    // Set when a widget NEXT arrives with nothing queued and Auto-DJ on: the
+    // fetched pick is played immediately instead of just appended. Only touched
+    // on serviceScope (Main).
+    private var pendingSkip = false
+
     override fun onCreate() {
         super.onCreate()
         val player = ExoPlayer.Builder(this).build()
@@ -62,6 +67,12 @@ class PlaybackService : MediaSessionService() {
                         token = settings.jwtToken,
                     )
                     player.addMediaItem(MediaItem.fromUri(uri))
+                    // On-demand widget skip: advance to the pick we just appended.
+                    if (pendingSkip) {
+                        pendingSkip = false
+                        if (player.hasNextMediaItem()) player.seekToNextMediaItem()
+                        player.play()
+                    }
                 }
             },
             // The service doesn't have direct access to the EntryDto queue the
@@ -99,7 +110,15 @@ class PlaybackService : MediaSessionService() {
                 lastNonce = nonce
                 when (cmd) {
                     "PLAY_PAUSE" -> player.playWhenReady = !player.playWhenReady
-                    "NEXT" -> if (player.hasNextMediaItem()) player.seekToNextMediaItem()
+                    "NEXT" -> if (player.hasNextMediaItem()) {
+                        player.seekToNextMediaItem()
+                    } else if (settingsRepo.autoDjEnabled.first()) {
+                        // Nothing queued (Auto-DJ prefetches only near the end):
+                        // generate the next pick on demand and advance to it when
+                        // it lands — same behaviour as the in-app skip.
+                        pendingSkip = true
+                        autoDj.fetchNext(serviceScope)
+                    }
                     "PREV" -> if (player.hasPreviousMediaItem()) player.seekToPreviousMediaItem()
                 }
             }

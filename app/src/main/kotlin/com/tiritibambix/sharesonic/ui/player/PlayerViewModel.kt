@@ -100,10 +100,17 @@ class PlayerViewModel(
     private val autoDj = AutoDjOrchestrator(
         context = context,
         settingsRepo = settingsRepo,
-        addTrackToQueue = { song -> addToQueue(song) },
+        addTrackToQueue = { song -> enqueueDjTrack(song) },
         getCurrentTrack = { _state.value.currentSong },
         getCachedVpaths = { cachedVpaths },
     )
+
+    /** Set when the user presses next on the last track with Auto-DJ on: the next
+     *  DJ pick to be enqueued is played immediately instead of just queued. */
+    private var djSkipPending = false
+    /** Generation of the current pending skip, so an old safety-timeout can't
+     *  clear a newer skip's flag. */
+    private var djSkipToken = 0
 
     // ── Sleep timer ───────────────────────────────────────────────────────────
     /** Wall-clock time (SystemClock.elapsedRealtime) at which playback should pause,
@@ -493,6 +500,37 @@ class PlayerViewModel(
         }
     }
 
+    /**
+     * Append an Auto-DJ pick (the orchestrator's enqueue path). Same as
+     * [addToQueue], but if the user is waiting on an on-demand skip
+     * ([djSkipPending]) it also advances to the just-appended track and plays —
+     * the race-free spot to do so is here, after the actual `addMediaItem`.
+     * Kept separate from [addToQueue] so a manual add-to-queue swipe can never
+     * trigger an accidental skip.
+     */
+    private fun enqueueDjTrack(song: EntryDto) {
+        viewModelScope.launch {
+            val settings = settings()
+            val currentQueue = _state.value.queue
+            if (currentQueue.isEmpty()) {
+                playSong(song)
+                return@launch
+            }
+            _state.update { it.copy(queue = currentQueue + song) }
+            val ctrl = controllerDeferred.await()
+            ctrl.addMediaItem(MediaItem.fromUri(streamUrl(settings, song)))
+            if (djSkipPending) {
+                djSkipPending = false
+                val idx = _state.value.queue.lastIndex
+                _state.update {
+                    it.copy(queueIndex = idx, currentSong = song, coverArtUrl = coverArtUrl(settings, song))
+                }
+                ctrl.seekTo(idx, 0L)
+                ctrl.play()
+            }
+        }
+    }
+
     // ── Playlist management ───────────────────────────────────────────────────
 
     /**
@@ -575,7 +613,28 @@ class PlayerViewModel(
 
     fun skipNext() {
         val q = _state.value
-        if (q.queueIndex < q.queue.lastIndex) jumpTo(q.queueIndex + 1)
+        // A track is already queued (normal queue, or an end-of-track prefetch) —
+        // jump straight to it.
+        if (q.queueIndex < q.queue.lastIndex) { jumpTo(q.queueIndex + 1); return }
+        // Last track with Auto-DJ on: there's nothing queued yet (the prefetch only
+        // fires near the end), so generate the next pick on demand and advance to
+        // it when it lands — mirrors Velvet's next() → autoDJFetch(). Native music
+        // only; search-result (Subsonic numeric-id) tracks can't seed Auto-DJ.
+        val cur = q.currentSong ?: return
+        if (q.autoDjEnabled && !cur.id.isSubsonicNumericId()) {
+            djSkipPending = true
+            val token = ++djSkipToken
+            autoDj.fetchNext(viewModelScope, onUnavailable = {
+                if (djSkipToken == token) djSkipPending = false
+            })
+            // Safety: if an already-in-flight prefetch (started without the
+            // callback above) fails, clear the flag so it can't auto-advance a
+            // much later prefetch. Token-guarded so it never clears a newer skip.
+            viewModelScope.launch {
+                kotlinx.coroutines.delay(15_000)
+                if (djSkipToken == token) djSkipPending = false
+            }
+        }
     }
 
     fun skipPrev() {
