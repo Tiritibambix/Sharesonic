@@ -69,7 +69,19 @@ data class PlayerState(
     val audioChannels: Int? = null,
     /** Milliseconds left on the sleep timer, or null when no timer is armed. */
     val sleepRemainingMs: Long? = null
-)
+) {
+    /**
+     * True when the next button should act: a track is already queued, or Auto-DJ
+     * can generate one on demand for the current (native) track.
+     *
+     * Shared by the UI's `enabled` state and [PlayerViewModel.skipNext] so the two
+     * can't diverge — they did, and the button sat greyed out exactly when the
+     * on-demand Auto-DJ skip was supposed to kick in, making it unreachable.
+     */
+    val canSkipNext: Boolean
+        get() = queueIndex < queue.lastIndex ||
+            (autoDjEnabled && currentSong?.id?.isSubsonicNumericId() == false)
+}
 
 class PlayerViewModel(
     private val context: Context,

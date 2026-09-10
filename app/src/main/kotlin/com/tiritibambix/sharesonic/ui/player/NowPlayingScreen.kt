@@ -750,7 +750,7 @@ private fun NowPlayingPage(
             }
             IconButton(
                 onClick = { viewModel.skipNext() },
-                enabled = state.queueIndex < state.queue.lastIndex
+                enabled = state.canSkipNext
             ) {
                 Icon(Icons.Default.SkipNext, contentDescription = stringResource(R.string.player_next),
                     modifier = Modifier.size(36.dp))
@@ -1432,12 +1432,12 @@ fun MiniPlayerBar(
                 }
                 IconButton(
                     onClick = onSkipNext,
-                    enabled = state.queueIndex < state.queue.lastIndex
+                    enabled = state.canSkipNext
                 ) {
                     Icon(
                         Icons.Default.SkipNext,
                         contentDescription = stringResource(R.string.player_next),
-                        tint = if (state.queueIndex < state.queue.lastIndex)
+                        tint = if (state.canSkipNext)
                             MaterialTheme.colorScheme.textSecondary
                         else
                             MaterialTheme.colorScheme.textSecondary.copy(alpha = 0.38f)
