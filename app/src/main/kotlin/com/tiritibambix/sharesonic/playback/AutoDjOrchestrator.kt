@@ -16,6 +16,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import java.text.Normalizer
 import kotlin.math.abs
 import kotlin.math.max
 import kotlin.math.roundToInt
@@ -242,11 +243,16 @@ class AutoDjOrchestrator(
         candidates.filterNot { it.id in recent }.takeIf { it.isNotEmpty() }?.let { candidates = it }
 
         // Hard artist-repeat floor: never the last HARD_FLOOR played artists,
-        // unless honouring it would empty the pool.
-        val floor = artistHistory.toList().takeLast(HARD_FLOOR).map { it.trim().lowercase() }.toSet()
+        // unless honouring it would empty the pool. Compared on collaboration-aware
+        // keys, so "Eric Prydz & Steve Angello" is blocked right after "Eric Prydz".
+        val floor = artistHistory.toList().takeLast(HARD_FLOOR)
+            .map { artistKeys(it) }
+            .filter { it.isNotEmpty() }
         if (floor.isNotEmpty()) {
-            candidates.filterNot { (it.artist ?: "").trim().lowercase() in floor }
-                .takeIf { it.isNotEmpty() }?.let { candidates = it }
+            candidates.filterNot { c ->
+                val keys = artistKeys(c.artist)
+                floor.any { artistsOverlap(keys, it) }
+            }.takeIf { it.isNotEmpty() }?.let { candidates = it }
         }
 
         // Precompute the current-track references once for the whole batch.
@@ -379,8 +385,8 @@ class AutoDjOrchestrator(
 
         // ── Artist diversity (10%, fixed) ──────────────────────────────────────
         val recent = artistHistory.toList().takeLast(DIVERSITY_WINDOW)
-        val aNorm = (song.artist ?: "").trim().lowercase()
-        val aidx = recent.indexOfLast { it.trim().lowercase() == aNorm }
+        val songKeys = artistKeys(song.artist)
+        val aidx = recent.indexOfFirst { artistsOverlap(songKeys, artistKeys(it)) }
         score += 0.10 * when {
             aidx == -1 -> 1.0
             aidx >= recent.size - 5 -> 0.0
@@ -420,9 +426,11 @@ class AutoDjOrchestrator(
     private fun rememberPath(path: String) { recentPaths.addLast(path); while (recentPaths.size > RECENT_PATHS) recentPaths.removeFirst() }
 
     private fun pushArtistHistory(artist: String) {
-        val norm = artist.trim().lowercase().replace(".", "")
-        // Dedup (move-to-end): drop any existing occurrence, then append.
-        artistHistory.removeAll { it.trim().lowercase().replace(".", "") == norm }
+        val keys = artistKeys(artist)
+        // Dedup (move-to-end): drop every entry sharing an artist identity, then
+        // append. Collaboration-aware, so re-playing "Mel & Kim" moves the earlier
+        // "Mel & Kim vs. Frantique" entry rather than leaving both in the window.
+        artistHistory.removeAll { artistsOverlap(artistKeys(it), keys) }
         artistHistory.addLast(artist.trim())
         while (artistHistory.size > ARTIST_HISTORY_CAP) artistHistory.removeFirst()
     }
@@ -438,6 +446,71 @@ class AutoDjOrchestrator(
         private const val ARTIST_HISTORY_CAP = 50
         /** Literal-repeat dedup window. */
         private const val RECENT_PATHS = 30
+
+        // ── Collaboration-aware artist identity (webapp `_djArtistKeys`) ───────
+        // A credit like "Eric Prydz & Steve Angello" or "Mel & Kim vs. Frantique"
+        // is not the same string as "Eric Prydz" / "Mel & Kim", so comparing raw
+        // names let a collaboration slip past the repeat guard immediately after
+        // the solo act. Every artist is reduced to a SET of identity keys — the
+        // whole credit plus each collaborator — and two artists are "the same"
+        // when their sets intersect.
+
+        /** Ignore split parts shorter than this — "dj", "mc" match far too much. */
+        private const val ARTIST_PART_MIN = 3
+
+        /** Split parts that are words, not artists. */
+        private val ARTIST_PART_STOP = setOf(
+            "the", "and", "of", "de", "la", "le", "les", "los", "las",
+            "van", "von", "fire", "wind", "earth",
+        )
+
+        /** "A feat. B", "A vs. B", "A pres. B", "A x B". */
+        private val COLLAB_SPLIT =
+            Regex("""\s+(?:feat\.?|ft\.?|featuring|vs\.?|pres\.?|presents?\b|\bx\b)\s+""", RegexOption.IGNORE_CASE)
+
+        /** "A & B", "A and B" — splits duos into their halves. */
+        private val DUO_SPLIT = Regex("""\s+(?:&|and)\s+""", RegexOption.IGNORE_CASE)
+
+        /** Combining marks left behind by NFD, so "Beyoncé" keys as "beyonce". */
+        private val DIACRITICS = Regex("[\\u0300-\\u036f]")
+
+        private val NON_ALNUM = Regex("[^a-z0-9]+")
+
+        /** Normalise one credit (or one part of one) to a comparison key. */
+        private fun artistKey(s: String?): String =
+            Normalizer.normalize((s ?: "").lowercase(), Normalizer.Form.NFD)
+                .replace(DIACRITICS, "")
+                .replace(".", "")
+                .replace(NON_ALNUM, " ")
+                .trim()
+
+        /** Every identity a credit stands for: the full name plus each collaborator. */
+        private fun artistKeys(name: String?): Set<String> {
+            val out = LinkedHashSet<String>()
+            fun add(v: String?) {
+                val key = artistKey(v)
+                if (key.length < ARTIST_PART_MIN || key in ARTIST_PART_STOP) return
+                out += key
+            }
+            add(name)
+            for (chunk in (name ?: "").split(COLLAB_SPLIT)) {
+                add(chunk)
+                for (part in chunk.split(DUO_SPLIT)) add(part)
+            }
+            // A credit that is entirely short or stop-words ("U2", "The") yields no
+            // key above, which would silently disable the repeat guard for it. Fall
+            // back to the whole normalised name, then to the raw trimmed name for a
+            // credit that normalises to nothing at all (the band "!!!").
+            if (out.isEmpty()) {
+                val whole = artistKey(name).ifEmpty { (name ?: "").trim().lowercase() }
+                if (whole.isNotEmpty()) out += whole
+            }
+            return out
+        }
+
+        /** True when two credits name at least one artist in common. */
+        private fun artistsOverlap(a: Set<String>, b: Set<String>): Boolean =
+            a.isNotEmpty() && b.isNotEmpty() && a.any { it in b }
 
         /**
          * Genre-compatibility continuity score (0..1) — ported from the Velvet

@@ -113,9 +113,9 @@ class PlaybackService : MediaSessionService() {
                     "NEXT" -> if (player.hasNextMediaItem()) {
                         player.seekToNextMediaItem()
                     } else if (settingsRepo.autoDjEnabled.first()) {
-                        // Nothing queued (Auto-DJ prefetches only near the end):
-                        // generate the next pick on demand and advance to it when
-                        // it lands — same behaviour as the in-app skip.
+                        // Nothing queued — the early prefetch either hasn't run yet
+                        // or came back empty. Generate the next pick on demand and
+                        // advance to it when it lands — same as the in-app skip.
                         pendingSkip = true
                         autoDj.fetchNext(serviceScope)
                     }

@@ -197,9 +197,9 @@ class PlayerViewModel(
                             // last queue item — fetching here put the heavy
                             // candidate-batch request on the server at the exact
                             // moment ExoPlayer was opening the stream, delaying
-                            // playback start. The polling loop prefetches near the
-                            // END of the track instead (see startPositionPolling),
-                            // which is Velvet's own timing.
+                            // playback start. The polling loop issues it a couple of
+                            // seconds in instead (see startPositionPolling), which is
+                            // Velvet's own timing.
                             autoDj.onTrackChanged(song, autoDjSettings.artistCooldown)
                         }
                     }
@@ -641,12 +641,13 @@ class PlayerViewModel(
 
     fun skipNext() {
         val q = _state.value
-        // A track is already queued (normal queue, or an end-of-track prefetch) —
-        // jump straight to it.
+        // A track is already queued (normal queue, or the Auto-DJ prefetch) — jump
+        // straight to it. This is the common path now that the prefetch fires a
+        // couple of seconds into the track rather than near its end.
         if (q.queueIndex < q.queue.lastIndex) { jumpTo(q.queueIndex + 1); return }
-        // Last track with Auto-DJ on: there's nothing queued yet (the prefetch only
-        // fires near the end), so generate the next pick on demand and advance to
-        // it when it lands — mirrors Velvet's next() → autoDJFetch(). Native music
+        // Last track with Auto-DJ on and nothing queued: the prefetch hasn't run yet
+        // or came back empty, so generate the next pick on demand and advance to it
+        // when it lands — mirrors Velvet's next() → autoDJFetch(). Native music
         // only; search-result (Subsonic numeric-id) tracks can't seed Auto-DJ.
         val cur = q.currentSong ?: return
         if (q.autoDjEnabled && !cur.id.isSubsonicNumericId()) {

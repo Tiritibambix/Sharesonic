@@ -294,19 +294,28 @@ BPM / musical-key / genre are NOT sent as server filters, they're scoring signal
 * Client scoring weights (when Last.fm data exists): similar-artist 35% · BPM 25% ·
   genre 13% · harmonic (Camelot) 7% · year 10% · diversity 10%; the 35% is
   redistributed into BPM/genre/harmonic when there's no similar-artist data. A hard
-  artist-repeat floor excludes the last 3 played artists. `CamelotWheel.toCamelot()`
+  artist-repeat floor excludes the last 3 played artists. That floor, the 15-song
+  diversity score and the artist-history dedup all compare **collaboration-aware
+  identity keys** (`artistKeys()`, ported from the webapp's `_djArtistKeys`), not raw
+  credit strings: an artist is the set of names it credits, so "Eric Prydz & Steve
+  Angello" is blocked right after "Eric Prydz" and "Mel & Kim vs. Frantique" overlaps
+  "Mel & Kim". `CamelotWheel.toCamelot()`
   converts the server's long-form `musical_key` ("A minor") to a Camelot code for
   harmonic scoring — the field is NOT already Camelot.
 * `minRating` is the native **0–10** scale, so the 0–5 star setting is sent as
   `stars * 2`.
 * `minDuration` / `maxDuration` (seconds) + `allowUnknownDuration` — the v0.4.24
   track-length window; a hard scope filter like `minRating` (never relaxed).
-* **Prefetch timing:** the next pick is fetched near the END of the current track
-  (`max(25, crossfade + 15)` s before it ends), from the position-polling loop in
-  `PlayerViewModel` — NOT at track start, which used to fire the heavy batch request
-  at the same instant ExoPlayer opened the stream and delayed playback. The scoring
-  runs on `Dispatchers.Default`. `PlaybackService` still fetches on `STATE_ENDED`
-  as the app-killed fallback.
+* **Prefetch timing:** the next pick is fetched `EARLY_PREFETCH_MS` (2 s) INTO the
+  current track, from the position-polling loop in `PlayerViewModel` — Velvet's own
+  timing. It is deliberately not fired at the track-change event itself: that put the
+  heavy batch request on the server at the same instant ExoPlayer opened the stream
+  and delayed playback start, so the 2 s delay is the point, not an accident. Picking
+  early (rather than 25-45 s before the end, as this did until v1.x) makes a manual
+  NEXT an instant queue advance instead of a 5-6 s fetch+score round-trip. A backstop
+  attempt still runs near the end (`max(25, crossfade + 15)` s) for the case where the
+  early one returned nothing. The scoring runs on `Dispatchers.Default`.
+  `PlaybackService` still fetches on `STATE_ENDED` as the app-killed fallback.
 
 ### Auto-DJ — similar artists
 
