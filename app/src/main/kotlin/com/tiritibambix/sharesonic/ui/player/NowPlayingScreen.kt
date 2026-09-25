@@ -6,6 +6,7 @@ import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
+import androidx.compose.foundation.gestures.detectDragGesturesAfterLongPress
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.gestures.rememberTransformableState
 import androidx.compose.foundation.gestures.transformable
@@ -1254,8 +1255,8 @@ private fun QueuePage(
                             onClick = { viewModel.jumpTo(index) },
                             onRemove = null,
                             // Long-press the handle, then drag vertically.
-                            dragHandleModifier = Modifier.pointerInput(orig) {
-                                androidx.compose.foundation.gestures.detectDragGesturesAfterLongPress(
+                            dragHandleModifier = Modifier.pointerInput(orig, state.queue.size) {
+                                detectDragGesturesAfterLongPress(
                                     onDragStart = {
                                         dragOrder = state.queue.indices.toList()
                                         draggedKey = orig
