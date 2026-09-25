@@ -385,6 +385,11 @@ fun AppNavGraph() {
         onSkipNext = playerVm::skipNext,
         onToggleAutoDj = playerVm::toggleAutoDj,
         onShareCreated = ::onShareCreated,
+        onOpenFolder = { path, name ->
+            // Collapse the player so the folder isn't hidden under it.
+            panelState.collapse()
+            navController.navigate(Screen.Browser.createRoute(path, name))
+        },
         viewModel = playerVm,
     )
     } // Box

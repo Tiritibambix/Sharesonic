@@ -162,6 +162,7 @@
     <string name="more_sleep_stops_in">Se detiene en %1$s</string>
     <string name="more_lyrics">Letras</string>
     <string name="more_track_info">Info de la pista</string>
+    <string name="more_go_to_folder">Ir al álbum / carpeta</string>
     <string name="sleep_title">Temporizador</string>
     <string name="sleep_preset_min">%1$d min</string>
     <string name="sleep_custom_label">Personalizado (min)</string>
@@ -189,6 +190,7 @@
     <string name="search_section_artists">Artistas</string>
     <string name="search_section_albums">Álbumes</string>
     <string name="search_section_songs">Canciones</string>
+    <string name="search_tab_all">Todo</string>
     <string name="search_artist_songs_title">%1$s</string>
     <string name="search_loading">Buscando…</string>
     <string name="search_error">%1$s</string>

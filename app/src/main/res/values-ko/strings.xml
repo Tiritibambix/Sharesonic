@@ -162,6 +162,7 @@
     <string name="more_sleep_stops_in">%1$s 후 정지</string>
     <string name="more_lyrics">가사</string>
     <string name="more_track_info">트랙 정보</string>
+    <string name="more_go_to_folder">앨범 / 폴더로 이동</string>
     <string name="sleep_title">수면 타이머</string>
     <string name="sleep_preset_min">%1$d분</string>
     <string name="sleep_custom_label">사용자 정의(분)</string>
@@ -189,6 +190,7 @@
     <string name="search_section_artists">아티스트</string>
     <string name="search_section_albums">앨범</string>
     <string name="search_section_songs">곡</string>
+    <string name="search_tab_all">전체</string>
     <string name="search_artist_songs_title">%1$s</string>
     <string name="search_loading">검색 중…</string>
     <string name="search_error">%1$s</string>

@@ -96,6 +96,7 @@ fun PlayerPanel(
     onSkipNext: () -> Unit,
     onToggleAutoDj: () -> Unit,
     onShareCreated: (url: String) -> Unit,
+    onOpenFolder: (path: String, name: String) -> Unit,
     viewModel: PlayerViewModel,
     modifier: Modifier = Modifier,
 ) {
@@ -170,6 +171,7 @@ fun PlayerPanel(
                 viewModel = viewModel,
                 onBack = { state.collapse() },
                 onShareCreated = onShareCreated,
+                onOpenFolder = onOpenFolder,
                 pagerState = pagerState,
             )
         }

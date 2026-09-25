@@ -36,6 +36,7 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.zIndex
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.layout.onSizeChanged
@@ -64,6 +65,8 @@ fun NowPlayingScreen(
     viewModel: PlayerViewModel,
     onBack: () -> Unit,
     onShareCreated: (url: String) -> Unit,
+    /** Open a folder in the browser (collapses the player first). */
+    onOpenFolder: (path: String, name: String) -> Unit,
     // Hoisted to PlayerPanel so its single BackHandler can be page-aware
     // (Queue → Now Playing → collapse). See PlayerPanel.kt.
     pagerState: androidx.compose.foundation.pager.PagerState,
@@ -472,6 +475,18 @@ fun NowPlayingScreen(
             onOpenSleepTimer = { showMoreSheet = false; showSleepSheet = true },
             onOpenLyrics = { showMoreSheet = false; showLyricsSheet = true },
             onOpenInfo = { showMoreSheet = false; showFileInfoDialog = true },
+            // The track's parent directory = its album folder. Only for native
+            // (filepath) tracks — a bare numeric id has no folder to open.
+            onOpenFolder = state.currentSong
+                ?.let { it.path ?: it.id }
+                ?.takeIf { fp -> fp.contains('/') && !fp.all { c -> c.isDigit() } }
+                ?.let { fp ->
+                    {
+                        showMoreSheet = false
+                        val dir = fp.trimEnd('/').substringBeforeLast('/')
+                        onOpenFolder("/" + dir.trimStart('/'), dir.substringAfterLast('/'))
+                    }
+                },
             onDismiss = { showMoreSheet = false }
         )
     }
@@ -1110,8 +1125,32 @@ private fun QueuePage(
         return
     }
 
-    LaunchedEffect(state.queueIndex) {
-        listState.animateScrollToItem(state.queueIndex)
+    // Follow the playing track when it CHANGES — keyed on the song, not on
+    // queueIndex, so reordering (which shifts queueIndex) doesn't yank the list.
+    LaunchedEffect(state.currentSong?.id) {
+        listState.animateScrollToItem(state.queueIndex.coerceAtLeast(0))
+    }
+
+    // ── Drag-to-reorder (phone) ────────────────────────────────────────────
+    // While a drag runs, rows are shown in a local order (a permutation of the
+    // queue's original indices) so each row keeps a stable key — its original
+    // index — and the finger tracking survives every swap. The player is only
+    // touched once, on drop, with a single moveMediaItem.
+    val haptic = androidx.compose.ui.platform.LocalHapticFeedback.current
+    var dragOrder by remember { mutableStateOf<List<Int>?>(null) }
+    var draggedKey by remember { mutableStateOf<Int?>(null) }
+    var dragOffsetY by remember { mutableFloatStateOf(0f) }
+    val order = dragOrder ?: state.queue.indices.toList()
+    fun endDrag(commit: Boolean) {
+        val key = draggedKey
+        val final = dragOrder
+        draggedKey = null
+        dragOffsetY = 0f
+        if (commit && key != null && final != null) {
+            val to = final.indexOf(key)
+            if (to >= 0 && to != key) viewModel.moveQueueItem(key, to)
+        }
+        dragOrder = null
     }
 
     LazyColumn(
@@ -1119,22 +1158,31 @@ private fun QueuePage(
         modifier = Modifier.fillMaxSize(),
         contentPadding = androidx.compose.foundation.layout.PaddingValues(top = topPadding),
     ) {
-        // Prefix the key with the queue position so a track that appears
-        // twice (Auto-DJ re-picking a song, or manual double-add) doesn't
-        // crash LazyColumn with "Key was already used". song.id (filepath)
-        // alone isn't guaranteed unique inside the queue.
-        itemsIndexed(state.queue, key = { idx, song -> "$idx-${song.id}" }) { index, song ->
-            val isCurrent = index == state.queueIndex
+        // Key = the row's original queue index: unique even when a track appears
+        // twice (Auto-DJ re-pick, double add), and stable during a drag.
+        itemsIndexed(order, key = { _, orig -> orig }) { index, orig ->
+            val song = state.queue.getOrNull(orig) ?: return@itemsIndexed
+            val isCurrent = orig == state.queueIndex
+            val isDragged = draggedKey == orig
 
+            Box(
+                modifier = Modifier
+                    .zIndex(if (isDragged) 1f else 0f)
+                    .graphicsLayer { translationY = if (isDragged) dragOffsetY else 0f }
+            ) {
             if (isTV) {
-                // TV: no swipe — PlaylistAdd for all rows, ✕ for non-current rows
+                // TV: no swipe/drag — ↑/↓ to reorder, PlaylistAdd for all rows,
+                // ✕ for non-current rows.
                 QueueSongRow(
                     index, song, isCurrent,
-                    onClick         = { viewModel.jumpTo(index) },
+                    onClick         = { viewModel.jumpTo(orig) },
                     onAddToPlaylist = { onAddToPlaylist(song) },
-                    onRemove        = if (isCurrent) null else ({ viewModel.removeFromQueue(index) })
+                    onRemove        = if (isCurrent) null else ({ viewModel.removeFromQueue(orig) }),
+                    onMoveUp        = if (orig == 0) null else ({ viewModel.moveQueueItem(orig, orig - 1) }),
+                    onMoveDown      = if (orig == state.queue.lastIndex) null else ({ viewModel.moveQueueItem(orig, orig + 1) })
                 )
             } else {
+                val index = orig
                 // Phone: swipe right (StartToEnd) → add to playlist (every row,
                 // including the current track); swipe left (EndToStart) → remove
                 // from queue (disabled on the current track). StartToEnd bounces
@@ -1201,9 +1249,45 @@ private fun QueuePage(
                     // Opaque surface under the row so the swipe reveal never bleeds
                     // through at rest (the current row's own bg is semi-transparent).
                     Surface(color = MaterialTheme.colorScheme.surface) {
-                        QueueSongRow(index, song, isCurrent, onClick = { viewModel.jumpTo(index) }, onRemove = null)
+                        QueueSongRow(
+                            index, song, isCurrent,
+                            onClick = { viewModel.jumpTo(index) },
+                            onRemove = null,
+                            // Long-press the handle, then drag vertically.
+                            dragHandleModifier = Modifier.pointerInput(orig) {
+                                androidx.compose.foundation.gestures.detectDragGesturesAfterLongPress(
+                                    onDragStart = {
+                                        dragOrder = state.queue.indices.toList()
+                                        draggedKey = orig
+                                        dragOffsetY = 0f
+                                        haptic.performHapticFeedback(
+                                            androidx.compose.ui.hapticfeedback.HapticFeedbackType.LongPress
+                                        )
+                                    },
+                                    onDrag = { change, dragAmount ->
+                                        change.consume()
+                                        dragOffsetY += dragAmount.y
+                                        val info = listState.layoutInfo.visibleItemsInfo
+                                        val current = info.find { it.key == orig } ?: return@detectDragGesturesAfterLongPress
+                                        val center = current.offset + current.size / 2f + dragOffsetY
+                                        val target = info.find {
+                                            it.key != orig && center.toInt() in it.offset..(it.offset + it.size)
+                                        }
+                                        val o = dragOrder
+                                        if (target != null && o != null) {
+                                            dragOrder = o.toMutableList().apply { add(target.index, removeAt(current.index)) }
+                                            // Compensate the swap so the row keeps following the finger.
+                                            dragOffsetY -= (target.offset - current.offset).toFloat()
+                                        }
+                                    },
+                                    onDragEnd = { endDrag(commit = true) },
+                                    onDragCancel = { endDrag(commit = false) }
+                                )
+                            }
+                        )
                     }
                 }
+            }
             }
             HorizontalDivider(thickness = 0.5.dp)
         }
@@ -1219,7 +1303,12 @@ private fun QueueSongRow(
     /** On TV, passed for all rows so a PlaylistAdd button is always visible. */
     onAddToPlaylist: (() -> Unit)? = null,
     /** On TV, passed for non-current rows so a ✕ button is always visible. */
-    onRemove: (() -> Unit)?
+    onRemove: (() -> Unit)?,
+    /** TV reorder arrows (null = hidden / at the edge). */
+    onMoveUp: (() -> Unit)? = null,
+    onMoveDown: (() -> Unit)? = null,
+    /** Phone: gesture modifier for the drag handle; null hides the handle. */
+    dragHandleModifier: Modifier? = null,
 ) {
     Row(
         modifier = Modifier
@@ -1278,6 +1367,37 @@ private fun QueueSongRow(
                 formatDuration(it),
                 style = MaterialTheme.typography.labelSmall,
                 color = MaterialTheme.colorScheme.textSecondary
+            )
+        }
+
+        // TV: reorder arrows (replace the phone's drag handle)
+        if (onMoveUp != null || onMoveDown != null) {
+            IconButton(onClick = { onMoveUp?.invoke() }, enabled = onMoveUp != null, modifier = Modifier.size(36.dp)) {
+                Icon(
+                    Icons.Default.KeyboardArrowUp,
+                    contentDescription = stringResource(R.string.playlist_detail_move_up),
+                    modifier = Modifier.size(20.dp)
+                )
+            }
+            IconButton(onClick = { onMoveDown?.invoke() }, enabled = onMoveDown != null, modifier = Modifier.size(36.dp)) {
+                Icon(
+                    Icons.Default.KeyboardArrowDown,
+                    contentDescription = stringResource(R.string.playlist_detail_move_down),
+                    modifier = Modifier.size(20.dp)
+                )
+            }
+        }
+
+        // Phone: drag handle — long-press then drag to reorder
+        if (dragHandleModifier != null) {
+            Icon(
+                Icons.Default.DragHandle,
+                contentDescription = stringResource(R.string.playlist_detail_drag_handle),
+                tint = MaterialTheme.colorScheme.textSecondary,
+                modifier = Modifier
+                    .size(36.dp)
+                    .then(dragHandleModifier)
+                    .padding(6.dp)
             )
         }
 

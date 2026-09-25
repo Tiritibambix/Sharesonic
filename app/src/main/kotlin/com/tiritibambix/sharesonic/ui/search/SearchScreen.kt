@@ -4,7 +4,9 @@ import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.itemsIndexed
@@ -270,14 +272,53 @@ private fun SearchResults(
         return
     }
 
-    LazyColumn(modifier = Modifier.fillMaxSize()) {
+    // ── Category tabs — mirrors the Velvet webapp's search tab bar ─────────
+    // "All" + one chip per category that has results, with counts, Tracks first.
+    // Shown only when at least two categories matched; a remembered tab that has
+    // nothing in this result set falls back to All.
+    val selectedTab by viewModel.tab.collectAsState()
+    val categories = buildList {
+        if (result.song.isNotEmpty())   add(Triple(SearchTab.TRACKS,  R.string.search_section_songs,   result.song.size))
+        if (result.folder.isNotEmpty()) add(Triple(SearchTab.FOLDERS, R.string.search_section_folders, result.folder.size))
+        if (result.artist.isNotEmpty()) add(Triple(SearchTab.ARTISTS, R.string.search_section_artists, result.artist.size))
+        if (result.album.isNotEmpty())  add(Triple(SearchTab.ALBUMS,  R.string.search_section_albums,  result.album.size))
+    }
+    val showTabs = categories.size > 1
+    val tab = if (showTabs && categories.any { it.first == selectedTab }) selectedTab else SearchTab.ALL
+    fun shows(t: SearchTab) = tab == SearchTab.ALL || tab == t
+
+    Column(modifier = Modifier.fillMaxSize()) {
+    if (showTabs) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .horizontalScroll(rememberScrollState())
+                .padding(horizontal = 16.dp, vertical = 4.dp),
+            horizontalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            FilterChip(
+                selected = tab == SearchTab.ALL,
+                onClick = { viewModel.selectTab(SearchTab.ALL) },
+                label = { Text(stringResource(R.string.search_tab_all)) }
+            )
+            categories.forEach { (t, labelRes, count) ->
+                FilterChip(
+                    selected = tab == t,
+                    onClick = { viewModel.selectTab(t) },
+                    label = { Text("${stringResource(labelRes)} ($count)") }
+                )
+            }
+        }
+    }
+
+    LazyColumn(modifier = Modifier.fillMaxWidth().weight(1f)) {
 
         // ── Folders ──────────────────────────────────────────────────────
         // Real on-disk folders whose name matched the query. This is the
         // precise, server-provided navigation path (browse_path) — exactly what
         // the Velvet webapp surfaces as its "Folders" section — so tapping one
         // opens the correct folder with zero client-side path guessing.
-        if (result.folder.isNotEmpty()) {
+        if (result.folder.isNotEmpty() && shows(SearchTab.FOLDERS)) {
             item { SectionHeader(stringResource(R.string.search_section_folders)) }
             itemsIndexed(result.folder, key = { idx, _ -> "folder_$idx" }) { _, folder ->
                 FolderRow(
@@ -289,7 +330,7 @@ private fun SearchResults(
         }
 
         // ── Artists ──────────────────────────────────────────────────────
-        if (result.artist.isNotEmpty()) {
+        if (result.artist.isNotEmpty() && shows(SearchTab.ARTISTS)) {
             item {
                 SectionHeader(stringResource(R.string.search_section_artists))
             }
@@ -320,7 +361,7 @@ private fun SearchResults(
         // grid — rather than the flat list the other sections use. Albums are
         // a visual result set (cover art is the primary signifier), the
         // others are text-first.
-        if (result.album.isNotEmpty()) {
+        if (result.album.isNotEmpty() && shows(SearchTab.ALBUMS)) {
             item { SectionHeader(stringResource(R.string.search_section_albums)) }
             item {
                 AlbumCardGrid(
@@ -338,7 +379,7 @@ private fun SearchResults(
         // Phone: swipe right → add to playlist, swipe left → add to queue
         //       (mirrors FolderBrowser). Long-press → context menu.
         // TV:    ⋮ button → context menu with Play / Add to queue / Add to playlist.
-        if (result.song.isNotEmpty()) {
+        if (result.song.isNotEmpty() && shows(SearchTab.TRACKS)) {
             item { SectionHeader(stringResource(R.string.search_section_songs)) }
             itemsIndexed(result.song, key = { idx, _ -> "song_$idx" }) { _, song ->
                 val play = {
@@ -440,6 +481,7 @@ private fun SearchResults(
                 HorizontalDivider(thickness = 0.5.dp)
             }
         }
+    }
     }
 }
 

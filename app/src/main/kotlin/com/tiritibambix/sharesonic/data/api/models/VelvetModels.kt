@@ -271,7 +271,9 @@ data class NativeSearchItem(
     /** Album-art cache filename — use with GET /album-art/<file>?token=<jwt>. */
     @SerializedName("album_art_file") val albumArtFile: String? = null,
     /** Full Velvet filepath — use as EntryDto.id for native streaming. */
-    val filepath: String? = null
+    val filepath: String? = null,
+    /** Track length in seconds (song / file results, Velvet v0.4.1+). */
+    val duration: Float? = null
 )
 
 /**
@@ -305,7 +307,10 @@ data class NativeSearchResponse(
     val albums: List<NativeSearchItem> = emptyList(),
     val artists: List<NativeSearchArtist> = emptyList(),
     /** Real folders whose name matched the query — only present when noFolders=false. */
-    val folders: List<NativeSearchFolder> = emptyList()
+    val folders: List<NativeSearchFolder> = emptyList(),
+    /** Songs matched only by filename (no tag-title hit). The Velvet webapp folds
+     *  these into its Tracks results, de-duplicated against [title]. */
+    val files: List<NativeSearchItem> = emptyList()
 )
 
 /**

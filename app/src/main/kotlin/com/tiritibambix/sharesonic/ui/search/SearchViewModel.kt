@@ -24,10 +24,19 @@ sealed interface SearchState {
     data class Error(val message: String) : SearchState
 }
 
+/** Result-category filter, mirroring the Velvet webapp's search tab bar. */
+enum class SearchTab { ALL, TRACKS, ARTISTS, ALBUMS, FOLDERS }
+
 class SearchViewModel(private val settingsRepo: SettingsRepository) : ViewModel() {
 
     private val _query = MutableStateFlow("")
     val query: StateFlow<String> = _query
+
+    /** Selected category. Kept here (not in the composable) so drilling into an
+     *  artist and coming back preserves it, like the webapp's `S.searchTab`. */
+    private val _tab = MutableStateFlow(SearchTab.ALL)
+    val tab: StateFlow<SearchTab> = _tab
+    fun selectTab(t: SearchTab) { _tab.update { t } }
 
     private val _searchState = MutableStateFlow<SearchState>(SearchState.Idle)
     val searchState: StateFlow<SearchState> = _searchState

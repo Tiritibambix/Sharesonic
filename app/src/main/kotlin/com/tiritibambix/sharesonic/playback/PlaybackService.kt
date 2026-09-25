@@ -6,6 +6,7 @@ import android.content.Intent
 import android.media.AudioManager
 import android.net.Uri
 import androidx.media3.common.MediaItem
+import androidx.media3.common.MediaMetadata
 import androidx.media3.common.Player
 import androidx.media3.exoplayer.ExoPlayer
 import androidx.media3.session.MediaSession
@@ -61,12 +62,29 @@ class PlaybackService : MediaSessionService() {
                 // we build the same /media URL the ViewModel uses.
                 serviceScope.launch {
                     val settings = settingsRepo.settings.first()
+                    val base = settings.serverUrl.trimEnd('/')
                     val uri = buildStreamUrl(
-                        base = settings.serverUrl.trimEnd('/'),
+                        base = base,
                         filepath = song.path ?: song.id,
                         token = settings.jwtToken,
                     )
-                    player.addMediaItem(MediaItem.fromUri(uri))
+                    // Carry title/artist/artwork so the media notification shows
+                    // the track instead of "Sharesonic is running".
+                    val metadata = MediaMetadata.Builder()
+                        .setTitle(song.displayName)
+                        .setArtist(song.artist)
+                        .setAlbumTitle(song.album)
+                        .setArtworkUri(song.coverArt?.let {
+                            Uri.parse("$base/album-art/$it?token=${settings.jwtToken}")
+                        })
+                        .build()
+                    player.addMediaItem(
+                        MediaItem.Builder()
+                            .setUri(uri)
+                            .setMediaId(song.id)
+                            .setMediaMetadata(metadata)
+                            .build()
+                    )
                     // On-demand widget skip: advance to the pick we just appended.
                     if (pendingSkip) {
                         pendingSkip = false

@@ -9,6 +9,7 @@ import androidx.lifecycle.viewModelScope
 import androidx.media3.common.C
 import androidx.media3.common.Format
 import androidx.media3.common.MediaItem
+import androidx.media3.common.MediaMetadata
 import androidx.media3.common.PlaybackException
 import androidx.media3.common.Player
 import androidx.media3.common.Tracks
@@ -347,7 +348,7 @@ class PlayerViewModel(
                     currentPositionMs = saved.positionMs,
                 )
             }
-            val items = saved.queue.map { MediaItem.fromUri(streamUrl(settings, it)) }
+            val items = saved.queue.map { mediaItem(settings, it) }
             ctrl.setMediaItems(items, index, saved.positionMs)
             ctrl.prepare()          // ready to play, but playWhenReady stays false
             restoreDone = true
@@ -470,9 +471,8 @@ class PlayerViewModel(
             _state.update {
                 it.copy(currentSong = song, queue = listOf(song), queueIndex = 0, coverArtUrl = coverUrl)
             }
-            val url = streamUrl(settings, song)
             val ctrl = controllerDeferred.await()
-            ctrl.setMediaItem(MediaItem.fromUri(url))
+            ctrl.setMediaItem(mediaItem(settings, song))
             ctrl.prepare()
             ctrl.play()
         }
@@ -487,7 +487,7 @@ class PlayerViewModel(
             _state.update {
                 it.copy(queue = songs, queueIndex = 0, currentSong = first, coverArtUrl = coverUrl)
             }
-            val items = songs.map { MediaItem.fromUri(streamUrl(settings, it)) }
+            val items = songs.map { mediaItem(settings, it) }
             val ctrl = controllerDeferred.await()
             ctrl.setMediaItems(items)
             ctrl.prepare()
@@ -510,6 +510,27 @@ class PlayerViewModel(
     }
 
     /**
+     * Move the queued track at [from] to [to] — in our state and in the player
+     * (`moveMediaItem` doesn't interrupt playback). The playing index follows the
+     * current track if it moved, or shifts by one when another track crosses it.
+     */
+    fun moveQueueItem(from: Int, to: Int) {
+        val q = _state.value
+        if (from == to || from !in q.queue.indices || to !in q.queue.indices) return
+        val newQueue = q.queue.toMutableList().apply { add(to, removeAt(from)) }
+        val cur = q.queueIndex
+        val newIndex = when {
+            from == cur -> to
+            from < cur && to >= cur -> cur - 1
+            from > cur && to <= cur -> cur + 1
+            else -> cur
+        }
+        _state.update { it.copy(queue = newQueue, queueIndex = newIndex) }
+        viewModelScope.launch { controllerDeferred.await().moveMediaItem(from, to) }
+        savePlayback()
+    }
+
+    /**
      * Append [song] to the end of the current queue without interrupting playback.
      * If nothing is playing, falls back to [playSong] and starts playback immediately.
      */
@@ -524,7 +545,7 @@ class PlayerViewModel(
             val newQueue = currentQueue + song
             _state.update { it.copy(queue = newQueue) }
             val ctrl = controllerDeferred.await()
-            ctrl.addMediaItem(MediaItem.fromUri(streamUrl(settings, song)))
+            ctrl.addMediaItem(mediaItem(settings, song))
         }
     }
 
@@ -546,7 +567,7 @@ class PlayerViewModel(
             }
             _state.update { it.copy(queue = currentQueue + song) }
             val ctrl = controllerDeferred.await()
-            ctrl.addMediaItem(MediaItem.fromUri(streamUrl(settings, song)))
+            ctrl.addMediaItem(mediaItem(settings, song))
             if (djSkipPending) {
                 djSkipPending = false
                 val idx = _state.value.queue.lastIndex
@@ -994,6 +1015,28 @@ class PlayerViewModel(
      * - Subsonic cover art IDs start with "al-" / "ar-" or are numeric → Subsonic getCoverArt
      * - Velvet native album art IDs are filenames (e.g. "abc123.jpg") → /album-art/<file>?token=<jwt>
      */
+    /**
+     * The one way to turn a song into a player item. Carries [MediaMetadata]
+     * (title / artist / album / artwork) so the media notification and lock
+     * screen can show the track. Items used to be built with `MediaItem.fromUri`
+     * alone, so the notification only had a title when ExoPlayer happened to
+     * parse tags out of the stream itself — otherwise Android fell back to
+     * "Sharesonic is running".
+     */
+    private fun mediaItem(settings: ServerSettings, song: EntryDto): MediaItem =
+        MediaItem.Builder()
+            .setUri(streamUrl(settings, song))
+            .setMediaId(song.id)
+            .setMediaMetadata(
+                MediaMetadata.Builder()
+                    .setTitle(song.displayName)
+                    .setArtist(song.artist)
+                    .setAlbumTitle(song.album)
+                    .setArtworkUri(coverArtUrl(settings, song)?.let(Uri::parse))
+                    .build()
+            )
+            .build()
+
     private fun coverArtUrl(settings: ServerSettings, song: EntryDto): String? {
         val id = song.coverArt ?: return null
         val base = settings.serverUrl.trimEnd('/')

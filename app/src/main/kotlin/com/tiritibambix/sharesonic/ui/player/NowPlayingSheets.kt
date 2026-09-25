@@ -19,6 +19,7 @@ import androidx.compose.foundation.text.selection.SelectionContainer
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Bedtime
+import androidx.compose.material.icons.filled.FolderOpen
 import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.Lyrics
 import androidx.compose.material3.*
@@ -227,10 +228,20 @@ fun MoreActionsSheet(
     onOpenSleepTimer: () -> Unit,
     onOpenLyrics: () -> Unit,
     onOpenInfo: () -> Unit,
+    /** Opens the current track's album / folder in the browser; null hides the
+     *  entry (e.g. a legacy numeric-id track with no filepath). */
+    onOpenFolder: (() -> Unit)?,
     onDismiss: () -> Unit
 ) {
     ModalBottomSheet(onDismissRequest = onDismiss) {
         Column(modifier = Modifier.padding(bottom = 16.dp)) {
+            if (onOpenFolder != null) {
+                ListItem(
+                    headlineContent = { Text(stringResource(R.string.more_go_to_folder)) },
+                    leadingContent = { Icon(Icons.Default.FolderOpen, contentDescription = null) },
+                    modifier = Modifier.clickable { onOpenFolder() }
+                )
+            }
             ListItem(
                 headlineContent = { Text(stringResource(R.string.more_sleep_timer)) },
                 supportingContent = {

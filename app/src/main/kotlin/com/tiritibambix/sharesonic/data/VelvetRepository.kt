@@ -345,6 +345,21 @@ class VelvetRepository(private val api: VelvetApiService) {
                     title    = title.takeIf { it.isNotBlank() } ?: fp.substringAfterLast('/').substringBeforeLast('.'),
                     artist   = artist,
                     coverArt = item.albumArtFile,
+                    duration = item.duration?.toInt(),
+                    isDir    = false,
+                    path     = fp
+                )
+            }
+            // Filename-only matches, folded into the tracks like the Velvet webapp
+            // does (de-duplicated against the tag-title hits above).
+            val seen = songs.mapTo(HashSet()) { it.id }
+            val fileSongs = resp.files.mapNotNull { item ->
+                val fp = item.filepath?.takeIf { it.isNotBlank() && seen.add(it) } ?: return@mapNotNull null
+                EntryDto(
+                    id       = fp,
+                    title    = fp.substringAfterLast('/').substringBeforeLast('.'),
+                    coverArt = item.albumArtFile,
+                    duration = item.duration?.toInt(),
                     isDir    = false,
                     path     = fp
                 )
@@ -385,7 +400,7 @@ class VelvetRepository(private val api: VelvetApiService) {
                 )
             }
 
-            Result.Success(SearchResult3(song = songs, album = albums, artist = artists, folder = folders))
+            Result.Success(SearchResult3(song = songs + fileSongs, album = albums, artist = artists, folder = folders))
         } catch (e: kotlinx.coroutines.CancellationException) {
             throw e // never swallow cancellation — structured concurrency depends on it
         } catch (e: Exception) {

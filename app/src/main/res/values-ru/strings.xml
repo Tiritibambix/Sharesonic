@@ -162,6 +162,7 @@
     <string name="more_sleep_stops_in">Остановка через %1$s</string>
     <string name="more_lyrics">Текст</string>
     <string name="more_track_info">Инфо о треке</string>
+    <string name="more_go_to_folder">Перейти к альбому / папке</string>
     <string name="sleep_title">Таймер сна</string>
     <string name="sleep_preset_min">%1$d мин</string>
     <string name="sleep_custom_label">Свой (мин)</string>
@@ -189,6 +190,7 @@
     <string name="search_section_artists">Исполнители</string>
     <string name="search_section_albums">Альбомы</string>
     <string name="search_section_songs">Треки</string>
+    <string name="search_tab_all">Все</string>
     <string name="search_artist_songs_title">%1$s</string>
     <string name="search_loading">Поиск…</string>
     <string name="search_error">%1$s</string>
