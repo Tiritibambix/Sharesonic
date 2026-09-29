@@ -97,6 +97,7 @@
     <string name="links_never_expires">Never expires</string>
     <string name="links_copy">Copy</string>
     <string name="links_open">Open</string>
+    <string name="links_qr">QR code</string>
     <string name="links_revoke">Revoke</string>
     <string name="links_copied">Link copied to clipboard</string>
 
@@ -236,6 +237,7 @@
     <string name="share_copy">Copy</string>
     <string name="share_send">Send</string>
     <string name="share_copied">Link copied to clipboard</string>
+    <string name="share_scan_hint">Scan with your phone to open the link</string>
     <string name="share_expiry_title">Days until expiration</string>
     <string name="share_expiry_permanent">Permanent (no expiry)</string>
     <string name="share_expiry_days_label">Days</string>

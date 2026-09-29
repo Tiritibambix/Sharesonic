@@ -33,6 +33,8 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import coil.compose.AsyncImage
 import com.tiritibambix.sharesonic.ui.theme.textSecondary
+import com.tiritibambix.sharesonic.utils.LocalIsTV
+import com.tiritibambix.sharesonic.utils.tvFocusRing
 
 /**
  * Rounded album card, laid out to match the Velvet webapp's album grid:
@@ -56,6 +58,7 @@ fun AlbumCard(
         shape = RoundedCornerShape(12.dp),
         color = MaterialTheme.colorScheme.surfaceContainerHighest,
         modifier = modifier
+            .tvFocusRing(LocalIsTV.current, RoundedCornerShape(12.dp))
             .clip(RoundedCornerShape(12.dp))
             .clickable(onClick = onClick),
     ) {

@@ -90,6 +90,7 @@
     <string name="links_never_expires">Não expira</string>
     <string name="links_copy">Copiar</string>
     <string name="links_open">Abrir</string>
+    <string name="links_qr">Código QR</string>
     <string name="links_revoke">Revogar</string>
     <string name="links_copied">Link copiado</string>
 
@@ -220,6 +221,7 @@
     <string name="share_copy">Copiar</string>
     <string name="share_send">Enviar</string>
     <string name="share_copied">Link copiado</string>
+    <string name="share_scan_hint">Leia com o telemóvel para abrir o link</string>
     <string name="share_expiry_title">Dias até expirar</string>
     <string name="share_expiry_permanent">Permanente (sem expiração)</string>
     <string name="share_expiry_days_label">Dias</string>

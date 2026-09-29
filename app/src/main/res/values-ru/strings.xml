@@ -90,6 +90,7 @@
     <string name="links_never_expires">Не истекает</string>
     <string name="links_copy">Копировать</string>
     <string name="links_open">Открыть</string>
+    <string name="links_qr">QR-код</string>
     <string name="links_revoke">Отозвать</string>
     <string name="links_copied">Ссылка скопирована</string>
 
@@ -220,6 +221,7 @@
     <string name="share_copy">Копировать</string>
     <string name="share_send">Отправить</string>
     <string name="share_copied">Ссылка скопирована</string>
+    <string name="share_scan_hint">Отсканируйте телефоном, чтобы открыть ссылку</string>
     <string name="share_expiry_title">Дней до истечения</string>
     <string name="share_expiry_permanent">Постоянная (без срока)</string>
     <string name="share_expiry_days_label">Дни</string>

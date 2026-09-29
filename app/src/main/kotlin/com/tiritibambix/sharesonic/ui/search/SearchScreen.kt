@@ -10,6 +10,7 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.material.icons.Icons
@@ -17,6 +18,7 @@ import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -40,6 +42,13 @@ import com.tiritibambix.sharesonic.R
 import com.tiritibambix.sharesonic.ui.theme.textSecondary
 import com.tiritibambix.sharesonic.ui.theme.textTertiary
 import com.tiritibambix.sharesonic.utils.LocalIsTV
+import com.tiritibambix.sharesonic.utils.TvCircleShape
+import com.tiritibambix.sharesonic.utils.TvListFocus
+import com.tiritibambix.sharesonic.utils.TvRefocusAfter
+import com.tiritibambix.sharesonic.utils.TvRowShape
+import com.tiritibambix.sharesonic.utils.rememberTvListFocus
+import com.tiritibambix.sharesonic.utils.tvFocusRing
+import com.tiritibambix.sharesonic.utils.tvTextFieldKeys
 import kotlinx.coroutines.launch
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -57,6 +66,12 @@ fun SearchScreen(
     val query by viewModel.query.collectAsState()
     val searchState by viewModel.searchState.collectAsState()
     val focusRequester = remember { FocusRequester() }
+    val isTV = LocalIsTV.current
+    // TV: the row that had focus, restored when coming back from an artist or a
+    // folder opened from the results (instead of jumping back to the field).
+    val listFocus = rememberTvListFocus(isTV)
+    val tvFieldFocused = rememberSaveable { mutableStateOf(false) }
+    val tvRestorePending = remember { mutableStateOf(true) }
 
     // Hoisted overlays — a song row's "⋮" (TV) or swipe (phone) surfaces the
     // context menu; picking "Add to playlist" then hands off to the frosted
@@ -75,8 +90,17 @@ fun SearchScreen(
     // requestFocus() too early throws IllegalStateException("FocusRequester is not
     // initialized"), which was crashing this screen almost every time it opened.
     // A missed auto-focus is harmless; a crash on every search isn't — swallow the race.
+    // TV: only on the first entry — returning from a result keeps focus on the
+    // result row (restored in SearchResults), not the field + keyboard.
     LaunchedEffect(Unit) {
-        runCatching { focusRequester.requestFocus() }
+        if (!isTV || !tvFieldFocused.value) {
+            tvFieldFocused.value = true
+            runCatching { focusRequester.requestFocus() }
+        }
+    }
+    // TV: put focus back on the row once its context menu / picker closes.
+    TvRefocusAfter(isTV, contextEntry != null || playlistTarget != null) {
+        listFocus.pendingKey = listFocus.last
     }
 
     Scaffold(
@@ -84,7 +108,7 @@ fun SearchScreen(
             TopAppBar(
                 title = { Text(stringResource(R.string.common_search)) },
                 navigationIcon = {
-                    IconButton(onClick = onBack) {
+                    IconButton(onClick = onBack, modifier = Modifier.tvFocusRing(isTV, TvCircleShape)) {
                         Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = stringResource(R.string.common_back))
                     }
                 }
@@ -133,7 +157,9 @@ fun SearchScreen(
                             onOpenFolder = onOpenFolder,
                             onOpenArtistResults = onOpenArtistResults,
                             onOpenNowPlaying = onOpenNowPlaying,
-                            onShowContextMenu = { contextEntry = it }
+                            onShowContextMenu = { contextEntry = it },
+                            listFocus = listFocus,
+                            tvRestorePending = tvRestorePending
                         )
                     }
                 }
@@ -188,6 +214,7 @@ private fun SearchField(
     focusRequester: FocusRequester,
     modifier: Modifier = Modifier
 ) {
+    val isTV = LocalIsTV.current
     Surface(
         modifier = modifier.height(52.dp),
         shape = RoundedCornerShape(26.dp),
@@ -227,12 +254,18 @@ private fun SearchField(
                     modifier = Modifier
                         .fillMaxWidth()
                         .focusRequester(focusRequester)
+                        .tvTextFieldKeys(isTV)
                 )
             }
             if (query.isNotEmpty()) {
                 IconButton(
-                    onClick = { onQueryChange("") },
-                    modifier = Modifier.size(28.dp)
+                    onClick = {
+                        onQueryChange("")
+                        // TV: the button disappears with the text — hand focus to
+                        // the field instead of dropping it.
+                        if (isTV) runCatching { focusRequester.requestFocus() }
+                    },
+                    modifier = Modifier.tvFocusRing(isTV, TvCircleShape).size(28.dp)
                 ) {
                     Icon(
                         Icons.Default.Clear,
@@ -257,9 +290,15 @@ private fun SearchResults(
     onOpenArtistResults: (artistName: String) -> Unit,
     onOpenNowPlaying: () -> Unit,
     onShowContextMenu: (EntryDto) -> Unit,
+    listFocus: TvListFocus,
+    tvRestorePending: MutableState<Boolean>,
 ) {
     val isTV = LocalIsTV.current
     val coroutineScope = rememberCoroutineScope()
+    val listState = rememberLazyListState()
+    // TV: ignore repeated OK presses while an artist's tracks are loading (each
+    // press would otherwise open the artist screen once more).
+    var artistLoading by remember { mutableStateOf(false) }
     val totalCount = result.folder.size + result.song.size + result.album.size + result.artist.size
     if (totalCount == 0) {
         Box(modifier = Modifier.fillMaxSize()) {
@@ -287,6 +326,38 @@ private fun SearchResults(
     val tab = if (showTabs && categories.any { it.first == selectedTab }) selectedTab else SearchTab.ALL
     fun shows(t: SearchTab) = tab == SearchTab.ALL || tab == t
 
+    if (isTV) {
+        // LazyColumn item keys in display order (headers and the album grid
+        // included) so a row key maps to its item index for scroll + focus.
+        val lazyKeys = buildList {
+            if (result.folder.isNotEmpty() && shows(SearchTab.FOLDERS)) {
+                add("hdr_folders"); result.folder.indices.forEach { add("folder_$it") }
+            }
+            if (result.artist.isNotEmpty() && shows(SearchTab.ARTISTS)) {
+                add("hdr_artists"); result.artist.indices.forEach { add("artist_$it") }
+            }
+            if (result.album.isNotEmpty() && shows(SearchTab.ALBUMS)) {
+                add("hdr_albums"); add("albums_grid")
+            }
+            if (result.song.isNotEmpty() && shows(SearchTab.TRACKS)) {
+                add("hdr_songs"); result.song.indices.forEach { add("song_$it") }
+            }
+        }
+        // Back from an artist / folder: focus the row it was opened from.
+        LaunchedEffect(Unit) {
+            if (tvRestorePending.value) {
+                tvRestorePending.value = false
+                listFocus.last?.let { key -> listFocus.focus(key, listState) { lazyKeys.indexOf(it) } }
+            }
+        }
+        // A menu or picker closed: focus the row again.
+        LaunchedEffect(listFocus.pendingKey) {
+            val key = listFocus.pendingKey ?: return@LaunchedEffect
+            listFocus.focus(key, listState) { lazyKeys.indexOf(it) }
+            listFocus.pendingKey = null
+        }
+    }
+
     Column(modifier = Modifier.fillMaxSize()) {
     if (showTabs) {
         Row(
@@ -299,19 +370,21 @@ private fun SearchResults(
             FilterChip(
                 selected = tab == SearchTab.ALL,
                 onClick = { viewModel.selectTab(SearchTab.ALL) },
-                label = { Text(stringResource(R.string.search_tab_all)) }
+                label = { Text(stringResource(R.string.search_tab_all)) },
+                modifier = Modifier.tvFocusRing(isTV, TvRowShape)
             )
             categories.forEach { (t, labelRes, count) ->
                 FilterChip(
                     selected = tab == t,
                     onClick = { viewModel.selectTab(t) },
-                    label = { Text("${stringResource(labelRes)} ($count)") }
+                    label = { Text("${stringResource(labelRes)} ($count)") },
+                    modifier = Modifier.tvFocusRing(isTV, TvRowShape)
                 )
             }
         }
     }
 
-    LazyColumn(modifier = Modifier.fillMaxWidth().weight(1f)) {
+    LazyColumn(state = listState, modifier = Modifier.fillMaxWidth().weight(1f)) {
 
         // ── Folders ──────────────────────────────────────────────────────
         // Real on-disk folders whose name matched the query. This is the
@@ -320,10 +393,11 @@ private fun SearchResults(
         // opens the correct folder with zero client-side path guessing.
         if (result.folder.isNotEmpty() && shows(SearchTab.FOLDERS)) {
             item { SectionHeader(stringResource(R.string.search_section_folders)) }
-            itemsIndexed(result.folder, key = { idx, _ -> "folder_$idx" }) { _, folder ->
+            itemsIndexed(result.folder, key = { idx, _ -> "folder_$idx" }) { idx, folder ->
                 FolderRow(
                     name = folder.displayName,
-                    onClick = { onOpenFolder(folder.id, folder.displayName) }
+                    onClick = { onOpenFolder(folder.id, folder.displayName) },
+                    tvFocusModifier = listFocus.itemModifier("folder_$idx")
                 )
                 HorizontalDivider(thickness = 0.5.dp)
             }
@@ -334,10 +408,13 @@ private fun SearchResults(
             item {
                 SectionHeader(stringResource(R.string.search_section_artists))
             }
-            itemsIndexed(result.artist, key = { idx, _ -> "artist_$idx" }) { _, artist ->
+            itemsIndexed(result.artist, key = { idx, _ -> "artist_$idx" }) { idx, artist ->
                 ArtistRow(
                     artist = artist,
-                    onClick = {
+                    tvFocusModifier = listFocus.itemModifier("artist_$idx"),
+                    onClick = click@{
+                        if (isTV && artistLoading) return@click
+                        artistLoading = isTV
                         // Match the Velvet webapp's viewArtistProfile: tapping an artist
                         // shows that artist's own tracks (exact tag match via
                         // artist-folder-songs, including featuring/variant tags), never a
@@ -346,9 +423,13 @@ private fun SearchResults(
                         // folder where you can't find the track" problem — the track is
                         // listed directly and plays on tap.
                         coroutineScope.launch {
-                            val songs = viewModel.fetchArtistSongsRaw(artist.name, artist.variants).orEmpty()
-                            viewModel.setArtistResults(songs)
-                            onOpenArtistResults(artist.name)
+                            try {
+                                val songs = viewModel.fetchArtistSongsRaw(artist.name, artist.variants).orEmpty()
+                                viewModel.setArtistResults(songs)
+                                onOpenArtistResults(artist.name)
+                            } finally {
+                                artistLoading = false
+                            }
                         }
                     }
                 )
@@ -381,7 +462,7 @@ private fun SearchResults(
         // TV:    ⋮ button → context menu with Play / Add to queue / Add to playlist.
         if (result.song.isNotEmpty() && shows(SearchTab.TRACKS)) {
             item { SectionHeader(stringResource(R.string.search_section_songs)) }
-            itemsIndexed(result.song, key = { idx, _ -> "song_$idx" }) { _, song ->
+            itemsIndexed(result.song, key = { idx, _ -> "song_$idx" }) { idx, song ->
                 val play = {
                     playerViewModel.playSong(song)
                     onOpenNowPlaying()
@@ -394,7 +475,8 @@ private fun SearchResults(
                             isAlbum = false,
                             onClick = play,
                             onLongClick = { onShowContextMenu(song) },
-                            onShowMenu = { onShowContextMenu(song) }
+                            onShowMenu = { onShowContextMenu(song) },
+                            tvFocusModifier = listFocus.itemModifier("song_$idx")
                         )
                     }
                 } else {
@@ -498,10 +580,13 @@ private fun SectionHeader(title: String) {
 }
 
 @Composable
-private fun FolderRow(name: String, onClick: () -> Unit) {
+private fun FolderRow(name: String, onClick: () -> Unit, tvFocusModifier: Modifier = Modifier) {
+    val isTV = LocalIsTV.current
     Row(
         modifier = Modifier
             .fillMaxWidth()
+            .then(tvFocusModifier)
+            .tvFocusRing(isTV, TvRowShape, 1.02f)
             .clickable(onClick = onClick)
             .padding(horizontal = 16.dp, vertical = 10.dp),
         verticalAlignment = Alignment.CenterVertically,
@@ -523,10 +608,13 @@ private fun FolderRow(name: String, onClick: () -> Unit) {
 }
 
 @Composable
-private fun ArtistRow(artist: TopLevelDir, onClick: () -> Unit) {
+private fun ArtistRow(artist: TopLevelDir, onClick: () -> Unit, tvFocusModifier: Modifier = Modifier) {
+    val isTV = LocalIsTV.current
     Row(
         modifier = Modifier
             .fillMaxWidth()
+            .then(tvFocusModifier)
+            .tvFocusRing(isTV, TvRowShape, 1.02f)
             .clickable(onClick = onClick)
             .padding(horizontal = 16.dp, vertical = 10.dp),
         verticalAlignment = Alignment.CenterVertically,
@@ -557,7 +645,50 @@ internal fun EntryRow(
     onLongClick: (() -> Unit)? = null,
     /** On TV, tapping this shows the context menu (replaces swipe / long-press). */
     onShowMenu: (() -> Unit)? = null,
+    /** TV: focus bookkeeping for the row's main area (see TvListFocus). */
+    tvFocusModifier: Modifier = Modifier,
 ) {
+    if (LocalIsTV.current) {
+        // TV: the row itself must not be clickable — D-pad focus never enters a
+        // focused node's children, so the "⋮" would be unreachable. The main
+        // area is the clickable and the "⋮" its sibling (Right reaches it).
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 8.dp, vertical = 4.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            val main = Modifier
+                .weight(1f)
+                .then(tvFocusModifier)
+                .tvFocusRing(true, TvRowShape, 1.02f)
+                .clip(TvRowShape)
+            Row(
+                modifier = (if (onLongClick != null) main.combinedClickable(onClick = onClick, onLongClick = onLongClick)
+                            else main.clickable(onClick = onClick))
+                    .padding(horizontal = 4.dp, vertical = 4.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(12.dp)
+            ) {
+                EntryRowContent(entry, coverArtUrl, isAlbum)
+            }
+            if (onShowMenu != null) {
+                IconButton(
+                    onClick = onShowMenu,
+                    modifier = Modifier.tvFocusRing(true, TvCircleShape).size(36.dp)
+                ) {
+                    Icon(
+                        Icons.Default.MoreVert,
+                        contentDescription = stringResource(R.string.common_more),
+                        tint = MaterialTheme.colorScheme.textSecondary,
+                        modifier = Modifier.size(20.dp)
+                    )
+                }
+            }
+        }
+        return
+    }
     val rowModifier = if (onLongClick != null) {
         Modifier
             .fillMaxWidth()
@@ -573,59 +704,8 @@ internal fun EntryRow(
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(12.dp)
     ) {
-        if (coverArtUrl != null) {
-            AsyncImage(
-                model = coverArtUrl,
-                contentDescription = null,
-                contentScale = ContentScale.Crop,
-                modifier = Modifier.size(48.dp).clip(RoundedCornerShape(4.dp))
-            )
-        } else {
-            Surface(
-                modifier = Modifier.size(48.dp),
-                shape = RoundedCornerShape(4.dp),
-                color = MaterialTheme.colorScheme.surfaceVariant
-            ) {
-                Icon(
-                    imageVector = if (isAlbum) Icons.Default.Album else Icons.Default.MusicNote,
-                    contentDescription = null,
-                    modifier = Modifier.padding(12.dp),
-                    tint = MaterialTheme.colorScheme.textSecondary
-                )
-            }
-        }
-        Column(modifier = Modifier.weight(1f)) {
-            Text(
-                entry.displayName,
-                style = MaterialTheme.typography.bodyLarge,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis
-            )
-            val sub = buildString {
-                entry.artist?.let { append(it) }
-                if (!entry.artist.isNullOrBlank() && !entry.album.isNullOrBlank()) append("  ·  ")
-                if (!isAlbum) entry.album?.let { append(it) }
-            }
-            if (sub.isNotBlank()) {
-                Text(
-                    sub,
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.textSecondary,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis
-                )
-            }
-        }
-        if (!isAlbum) {
-            entry.duration?.let {
-                Text(
-                    formatDuration(it),
-                    style = MaterialTheme.typography.labelSmall,
-                    color = MaterialTheme.colorScheme.textTertiary
-                )
-            }
-        }
-        // TV: "⋮" button opens the context menu — replaces swipe / long-press.
+        EntryRowContent(entry, coverArtUrl, isAlbum)
+        // "⋮" button opens the context menu — replaces swipe / long-press.
         if (onShowMenu != null) {
             IconButton(onClick = onShowMenu, modifier = Modifier.size(36.dp)) {
                 Icon(
@@ -635,6 +715,63 @@ internal fun EntryRow(
                     modifier = Modifier.size(20.dp)
                 )
             }
+        }
+    }
+}
+
+/** Art + title/subtitle + duration: the content shared by phone and TV rows. */
+@Composable
+private fun RowScope.EntryRowContent(entry: EntryDto, coverArtUrl: String?, isAlbum: Boolean) {
+    if (coverArtUrl != null) {
+        AsyncImage(
+            model = coverArtUrl,
+            contentDescription = null,
+            contentScale = ContentScale.Crop,
+            modifier = Modifier.size(48.dp).clip(RoundedCornerShape(4.dp))
+        )
+    } else {
+        Surface(
+            modifier = Modifier.size(48.dp),
+            shape = RoundedCornerShape(4.dp),
+            color = MaterialTheme.colorScheme.surfaceVariant
+        ) {
+            Icon(
+                imageVector = if (isAlbum) Icons.Default.Album else Icons.Default.MusicNote,
+                contentDescription = null,
+                modifier = Modifier.padding(12.dp),
+                tint = MaterialTheme.colorScheme.textSecondary
+            )
+        }
+    }
+    Column(modifier = Modifier.weight(1f)) {
+        Text(
+            entry.displayName,
+            style = MaterialTheme.typography.bodyLarge,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis
+        )
+        val sub = buildString {
+            entry.artist?.let { append(it) }
+            if (!entry.artist.isNullOrBlank() && !entry.album.isNullOrBlank()) append("  ·  ")
+            if (!isAlbum) entry.album?.let { append(it) }
+        }
+        if (sub.isNotBlank()) {
+            Text(
+                sub,
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.textSecondary,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis
+            )
+        }
+    }
+    if (!isAlbum) {
+        entry.duration?.let {
+            Text(
+                formatDuration(it),
+                style = MaterialTheme.typography.labelSmall,
+                color = MaterialTheme.colorScheme.textTertiary
+            )
         }
     }
 }

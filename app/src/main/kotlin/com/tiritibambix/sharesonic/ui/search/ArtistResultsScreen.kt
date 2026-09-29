@@ -6,6 +6,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.AddToQueue
@@ -27,6 +28,11 @@ import com.tiritibambix.sharesonic.ui.components.FrostedSongContextMenu
 import com.tiritibambix.sharesonic.ui.player.PlayerViewModel
 import com.tiritibambix.sharesonic.ui.theme.textSecondary
 import com.tiritibambix.sharesonic.utils.LocalIsTV
+import com.tiritibambix.sharesonic.utils.TvCircleShape
+import com.tiritibambix.sharesonic.utils.TvListFocusEffect
+import com.tiritibambix.sharesonic.utils.TvRefocusAfter
+import com.tiritibambix.sharesonic.utils.rememberTvListFocus
+import com.tiritibambix.sharesonic.utils.tvFocusRing
 
 /**
  * Standalone "folder-like" results page for an artist whose tag-derived name has
@@ -68,6 +74,15 @@ fun ArtistResultsScreen(
         label = "listBottomPadding"
     )
 
+    // TV: focus the first track on entry, and the same track again once its
+    // context menu / picker closes.
+    val listState = rememberLazyListState()
+    val listFocus = rememberTvListFocus(isTV)
+    TvListFocusEffect(listFocus, listState, keys = songs.indices.map { "artistresult_$it" })
+    TvRefocusAfter(isTV, contextEntry != null || playlistTarget != null) {
+        listFocus.pendingKey = listFocus.last
+    }
+
     Scaffold(
         topBar = {
             TopAppBar(
@@ -78,7 +93,7 @@ fun ArtistResultsScreen(
                 ),
                 title = { Text(artistName, maxLines = 1, overflow = TextOverflow.Ellipsis, style = MaterialTheme.typography.titleSmall) },
                 navigationIcon = {
-                    IconButton(onClick = onBack, modifier = Modifier.size(36.dp)) {
+                    IconButton(onClick = onBack, modifier = Modifier.tvFocusRing(isTV, TvCircleShape).size(36.dp)) {
                         Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = stringResource(R.string.common_back), modifier = Modifier.size(20.dp))
                     }
                 },
@@ -91,7 +106,7 @@ fun ArtistResultsScreen(
                                 playerViewModel.playQueue(songs)
                                 onOpenNowPlaying()
                             },
-                            modifier = Modifier.size(36.dp)
+                            modifier = Modifier.tvFocusRing(true, TvCircleShape).size(36.dp)
                         ) {
                             Icon(Icons.Default.PlayArrow, contentDescription = stringResource(R.string.playlist_detail_play_all), modifier = Modifier.size(20.dp))
                         }
@@ -100,7 +115,7 @@ fun ArtistResultsScreen(
                                 playerViewModel.playQueue(songs.shuffled())
                                 onOpenNowPlaying()
                             },
-                            modifier = Modifier.size(36.dp)
+                            modifier = Modifier.tvFocusRing(true, TvCircleShape).size(36.dp)
                         ) {
                             Icon(Icons.Default.Shuffle, contentDescription = stringResource(R.string.playlist_detail_shuffle), modifier = Modifier.size(20.dp))
                         }
@@ -148,10 +163,11 @@ fun ArtistResultsScreen(
                 )
             } else {
                 LazyColumn(
+                    state = listState,
                     modifier = Modifier.fillMaxSize(),
                     contentPadding = PaddingValues(bottom = listBottomPadding)
                 ) {
-                    itemsIndexed(songs, key = { idx, _ -> "artistresult_$idx" }) { _, song ->
+                    itemsIndexed(songs, key = { idx, _ -> "artistresult_$idx" }) { idx, song ->
                         val play = {
                             playerViewModel.playSong(song)
                             onOpenNowPlaying()
@@ -164,7 +180,8 @@ fun ArtistResultsScreen(
                                     isAlbum = false,
                                     onClick = play,
                                     onLongClick = { contextEntry = song },
-                                    onShowMenu = { contextEntry = song }
+                                    onShowMenu = { contextEntry = song },
+                                    tvFocusModifier = listFocus.itemModifier("artistresult_$idx")
                                 )
                             }
                         } else {

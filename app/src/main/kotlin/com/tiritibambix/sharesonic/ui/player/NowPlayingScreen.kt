@@ -30,6 +30,8 @@ import androidx.compose.ui.draw.blur
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.draw.drawWithCache
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
@@ -54,6 +56,17 @@ import com.tiritibambix.sharesonic.ui.components.FrostedShareExpiryDialog
 import com.tiritibambix.sharesonic.ui.components.FrostedTextPromptDialog
 import com.tiritibambix.sharesonic.ui.theme.textSecondary
 import com.tiritibambix.sharesonic.utils.LocalIsTV
+import com.tiritibambix.sharesonic.utils.TvCircleShape
+import com.tiritibambix.sharesonic.utils.TvInitialFocus
+import com.tiritibambix.sharesonic.utils.TvListFocus
+import com.tiritibambix.sharesonic.utils.TvPillShape
+import com.tiritibambix.sharesonic.utils.TvRefocusAfter
+import com.tiritibambix.sharesonic.utils.TvRowShape
+import com.tiritibambix.sharesonic.utils.TvSafeHorizontal
+import com.tiritibambix.sharesonic.utils.TvSafeVertical
+import com.tiritibambix.sharesonic.utils.rememberTvListFocus
+import com.tiritibambix.sharesonic.utils.tvFocusRing
+import com.tiritibambix.sharesonic.utils.tvFocusTrap
 import kotlin.random.Random
 import kotlinx.coroutines.launch
 
@@ -71,10 +84,13 @@ fun NowPlayingScreen(
     // Hoisted to PlayerPanel so its single BackHandler can be page-aware
     // (Queue → Now Playing → collapse). See PlayerPanel.kt.
     pagerState: androidx.compose.foundation.pager.PagerState,
+    /** TV: the play/pause button — PlayerPanel focuses it when the panel opens. */
+    playFocus: FocusRequester,
 ) {
     val isTV = LocalIsTV.current
     val coroutineScope = rememberCoroutineScope()
     val state by viewModel.state.collectAsState()
+    val tvFocus = remember(playFocus) { NowPlayingTvFocus(playFocus) }
     var showShareQueueExpiryDialog by remember { mutableStateOf(false) }
     var showFileInfoDialog by remember { mutableStateOf(false) }
     var showMoreSheet by remember { mutableStateOf(false) }
@@ -132,6 +148,30 @@ fun NowPlayingScreen(
         label = "topBarAlpha",
     )
 
+    // ── TV focus ──────────────────────────────────────────────────────────────
+    // Back on the Now Playing page (tab, back arrow, Back key): focus play/pause
+    // — the queue-only controls that may have had it are gone. While the panel
+    // is collapsed this request is refused (PlayerPanel blocks focus entry).
+    LaunchedEffect(pagerState.settledPage) {
+        if (isTV && pagerState.settledPage == PAGE_NOW_PLAYING) {
+            runCatching { tvFocus.play.requestFocus() }
+        }
+    }
+    // An overlay drawn in this window (share, playlist picker, save queue, track
+    // info) took the focus: give it back to the control that opened it.
+    TvRefocusAfter(
+        isTV,
+        showFileInfoDialog || showShareExpiryDialog || playlistTargetSong != null ||
+            showShareQueueExpiryDialog || showSaveQueueDialog
+    ) {
+        val target = tvFocus.returnTo ?: tvFocus.play
+        tvFocus.returnTo = null
+        runCatching { target.requestFocus() }
+    }
+    // Top-bar queue actions, so they get the focus back too.
+    val tvSaveQueueFocus = remember { FocusRequester() }
+    val tvShareQueueFocus = remember { FocusRequester() }
+
     Box(modifier = Modifier.fillMaxSize()) {
     Scaffold(
         modifier = Modifier.blur(contentBlur),
@@ -139,6 +179,10 @@ fun NowPlayingScreen(
         topBar = {
             TopAppBar(
                 expandedHeight = 40.dp,
+                // TV: keep the bar's controls clear of the overscan edges.
+                modifier = if (isTV) Modifier.padding(
+                    start = TvSafeHorizontal - 16.dp, end = TvSafeHorizontal - 16.dp, top = TvSafeVertical - 12.dp
+                ) else Modifier,
                 colors = TopAppBarDefaults.topAppBarColors(
                     containerColor = MaterialTheme.colorScheme.surface.copy(alpha = topBarAlpha),
                     scrolledContainerColor = MaterialTheme.colorScheme.surface.copy(alpha = topBarAlpha),
@@ -151,7 +195,8 @@ fun NowPlayingScreen(
                                     coroutineScope.launch {
                                         pagerState.animateScrollToPage(PAGE_NOW_PLAYING)
                                     }
-                                }
+                                },
+                                modifier = Modifier.tvFocusRing(true, TvPillShape)
                             ) {
                                 Text(
                                     stringResource(R.string.player_now_playing),
@@ -167,7 +212,8 @@ fun NowPlayingScreen(
                                     coroutineScope.launch {
                                         pagerState.animateScrollToPage(PAGE_QUEUE)
                                     }
-                                }
+                                },
+                                modifier = Modifier.tvFocusRing(true, TvPillShape)
                             ) {
                                 Text(
                                     stringResource(R.string.player_queue_counter, state.queueIndex + 1, state.queue.size),
@@ -230,7 +276,7 @@ fun NowPlayingScreen(
                                 coroutineScope.launch { pagerState.animateScrollToPage(PAGE_NOW_PLAYING) }
                             else onBack()
                         },
-                        modifier = Modifier.size(36.dp)
+                        modifier = Modifier.tvFocusRing(isTV, TvCircleShape).size(36.dp)
                     ) {
                         Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = stringResource(R.string.common_back), modifier = Modifier.size(20.dp))
                     }
@@ -239,7 +285,7 @@ fun NowPlayingScreen(
                     IconToggleButton(
                         checked = state.autoDjEnabled,
                         onCheckedChange = { viewModel.toggleAutoDj() },
-                        modifier = Modifier.size(36.dp)
+                        modifier = Modifier.tvFocusRing(isTV, TvCircleShape).size(36.dp)
                     ) {
                         Icon(
                             imageVector = Icons.Default.Headphones,
@@ -255,8 +301,14 @@ fun NowPlayingScreen(
                         pagerState.currentPage == PAGE_QUEUE && state.queue.isNotEmpty() -> {
                             // Save the whole queue as a new playlist (frosted name prompt)
                             IconButton(
-                                onClick = { showSaveQueueDialog = true },
-                                modifier = Modifier.size(36.dp)
+                                onClick = {
+                                    tvFocus.returnTo = tvSaveQueueFocus
+                                    showSaveQueueDialog = true
+                                },
+                                modifier = Modifier
+                                    .then(if (isTV) Modifier.focusRequester(tvSaveQueueFocus) else Modifier)
+                                    .tvFocusRing(isTV, TvCircleShape)
+                                    .size(36.dp)
                             ) {
                                 Icon(
                                     imageVector = Icons.Default.PlaylistAdd,
@@ -264,7 +316,9 @@ fun NowPlayingScreen(
                                     modifier = Modifier.size(20.dp),
                                 )
                             }
-                            if (state.shareLoading) {
+                            // TV: the spinner shows inside the button rather than
+                            // replacing it, so a focused button doesn't vanish.
+                            if (state.shareLoading && !isTV) {
                                 Box(
                                     modifier = Modifier.size(36.dp),
                                     contentAlignment = Alignment.Center,
@@ -276,21 +330,30 @@ fun NowPlayingScreen(
                                 }
                             } else {
                                 IconButton(
-                                    onClick = { showShareQueueExpiryDialog = true },
-                                    modifier = Modifier.size(36.dp)
+                                    onClick = {
+                                        tvFocus.returnTo = tvShareQueueFocus
+                                        if (!isTV || !state.shareLoading) showShareQueueExpiryDialog = true
+                                    },
+                                    modifier = Modifier
+                                        .then(if (isTV) Modifier.focusRequester(tvShareQueueFocus) else Modifier)
+                                        .tvFocusRing(isTV, TvCircleShape)
+                                        .size(36.dp)
                                 ) {
-                                    Icon(
-                                        imageVector = Icons.Default.Share,
-                                        contentDescription = stringResource(R.string.player_share_queue),
-                                        modifier = Modifier.size(20.dp),
-                                    )
+                                    if (isTV && state.shareLoading)
+                                        CircularProgressIndicator(modifier = Modifier.size(16.dp), strokeWidth = 2.dp)
+                                    else
+                                        Icon(
+                                            imageVector = Icons.Default.Share,
+                                            contentDescription = stringResource(R.string.player_share_queue),
+                                            modifier = Modifier.size(20.dp),
+                                        )
                                 }
                             }
                         }
                         pagerState.currentPage == PAGE_NOW_PLAYING && state.currentSong != null -> {
                             IconButton(
                                 onClick = { showMoreSheet = true },
-                                modifier = Modifier.size(36.dp)
+                                modifier = Modifier.tvFocusRing(isTV, TvCircleShape).size(36.dp)
                             ) {
                                 Icon(
                                     imageVector = Icons.Default.MoreVert,
@@ -337,12 +400,14 @@ fun NowPlayingScreen(
                     onAddToPlaylist = { playlistTargetSong = state.currentSong; viewModel.loadPlaylists() },
                     onMoreActions = { showMoreSheet = true },
                     topPadding = topPadding,
+                    tvFocus = tvFocus,
                 )
                 PAGE_QUEUE       -> QueuePage(
                     state, viewModel, isTV,
                     listState = queueListState,
                     onAddToPlaylist = { song -> playlistTargetSong = song; viewModel.loadPlaylists() },
                     topPadding = topPadding,
+                    tvFocus = tvFocus,
                 )
             }
         }
@@ -368,21 +433,32 @@ fun NowPlayingScreen(
                 artist = song.artist ?: fresh?.artist,
                 album = song.album ?: fresh?.album
             )
+            // TV: same treatment as FrostedOverlay — scrim and card are not
+            // clickable (their content would be unreachable by D-pad), the card
+            // traps focus and takes it on open, and Back closes the overlay
+            // (without this it would collapse the whole player behind it).
+            val tvInfoFocus = remember { FocusRequester() }
+            BackHandler(enabled = isTV) { showFileInfoDialog = false }
+            TvInitialFocus(isTV, tvInfoFocus)
             Box(
                 modifier = Modifier
                     .fillMaxSize()
                     .background(Color.Black.copy(alpha = 0.32f))
-                    .clickable(
-                        interactionSource = remember { androidx.compose.foundation.interaction.MutableInteractionSource() },
-                        indication = null,
-                        onClick = { showFileInfoDialog = false }
+                    .then(
+                        if (isTV) Modifier
+                        else Modifier.clickable(
+                            interactionSource = remember { androidx.compose.foundation.interaction.MutableInteractionSource() },
+                            indication = null,
+                            onClick = { showFileInfoDialog = false }
+                        )
                     ),
                 contentAlignment = Alignment.Center,
             ) {
                 // Consume clicks on the card so tapping the modal doesn't
                 // bubble up to the scrim's dismiss handler.
                 Box(
-                    modifier = Modifier.clickable(
+                    modifier = if (isTV) Modifier.tvFocusTrap(true, tvInfoFocus)
+                    else Modifier.clickable(
                         interactionSource = remember { androidx.compose.foundation.interaction.MutableInteractionSource() },
                         indication = null,
                         onClick = { },
@@ -517,6 +593,19 @@ fun NowPlayingScreen(
 
 // ── Page 0: Now Playing ───────────────────────────────────────────────────────
 
+/**
+ * TV focus targets of the Now Playing page. Play/pause takes focus when the
+ * page opens; the others get it back once the overlay they opened closes
+ * ([returnTo]), instead of focus being dropped.
+ */
+@Stable
+private class NowPlayingTvFocus(val play: FocusRequester) {
+    val more = FocusRequester()
+    val share = FocusRequester()
+    val playlist = FocusRequester()
+    var returnTo: FocusRequester? = null
+}
+
 @Composable
 private fun NowPlayingPage(
     state: PlayerState,
@@ -524,9 +613,10 @@ private fun NowPlayingPage(
     onCoverTap: () -> Unit,
     onShare: () -> Unit,
     onAddToPlaylist: () -> Unit,
-    /** TV only: opens the MoreActionsSheet that's inaccessible from the TopAppBar via D-pad. */
+    /** TV only: opens the MoreActionsSheet from inside the page. */
     onMoreActions: () -> Unit = {},
     topPadding: androidx.compose.ui.unit.Dp = 0.dp,
+    tvFocus: NowPlayingTvFocus,
 ) {
     val isTV = LocalIsTV.current
     val base = MaterialTheme.colorScheme.background
@@ -570,6 +660,36 @@ private fun NowPlayingPage(
             seedKey = state.currentSong?.id ?: "none",
             modifier = Modifier.fillMaxSize(),
         )
+        if (isTV) {
+            // TV: two columns. On a 960×540 dp screen the stacked phone layout
+            // left the cover ~14 dp tall. Halo + fireflies stay full-bleed; the
+            // content keeps to the overscan-safe area.
+            Row(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(top = topPadding)
+                    .padding(start = TvSafeHorizontal, end = TvSafeHorizontal, bottom = TvSafeVertical),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(40.dp)
+            ) {
+                NowPlayingCover(state, onCoverTap, Modifier.weight(0.42f).fillMaxHeight())
+                Column(
+                    modifier = Modifier.weight(0.58f).fillMaxHeight(),
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    verticalArrangement = Arrangement.Center
+                ) {
+                    NowPlayingTitle(state)
+                    NowPlayingInfo(state, viewModel)
+                    Spacer(Modifier.height(4.dp))
+                    NowPlayingControls(state, viewModel, tvFocus)
+                    NowPlayingSeekBar(state, viewModel)
+                    Spacer(Modifier.height(12.dp))
+                    NowPlayingTvButtons(state, viewModel, onMoreActions, tvFocus)
+                    Spacer(Modifier.height(10.dp))
+                    NowPlayingActions(state, viewModel, onShare, onAddToPlaylist, tvFocus)
+                }
+            }
+        } else {
         Column(
             modifier = Modifier
                 .fillMaxSize()
@@ -581,10 +701,37 @@ private fun NowPlayingPage(
         // the fixed controls below don't use, so the whole page always fits on screen
         // and NEVER scrolls. The artwork is a centred square sized to fit; the ambient
         // glow (drawn by the parent Box above) fills the area behind it.
+        NowPlayingCover(state, onCoverTap, Modifier.fillMaxWidth().weight(1f))
+
+        Spacer(Modifier.height(12.dp))
+
+        NowPlayingTitle(state)
+        NowPlayingInfo(state, viewModel)
+
+        Spacer(Modifier.height(14.dp))
+
+        NowPlayingControls(state, viewModel, tvFocus)
+
+        Spacer(Modifier.height(14.dp))
+
+        NowPlayingSeekBar(state, viewModel)
+
+        Spacer(Modifier.height(12.dp))
+
+        NowPlayingActions(state, viewModel, onShare, onAddToPlaylist, tvFocus)
+
+        Spacer(Modifier.height(8.dp))
+        }  // Column (page content)
+        }
+    }      // Box (ambient wrapper)
+}
+
+/** Cover art: a centred square sized to fit [modifier]'s area. */
+@Composable
+private fun NowPlayingCover(state: PlayerState, onCoverTap: () -> Unit, modifier: Modifier) {
+    val isTV = LocalIsTV.current
         Box(
-            modifier = Modifier
-                .fillMaxWidth()
-                .weight(1f),
+            modifier = modifier,
             contentAlignment = Alignment.Center
         ) {
             BoxWithConstraints(
@@ -628,10 +775,11 @@ private fun NowPlayingPage(
                 }
             }
         }
+}
 
-        Spacer(Modifier.height(12.dp))
-
-        // ── Title + subtitle — kept tight, they read as one block ──────────────
+/** Title + subtitle — kept tight, they read as one block. */
+@Composable
+private fun NowPlayingTitle(state: PlayerState) {
         Column(
             modifier = Modifier
                 .fillMaxWidth()
@@ -663,8 +811,11 @@ private fun NowPlayingPage(
                 )
             }
         }
+}
 
-        // ── Secondary info: format/bitrate, then star rating ────────────────────
+/** Secondary info: format/bitrate, then star rating. */
+@Composable
+private fun NowPlayingInfo(state: PlayerState, viewModel: PlayerViewModel) {
         // Stacked rather than sharing a row: when both are present, the rating's
         // five stars + clear button were wide enough to squeeze the format/bitrate
         // label into an ellipsis. Stacking gives the label the full row width so
@@ -707,20 +858,28 @@ private fun NowPlayingPage(
                 }
             }
         }
+}
 
-        Spacer(Modifier.height(14.dp))
-
-        // ── Playback controls — generously spaced, the visual anchor of the page ──
+/** Playback controls — generously spaced, the visual anchor of the page. */
+@Composable
+private fun NowPlayingControls(state: PlayerState, viewModel: PlayerViewModel, tvFocus: NowPlayingTvFocus) {
+    val isTV = LocalIsTV.current
+    // TV: prev / next stay enabled (and do nothing past the ends, dimmed) —
+    // a button that disables itself while focused drops the D-pad focus.
+    val canPrev = state.queueIndex > 0
         Row(
             horizontalArrangement = Arrangement.spacedBy(28.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
             IconButton(
                 onClick = { viewModel.skipPrev() },
-                enabled = state.queueIndex > 0
+                enabled = isTV || canPrev,
+                modifier = Modifier.tvFocusRing(isTV, TvCircleShape)
             ) {
                 Icon(Icons.Default.SkipPrevious, contentDescription = stringResource(R.string.player_previous),
-                    modifier = Modifier.size(36.dp))
+                    modifier = Modifier
+                        .size(36.dp)
+                        .then(if (isTV && !canPrev) Modifier.graphicsLayer { alpha = 0.38f } else Modifier))
             }
             // Theme-accent halo behind the play/pause button — an explicit
             // drawBehind radial glow rather than Modifier.shadow, because a
@@ -755,7 +914,10 @@ private fun NowPlayingPage(
             ) {
                 FilledIconButton(
                     onClick = { viewModel.playPause() },
-                    modifier = Modifier.size(68.dp)
+                    modifier = Modifier
+                        .then(if (isTV) Modifier.focusRequester(tvFocus.play) else Modifier)
+                        .tvFocusRing(isTV, TvCircleShape, 1.1f)
+                        .size(68.dp)
                 ) {
                     Icon(
                         imageVector = if (state.isPlaying) Icons.Default.Pause else Icons.Default.PlayArrow,
@@ -765,21 +927,29 @@ private fun NowPlayingPage(
                 }
             }
             IconButton(
-                onClick = { viewModel.skipNext() },
-                enabled = state.canSkipNext
+                onClick = { if (!isTV || state.canSkipNext) viewModel.skipNext() },
+                enabled = isTV || state.canSkipNext,
+                modifier = Modifier.tvFocusRing(isTV, TvCircleShape)
             ) {
                 Icon(Icons.Default.SkipNext, contentDescription = stringResource(R.string.player_next),
-                    modifier = Modifier.size(36.dp))
+                    modifier = Modifier
+                        .size(36.dp)
+                        .then(if (isTV && !state.canSkipNext) Modifier.graphicsLayer { alpha = 0.38f } else Modifier))
             }
         }
+}
 
-        Spacer(Modifier.height(14.dp))
-
-        // ── Seek bar — waveform, tap or drag to seek ─────────────────────────────
-        if (state.durationMs > 0L) {
+/** Seek bar — waveform, tap or drag to seek. */
+@Composable
+private fun NowPlayingSeekBar(state: PlayerState, viewModel: PlayerViewModel) {
+    val isTV = LocalIsTV.current
+        // TV: stays composed while the duration is still unknown (between
+        // tracks) — removing it would drop the focus if it had it.
+        if (state.durationMs > 0L || isTV) {
             var scrubFraction by remember { mutableStateOf<Float?>(null) }
-            val fraction = (state.currentPositionMs.toFloat() / state.durationMs.toFloat())
-                .coerceIn(0f, 1f)
+            val fraction = if (state.durationMs > 0L)
+                (state.currentPositionMs.toFloat() / state.durationMs.toFloat()).coerceIn(0f, 1f)
+            else 0f
             val shownMs = ((scrubFraction ?: fraction) * state.durationMs).toLong()
 
             Column(
@@ -822,7 +992,9 @@ private fun NowPlayingPage(
                     WaveformSeekBar(
                         fraction = fraction,
                         seedKey = state.currentSong!!.id,
-                        onSeek = { f -> viewModel.seekTo((f * state.durationMs).toLong()) },
+                        onSeek = { f ->
+                            if (state.durationMs > 0L) viewModel.seekTo((f * state.durationMs).toLong())
+                        },
                         onScrub = { f -> scrubFraction = f },
                         playedColor = MaterialTheme.colorScheme.primary,
                         trackColor = MaterialTheme.colorScheme.textSecondary.copy(alpha = 0.25f),
@@ -850,12 +1022,19 @@ private fun NowPlayingPage(
                 }
             }
         }
+}
 
-        Spacer(Modifier.height(12.dp))
-
-        // ── TV: Auto-DJ toggle + More button — visible inside the page so they're
-        // reachable via D-pad without navigating up to the TopAppBar ──────────────
-        if (isTV) {
+/**
+ * TV: Auto-DJ toggle + More button — inside the page so they're reached with
+ * the D-pad without going up to the TopAppBar.
+ */
+@Composable
+private fun NowPlayingTvButtons(
+    state: PlayerState,
+    viewModel: PlayerViewModel,
+    onMoreActions: () -> Unit,
+    tvFocus: NowPlayingTvFocus,
+) {
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -864,7 +1043,7 @@ private fun NowPlayingPage(
             ) {
                 OutlinedButton(
                     onClick = { viewModel.toggleAutoDj() },
-                    modifier = Modifier.weight(1f)
+                    modifier = Modifier.weight(1f).tvFocusRing(true, TvPillShape)
                 ) {
                     Icon(
                         Icons.Default.Headphones,
@@ -881,18 +1060,36 @@ private fun NowPlayingPage(
                     )
                 }
                 OutlinedButton(
-                    onClick = onMoreActions,
-                    modifier = Modifier.weight(1f)
+                    onClick = { tvFocus.returnTo = tvFocus.more; onMoreActions() },
+                    modifier = Modifier
+                        .weight(1f)
+                        .focusRequester(tvFocus.more)
+                        .tvFocusRing(true, TvPillShape)
                 ) {
-                    Icon(Icons.Default.MoreVert, contentDescription = null, modifier = Modifier.size(18.dp))
+                    Icon(
+                        Icons.Default.MoreVert,
+                        contentDescription = null,
+                        modifier = Modifier.size(18.dp),
+                        // Same cue as the top-bar ⋮: accent while a sleep timer is armed.
+                        tint = if (state.sleepRemainingMs != null) MaterialTheme.colorScheme.primary
+                               else LocalContentColor.current
+                    )
                     Spacer(Modifier.width(6.dp))
                     Text(stringResource(R.string.player_more))
                 }
             }
-            Spacer(Modifier.height(8.dp))
-        }
+}
 
-        // ── Actions: Share / Add to playlist — own breathing room from the controls ──
+/** Actions: Share / Add to playlist, then errors and the swipe hint. */
+@Composable
+private fun NowPlayingActions(
+    state: PlayerState,
+    viewModel: PlayerViewModel,
+    onShare: () -> Unit,
+    onAddToPlaylist: () -> Unit,
+    tvFocus: NowPlayingTvFocus,
+) {
+    val isTV = LocalIsTV.current
         Column(
             modifier = Modifier
                 .fillMaxWidth()
@@ -903,24 +1100,41 @@ private fun NowPlayingPage(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.spacedBy(10.dp)
             ) {
-                if (state.shareLoading) {
+                // TV: the spinner shows inside the button instead of replacing it,
+                // so a focused Share button doesn't vanish (and drop the focus).
+                if (state.shareLoading && !isTV) {
                     Box(modifier = Modifier.weight(1f), contentAlignment = Alignment.Center) {
                         CircularProgressIndicator(modifier = Modifier.size(28.dp))
                     }
                 } else {
                     OutlinedButton(
-                        onClick = onShare,
-                        modifier = Modifier.weight(1f)
+                        onClick = if (isTV) ({
+                            tvFocus.returnTo = tvFocus.share
+                            if (!state.shareLoading) onShare()
+                        }) else onShare,
+                        modifier = Modifier
+                            .weight(1f)
+                            .then(if (isTV) Modifier.focusRequester(tvFocus.share) else Modifier)
+                            .tvFocusRing(isTV, TvPillShape)
                     ) {
-                        Icon(Icons.Default.Share, contentDescription = null,
-                            modifier = Modifier.size(18.dp))
+                        if (isTV && state.shareLoading)
+                            CircularProgressIndicator(modifier = Modifier.size(18.dp), strokeWidth = 2.dp)
+                        else
+                            Icon(Icons.Default.Share, contentDescription = null,
+                                modifier = Modifier.size(18.dp))
                         Spacer(Modifier.width(6.dp))
                         Text(stringResource(R.string.player_share))
                     }
                 }
                 OutlinedButton(
-                    onClick = onAddToPlaylist,
-                    modifier = Modifier.weight(1f)
+                    onClick = if (isTV) ({
+                        tvFocus.returnTo = tvFocus.playlist
+                        onAddToPlaylist()
+                    }) else onAddToPlaylist,
+                    modifier = Modifier
+                        .weight(1f)
+                        .then(if (isTV) Modifier.focusRequester(tvFocus.playlist) else Modifier)
+                        .tvFocusRing(isTV, TvPillShape)
                 ) {
                     Icon(Icons.Default.QueueMusic, contentDescription = null,
                         modifier = Modifier.size(18.dp))
@@ -947,14 +1161,21 @@ private fun NowPlayingPage(
                         style = MaterialTheme.typography.bodySmall,
                         modifier = Modifier.weight(1f)
                     )
-                    TextButton(onClick = { viewModel.clearPlaybackError() }) {
+                    TextButton(
+                        onClick = {
+                            viewModel.clearPlaybackError()
+                            // TV: this button disappears — hand focus to play/pause.
+                            if (isTV) runCatching { tvFocus.play.requestFocus() }
+                        },
+                        modifier = Modifier.tvFocusRing(isTV, TvPillShape)
+                    ) {
                         Text(stringResource(R.string.common_dismiss), style = MaterialTheme.typography.labelSmall)
                     }
                 }
             }
 
-            // Hint: swipe for queue
-            if (state.queue.size > 1) {
+            // Hint: swipe for queue (phone only — TV has no swipe, it uses the tabs)
+            if (state.queue.size > 1 && !isTV) {
                 Text(
                     stringResource(R.string.player_swipe_hint),
                     style = MaterialTheme.typography.labelSmall,
@@ -964,10 +1185,6 @@ private fun NowPlayingPage(
                 )
             }
         }
-
-        Spacer(Modifier.height(8.dp))
-        }  // Column (page content)
-    }      // Box (ambient wrapper)
 }
 
 /**
@@ -985,11 +1202,12 @@ private fun RatingStars(
     rating: Int,
     onRate: (Int) -> Unit
 ) {
+    val isTV = LocalIsTV.current
     Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(2.dp)) {
         (1..5).forEach { star ->
             IconButton(
                 onClick = { onRate(star) },
-                modifier = Modifier.size(34.dp)
+                modifier = Modifier.tvFocusRing(isTV, TvCircleShape, 1.1f).size(34.dp)
             ) {
                 Icon(
                     imageVector = if (star <= rating) Icons.Filled.Star else Icons.Filled.StarBorder,
@@ -1005,10 +1223,12 @@ private fun RatingStars(
         }
         // Explicit, always-visible way back to "unrated" — same affordance as the
         // Auto-DJ minimum-rating picker's clear button (see rationale above).
+        // TV: stays enabled (a no-op when already unrated) — disabling the focused
+        // button would drop the D-pad focus.
         IconButton(
-            onClick = { onRate(0) },
-            enabled = rating != 0,
-            modifier = Modifier.size(30.dp)
+            onClick = { if (rating != 0) onRate(0) },
+            enabled = isTV || rating != 0,
+            modifier = Modifier.tvFocusRing(isTV, TvCircleShape, 1.1f).size(30.dp)
         ) {
             Icon(
                 imageVector = Icons.Default.Close,
@@ -1114,7 +1334,23 @@ private fun QueuePage(
     listState: androidx.compose.foundation.lazy.LazyListState = rememberLazyListState(),
     onAddToPlaylist: (EntryDto) -> Unit = {},
     topPadding: androidx.compose.ui.unit.Dp = 0.dp,
+    /** TV: lets a row's add-to-playlist button get the focus back afterwards. */
+    tvFocus: NowPlayingTvFocus? = null,
 ) {
+    // TV: rows are keyed by position (no drag on TV, so the order is the queue
+    // order), so a move / removal doesn't re-create them; each control registers
+    // as "<control>_<position>" and focus is moved explicitly after an edit.
+    val tvRows = rememberTvListFocus(isTV, "tvQueueFocus")
+    if (isTV) {
+        LaunchedEffect(state.queue, tvRows.pendingKey) {
+            val key = tvRows.pendingKey ?: return@LaunchedEffect
+            tvRows.focus(key, listState) { k ->
+                k.substringAfterLast('_').toIntOrNull()?.takeIf { it in state.queue.indices } ?: -1
+            }
+            tvRows.pendingKey = null
+        }
+    }
+
     if (state.queue.isEmpty()) {
         Box(modifier = Modifier.fillMaxSize()) {
             Text(
@@ -1174,13 +1410,33 @@ private fun QueuePage(
             if (isTV) {
                 // TV: no swipe/drag — ↑/↓ to reorder, PlaylistAdd for all rows,
                 // ✕ for non-current rows.
+                val last = state.queue.lastIndex
                 QueueSongRow(
                     index, song, isCurrent,
                     onClick         = { viewModel.jumpTo(orig) },
-                    onAddToPlaylist = { onAddToPlaylist(song) },
-                    onRemove        = if (isCurrent) null else ({ viewModel.removeFromQueue(orig) }),
-                    onMoveUp        = if (orig == 0) null else ({ viewModel.moveQueueItem(orig, orig - 1) }),
-                    onMoveDown      = if (orig == state.queue.lastIndex) null else ({ viewModel.moveQueueItem(orig, orig + 1) })
+                    onAddToPlaylist = {
+                        tvFocus?.returnTo = tvRows.requester("add_$orig")
+                        onAddToPlaylist(song)
+                    },
+                    // Focus stays at this position (the next song slides in),
+                    // or moves up one if this was the last row.
+                    onRemove        = if (isCurrent) null else ({
+                        viewModel.removeFromQueue(orig)
+                        tvRows.pendingKey = "main_${minOf(orig, last - 1).coerceAtLeast(0)}"
+                    }),
+                    // Focus follows the moved song; at the new edge the arrow it
+                    // came from is disabled, so the other one.
+                    onMoveUp        = if (orig == 0) null else ({
+                        viewModel.moveQueueItem(orig, orig - 1)
+                        val to = orig - 1
+                        tvRows.pendingKey = if (to == 0) "down_0" else "up_$to"
+                    }),
+                    onMoveDown      = if (orig == last) null else ({
+                        viewModel.moveQueueItem(orig, orig + 1)
+                        val to = orig + 1
+                        tvRows.pendingKey = if (to == last) "up_$to" else "down_$to"
+                    }),
+                    tvFocus = tvRows,
                 )
             } else {
                 val index = orig
@@ -1310,21 +1566,124 @@ private fun QueueSongRow(
     onMoveDown: (() -> Unit)? = null,
     /** Phone: gesture modifier for the drag handle; null hides the handle. */
     dragHandleModifier: Modifier? = null,
+    /** TV only (non-null): focus registration for the row's controls. */
+    tvFocus: TvListFocus? = null,
 ) {
+    val isTV = tvFocus != null
+    fun tvMod(control: String): Modifier =
+        tvFocus?.itemModifier("${control}_$index", index) ?: Modifier
+    // TV: the row itself isn't clickable — D-pad focus never enters a focused
+    // node's children, so its buttons would be unreachable. The main area (number,
+    // title, duration) jumps to the track; the buttons are its siblings.
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .clickable(onClick = onClick)
+            .then(if (isTV) Modifier else Modifier.clickable(onClick = onClick))
             .background(
                 if (isCurrent)
                     MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.25f)
                 else
                     MaterialTheme.colorScheme.surface
             )
-            .padding(horizontal = 16.dp, vertical = 10.dp),
+            .padding(horizontal = if (isTV) 8.dp else 16.dp, vertical = if (isTV) 4.dp else 10.dp),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(12.dp)
     ) {
+        if (isTV) {
+            Row(
+                modifier = Modifier
+                    .weight(1f)
+                    .then(tvMod("main"))
+                    .tvFocusRing(true, TvRowShape, 1.02f)
+                    .clip(TvRowShape)
+                    .clickable(onClick = onClick)
+                    .padding(horizontal = 8.dp, vertical = 6.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(12.dp)
+            ) {
+                QueueRowContent(index, song, isCurrent)
+            }
+        } else {
+            QueueRowContent(index, song, isCurrent)
+        }
+
+        // TV: reorder arrows (replace the phone's drag handle)
+        if (onMoveUp != null || onMoveDown != null) {
+            IconButton(
+                onClick = { onMoveUp?.invoke() },
+                enabled = onMoveUp != null,
+                modifier = Modifier.then(tvMod("up")).tvFocusRing(isTV, TvCircleShape).size(36.dp)
+            ) {
+                Icon(
+                    Icons.Default.KeyboardArrowUp,
+                    contentDescription = stringResource(R.string.playlist_detail_move_up),
+                    modifier = Modifier.size(20.dp)
+                )
+            }
+            IconButton(
+                onClick = { onMoveDown?.invoke() },
+                enabled = onMoveDown != null,
+                modifier = Modifier.then(tvMod("down")).tvFocusRing(isTV, TvCircleShape).size(36.dp)
+            ) {
+                Icon(
+                    Icons.Default.KeyboardArrowDown,
+                    contentDescription = stringResource(R.string.playlist_detail_move_down),
+                    modifier = Modifier.size(20.dp)
+                )
+            }
+        }
+
+        // Phone: drag handle — long-press then drag to reorder
+        if (dragHandleModifier != null) {
+            Icon(
+                Icons.Default.DragHandle,
+                contentDescription = stringResource(R.string.playlist_detail_drag_handle),
+                tint = MaterialTheme.colorScheme.textSecondary,
+                modifier = Modifier
+                    .size(36.dp)
+                    .then(dragHandleModifier)
+                    .padding(6.dp)
+            )
+        }
+
+        // TV: always-visible add-to-playlist button (replaces swipe-right gesture)
+        if (onAddToPlaylist != null) {
+            IconButton(
+                onClick = onAddToPlaylist,
+                modifier = Modifier.then(tvMod("add")).tvFocusRing(isTV, TvCircleShape).size(36.dp)
+            ) {
+                Icon(
+                    Icons.Default.PlaylistAdd,
+                    contentDescription = stringResource(R.string.browser_add_to_playlist),
+                    tint = MaterialTheme.colorScheme.primary,
+                    modifier = Modifier.size(20.dp)
+                )
+            }
+        }
+
+        // TV: always-visible remove button (replaces swipe-left gesture)
+        if (onRemove != null) {
+            IconButton(
+                onClick = onRemove,
+                modifier = Modifier.then(tvMod("del")).tvFocusRing(isTV, TvCircleShape).size(36.dp)
+            ) {
+                Icon(
+                    Icons.Default.Close,
+                    contentDescription = stringResource(R.string.queue_remove),
+                    tint = MaterialTheme.colorScheme.error
+                )
+            }
+        }
+    }
+}
+
+/** Playing indicator / number, title + artist, duration: shared by phone and TV rows. */
+@Composable
+private fun RowScope.QueueRowContent(
+    index: Int,
+    song: com.tiritibambix.sharesonic.data.api.models.EntryDto,
+    isCurrent: Boolean,
+) {
         // Playing indicator or track number
         Box(modifier = Modifier.width(28.dp), contentAlignment = Alignment.Center) {
             if (isCurrent) {
@@ -1370,61 +1729,6 @@ private fun QueueSongRow(
                 color = MaterialTheme.colorScheme.textSecondary
             )
         }
-
-        // TV: reorder arrows (replace the phone's drag handle)
-        if (onMoveUp != null || onMoveDown != null) {
-            IconButton(onClick = { onMoveUp?.invoke() }, enabled = onMoveUp != null, modifier = Modifier.size(36.dp)) {
-                Icon(
-                    Icons.Default.KeyboardArrowUp,
-                    contentDescription = stringResource(R.string.playlist_detail_move_up),
-                    modifier = Modifier.size(20.dp)
-                )
-            }
-            IconButton(onClick = { onMoveDown?.invoke() }, enabled = onMoveDown != null, modifier = Modifier.size(36.dp)) {
-                Icon(
-                    Icons.Default.KeyboardArrowDown,
-                    contentDescription = stringResource(R.string.playlist_detail_move_down),
-                    modifier = Modifier.size(20.dp)
-                )
-            }
-        }
-
-        // Phone: drag handle — long-press then drag to reorder
-        if (dragHandleModifier != null) {
-            Icon(
-                Icons.Default.DragHandle,
-                contentDescription = stringResource(R.string.playlist_detail_drag_handle),
-                tint = MaterialTheme.colorScheme.textSecondary,
-                modifier = Modifier
-                    .size(36.dp)
-                    .then(dragHandleModifier)
-                    .padding(6.dp)
-            )
-        }
-
-        // TV: always-visible add-to-playlist button (replaces swipe-right gesture)
-        if (onAddToPlaylist != null) {
-            IconButton(onClick = onAddToPlaylist, modifier = Modifier.size(36.dp)) {
-                Icon(
-                    Icons.Default.PlaylistAdd,
-                    contentDescription = stringResource(R.string.browser_add_to_playlist),
-                    tint = MaterialTheme.colorScheme.primary,
-                    modifier = Modifier.size(20.dp)
-                )
-            }
-        }
-
-        // TV: always-visible remove button (replaces swipe-left gesture)
-        if (onRemove != null) {
-            IconButton(onClick = onRemove, modifier = Modifier.size(36.dp)) {
-                Icon(
-                    Icons.Default.Close,
-                    contentDescription = stringResource(R.string.queue_remove),
-                    tint = MaterialTheme.colorScheme.error
-                )
-            }
-        }
-    }
 }
 
 private fun formatDuration(seconds: Int): String {
@@ -1454,6 +1758,7 @@ fun MiniPlayerBar(
     onToggleAutoDj: () -> Unit = {}
 ) {
     val song = state.currentSong ?: return
+    val isTV = LocalIsTV.current
 
     Surface(
         modifier = Modifier.fillMaxWidth(),
@@ -1477,14 +1782,103 @@ fun MiniPlayerBar(
                 )
             }
 
+            // TV: the bar itself isn't clickable — D-pad focus never enters a
+            // focused node's children, so its buttons would be unreachable. The
+            // art + title area opens Now Playing; the buttons are its siblings.
+            // Content keeps clear of the overscan edges.
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
                     .height(64.dp)
-                    .clickable(onClick = onClick)
-                    .padding(start = 8.dp, end = 4.dp),
+                    .then(if (isTV) Modifier else Modifier.clickable(onClick = onClick))
+                    .padding(
+                        start = if (isTV) TvSafeHorizontal - 8.dp else 8.dp,
+                        end = if (isTV) TvSafeHorizontal - 8.dp else 4.dp
+                    ),
                 verticalAlignment = Alignment.CenterVertically
             ) {
+                if (isTV) {
+                    Row(
+                        modifier = Modifier
+                            .weight(1f)
+                            .tvFocusRing(true, TvRowShape, 1.02f)
+                            .clip(TvRowShape)
+                            .clickable(onClick = onClick)
+                            .padding(4.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        MiniBarTrack(state, song)
+                    }
+                } else {
+                    MiniBarTrack(state, song)
+                }
+
+                // Controls
+                // TV: prev / next stay enabled (dimmed, no-op past the ends) — a
+                // button that disables itself while focused drops the D-pad focus.
+                IconButton(
+                    onClick = onSkipPrev,
+                    enabled = isTV || state.queueIndex > 0,
+                    modifier = Modifier.tvFocusRing(isTV, TvCircleShape)
+                ) {
+                    Icon(
+                        Icons.Default.SkipPrevious,
+                        contentDescription = stringResource(R.string.player_previous),
+                        tint = if (state.queueIndex > 0)
+                            MaterialTheme.colorScheme.textSecondary
+                        else
+                            MaterialTheme.colorScheme.textSecondary.copy(alpha = 0.38f)
+                    )
+                }
+                FilledIconButton(
+                    onClick = onPlayPause,
+                    modifier = Modifier.tvFocusRing(isTV, TvCircleShape, 1.1f).size(40.dp)
+                ) {
+                    Icon(
+                        imageVector = if (state.isPlaying) Icons.Default.Pause
+                                      else Icons.Default.PlayArrow,
+                        contentDescription = stringResource(if (state.isPlaying) R.string.player_pause else R.string.player_play)
+                    )
+                }
+                IconButton(
+                    onClick = { if (!isTV || state.canSkipNext) onSkipNext() },
+                    enabled = isTV || state.canSkipNext,
+                    modifier = Modifier.tvFocusRing(isTV, TvCircleShape)
+                ) {
+                    Icon(
+                        Icons.Default.SkipNext,
+                        contentDescription = stringResource(R.string.player_next),
+                        tint = if (state.canSkipNext)
+                            MaterialTheme.colorScheme.textSecondary
+                        else
+                            MaterialTheme.colorScheme.textSecondary.copy(alpha = 0.38f)
+                    )
+                }
+                // Auto-DJ toggle — headphones icon
+                IconToggleButton(
+                    checked = state.autoDjEnabled,
+                    onCheckedChange = { onToggleAutoDj() },
+                    modifier = Modifier.tvFocusRing(isTV, TvCircleShape)
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.Headphones,
+                        contentDescription = stringResource(if (state.autoDjEnabled) R.string.player_autodj_on else R.string.player_autodj_off),
+                        tint = if (state.autoDjEnabled)
+                                   MaterialTheme.colorScheme.primary
+                               else
+                                   MaterialTheme.colorScheme.textSecondary.copy(alpha = 0.4f)
+                    )
+                }
+            }
+            // Reserve space for system navigation bar below the content row
+            Spacer(modifier = Modifier.navigationBarsPadding())
+        }
+    }
+}
+
+/** Art thumbnail + title / artist of the mini bar. */
+@Composable
+private fun RowScope.MiniBarTrack(state: PlayerState, song: EntryDto) {
                 // Album art thumbnail
                 if (state.coverArtUrl != null) {
                     AsyncImage(
@@ -1526,61 +1920,4 @@ fun MiniPlayerBar(
                         )
                     }
                 }
-
-                // Controls
-                IconButton(
-                    onClick = onSkipPrev,
-                    enabled = state.queueIndex > 0
-                ) {
-                    Icon(
-                        Icons.Default.SkipPrevious,
-                        contentDescription = stringResource(R.string.player_previous),
-                        tint = if (state.queueIndex > 0)
-                            MaterialTheme.colorScheme.textSecondary
-                        else
-                            MaterialTheme.colorScheme.textSecondary.copy(alpha = 0.38f)
-                    )
-                }
-                FilledIconButton(
-                    onClick = onPlayPause,
-                    modifier = Modifier.size(40.dp)
-                ) {
-                    Icon(
-                        imageVector = if (state.isPlaying) Icons.Default.Pause
-                                      else Icons.Default.PlayArrow,
-                        contentDescription = stringResource(if (state.isPlaying) R.string.player_pause else R.string.player_play)
-                    )
-                }
-                IconButton(
-                    onClick = onSkipNext,
-                    enabled = state.canSkipNext
-                ) {
-                    Icon(
-                        Icons.Default.SkipNext,
-                        contentDescription = stringResource(R.string.player_next),
-                        tint = if (state.canSkipNext)
-                            MaterialTheme.colorScheme.textSecondary
-                        else
-                            MaterialTheme.colorScheme.textSecondary.copy(alpha = 0.38f)
-                    )
-                }
-                // Auto-DJ toggle — headphones icon
-                IconToggleButton(
-                    checked = state.autoDjEnabled,
-                    onCheckedChange = { onToggleAutoDj() }
-                ) {
-                    Icon(
-                        imageVector = Icons.Default.Headphones,
-                        contentDescription = stringResource(if (state.autoDjEnabled) R.string.player_autodj_on else R.string.player_autodj_off),
-                        tint = if (state.autoDjEnabled)
-                                   MaterialTheme.colorScheme.primary
-                               else
-                                   MaterialTheme.colorScheme.textSecondary.copy(alpha = 0.4f)
-                    )
-                }
-            }
-            // Reserve space for system navigation bar below the content row
-            Spacer(modifier = Modifier.navigationBarsPadding())
-        }
-    }
 }

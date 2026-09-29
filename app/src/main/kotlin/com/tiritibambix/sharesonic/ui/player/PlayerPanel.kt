@@ -19,8 +19,13 @@ import androidx.compose.material3.Surface
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.Stable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.setValue
+import androidx.compose.runtime.snapshotFlow
+import androidx.compose.runtime.withFrameNanos
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -32,8 +37,10 @@ import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import com.tiritibambix.sharesonic.utils.LocalIsTV
+import com.tiritibambix.sharesonic.utils.tvBlockFocusEntry
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import kotlin.math.roundToInt
 
@@ -63,8 +70,24 @@ class PlayerPanelState internal constructor(
 ) {
     val isExpanded: Boolean get() = progress.value > 0.5f
 
+    /** Fully open: the screen behind is entirely covered (TV blocks focus to it). */
+    val isFullyExpanded: Boolean get() = progress.value >= 1f
+
+    /** TV: the next collapse leads to another screen, which takes the focus. */
+    internal var skipMiniFocus = false
+
     fun expand() { scope.launch { progress.animateTo(1f, tween(320)) } }
     fun collapse() { scope.launch { progress.animateTo(0f, tween(320)) } }
+
+    /**
+     * Collapse because we're navigating somewhere (go to folder, share): same
+     * animation as [collapse], but on TV the destination screen keeps the focus
+     * instead of it being sent back to the mini bar.
+     */
+    fun collapseForNavigation() {
+        skipMiniFocus = true
+        collapse()
+    }
 }
 
 @Composable
@@ -110,15 +133,35 @@ fun PlayerPanel(
     val panelScope = rememberCoroutineScope()
     val isTV = LocalIsTV.current
     val miniFocusRequester = remember { FocusRequester() }
+    val playFocus = remember { FocusRequester() }
+    var tvWasExpanded by remember { mutableStateOf(false) }
 
-    // On TV, move focus to the mini player whenever it becomes the active surface:
-    // — when a new song starts playing (visible: false → true)
-    // — when Now Playing collapses back to mini (isExpanded: true → false)
-    // A 150 ms delay lets the animation settle before requesting focus.
+    // TV focus hand-offs:
+    // — opening: always on the Now Playing page, play/pause focused once the
+    //   sheet is fully open (focus can't enter it before — see the sheet below);
+    // — collapsing back (Back / back arrow): focus the mini bar, the surface the
+    //   user came from. Not when the collapse leads to another screen (go to
+    //   folder, share): that screen places its own focus. Starting playback no
+    //   longer steals focus from the row that was pressed.
     LaunchedEffect(visible, state.isExpanded) {
-        if (isTV && visible && !state.isExpanded) {
-            delay(150)
-            runCatching { miniFocusRequester.requestFocus() }
+        if (!isTV) return@LaunchedEffect
+        if (state.isExpanded) {
+            tvWasExpanded = true
+            if (pagerState.currentPage != 0) pagerState.scrollToPage(0)
+            snapshotFlow { state.isFullyExpanded }.first { it }
+            repeat(10) {
+                withFrameNanos { }
+                if (runCatching { playFocus.requestFocus() }.isSuccess) return@LaunchedEffect
+            }
+        } else if (tvWasExpanded) {
+            tvWasExpanded = false
+            if (state.skipMiniFocus) {
+                state.skipMiniFocus = false
+            } else if (visible) {
+                // A 150 ms delay lets the animation settle before requesting focus.
+                delay(150)
+                runCatching { miniFocusRequester.requestFocus() }
+            }
         }
     }
 
@@ -152,6 +195,10 @@ fun PlayerPanel(
                 .offset { IntOffset(0, ((1f - t) * dragExtentPx).roundToInt()) }
                 .clip(RoundedCornerShape(topStart = 16.dp, topEnd = 16.dp))
                 .graphicsLayer { alpha = ((t - 0.1f) / 0.9f).coerceIn(0f, 1f) }
+                // TV: collapsed, the sheet is only moved off-screen and made
+                // transparent — its buttons would still take D-pad focus (Up from
+                // the mini bar landed on invisible controls). Block entry then.
+                .tvBlockFocusEntry(isTV) { state.progress.value <= 0f }
                 .pointerInput(dragExtentPx) {
                     detectVerticalDragGestures(
                         onDragEnd = { snapToNearest() },
@@ -173,6 +220,7 @@ fun PlayerPanel(
                 onShareCreated = onShareCreated,
                 onOpenFolder = onOpenFolder,
                 pagerState = pagerState,
+                playFocus = playFocus,
             )
         }
 

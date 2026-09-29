@@ -9,6 +9,7 @@ import androidx.compose.animation.slideOutHorizontally
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
@@ -53,6 +54,10 @@ import com.tiritibambix.sharesonic.ui.publiclinks.PublicLinksViewModelFactory
 import com.tiritibambix.sharesonic.ui.player.PlayerPanel
 import com.tiritibambix.sharesonic.ui.player.rememberPlayerPanelState
 import com.tiritibambix.sharesonic.ui.share.ShareConfirmScreen
+import com.tiritibambix.sharesonic.utils.LocalIsTV
+import com.tiritibambix.sharesonic.utils.TvSafeHorizontal
+import com.tiritibambix.sharesonic.utils.TvSafeVertical
+import com.tiritibambix.sharesonic.utils.tvBlockFocusEntry
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.runBlocking
 
@@ -71,13 +76,15 @@ fun AppNavGraph() {
     val panelState = rememberPlayerPanelState()
     val showMiniPlayer = playerState.currentSong != null
 
+    val isTV = LocalIsTV.current
+
     var pendingShareUrl by remember { mutableStateOf("") }
     fun onShareCreated(url: String) {
         pendingShareUrl = url
         // Collapse the player sheet so the ShareConfirm route isn't hidden
         // under it (the sheet at t=1 covers the whole screen, and users can
         // trigger a share from Now Playing).
-        panelState.collapse()
+        panelState.collapseForNavigation()
         navController.navigate(Screen.ShareConfirm.route)
     }
 
@@ -104,6 +111,13 @@ fun AppNavGraph() {
     NavHost(
         navController = navController,
         startDestination = startDestination,
+        // TV: keep screens clear of the overscan edges (TV-OV) — the background
+        // above stays full-bleed — and keep D-pad focus from reaching the screen
+        // hidden under a fully open Now Playing.
+        modifier = if (isTV) Modifier
+            .padding(horizontal = TvSafeHorizontal, vertical = TvSafeVertical)
+            .tvBlockFocusEntry(true) { panelState.isFullyExpanded }
+        else Modifier,
         // Material "shared axis X" — both screens travel a short, equal distance in
         // the same direction while cross-fading. The previous full-width slide-over
         // (new screen sliding the full width while the old one only nudged a quarter
@@ -387,7 +401,7 @@ fun AppNavGraph() {
         onShareCreated = ::onShareCreated,
         onOpenFolder = { path, name ->
             // Collapse the player so the folder isn't hidden under it.
-            panelState.collapse()
+            panelState.collapseForNavigation()
             navController.navigate(Screen.Browser.createRoute(path, name))
         },
         viewModel = playerVm,

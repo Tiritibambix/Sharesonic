@@ -25,13 +25,21 @@ import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import com.tiritibambix.sharesonic.R
 import com.tiritibambix.sharesonic.ui.theme.textSecondary
+import com.tiritibambix.sharesonic.utils.LocalIsTV
+import com.tiritibambix.sharesonic.utils.TvCircleShape
+import com.tiritibambix.sharesonic.utils.TvInitialFocus
+import com.tiritibambix.sharesonic.utils.tvFocusRing
 
 /**
  * Twelve-language picker + "System default" row. Selecting a row persists the
@@ -50,13 +58,20 @@ fun LanguageSettingsScreen(
 ) {
     val currentTag by viewModel.appLanguage.collectAsState()
     val activity = LocalContext.current as? Activity
+    // TV: focus starts on the language currently in effect (also after the
+    // recreate() a change triggers).
+    val isTV = LocalIsTV.current
+    val tvSelected = remember { FocusRequester() }
+    TvInitialFocus(isTV, tvSelected)
+    fun tvFocusFor(selected: Boolean): Modifier =
+        if (isTV && selected) Modifier.focusRequester(tvSelected) else Modifier
 
     Scaffold(
         topBar = {
             TopAppBar(
                 title = { Text(stringResource(R.string.language_title)) },
                 navigationIcon = {
-                    IconButton(onClick = onBack) {
+                    IconButton(onClick = onBack, modifier = Modifier.tvFocusRing(isTV, TvCircleShape)) {
                         Icon(Icons.Default.Menu, contentDescription = stringResource(R.string.common_menu))
                     }
                 }
@@ -85,7 +100,8 @@ fun LanguageSettingsScreen(
                 selected = currentTag.isEmpty(),
                 onSelect = {
                     viewModel.setAppLanguage("") { activity?.recreate() }
-                }
+                },
+                tvFocusModifier = tvFocusFor(currentTag.isEmpty())
             )
 
             // Twelve locales — native labels are NOT resources so each one
@@ -97,7 +113,8 @@ fun LanguageSettingsScreen(
                     selected = currentTag == spec.tag,
                     onSelect = {
                         viewModel.setAppLanguage(spec.tag) { activity?.recreate() }
-                    }
+                    },
+                    tvFocusModifier = tvFocusFor(currentTag == spec.tag)
                 )
             }
             if (miniPlayerVisible) Spacer(Modifier.height(80.dp))
@@ -129,11 +146,15 @@ private fun LanguageRow(
     title: String,
     description: String?,
     selected: Boolean,
-    onSelect: () -> Unit
+    onSelect: () -> Unit,
+    tvFocusModifier: Modifier = Modifier,
 ) {
+    val isTV = LocalIsTV.current
     Surface(
         modifier = Modifier
             .fillMaxWidth()
+            .then(tvFocusModifier)
+            .tvFocusRing(isTV, RoundedCornerShape(12.dp), 1.02f)
             .clickable(onClick = onSelect),
         shape = androidx.compose.foundation.shape.RoundedCornerShape(12.dp),
         color = MaterialTheme.colorScheme.surface,
@@ -153,7 +174,9 @@ private fun LanguageRow(
                     )
                 }
             }
-            RadioButton(selected = selected, onClick = onSelect)
+            // TV: the row is the single focus stop — a clickable radio inside
+            // it would be a second, unreachable-by-arrows one.
+            RadioButton(selected = selected, onClick = if (isTV) null else onSelect)
         }
     }
 }

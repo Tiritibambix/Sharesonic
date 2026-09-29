@@ -27,11 +27,20 @@ import androidx.compose.ui.zIndex
 import com.tiritibambix.sharesonic.R
 import com.tiritibambix.sharesonic.data.api.models.EntryDto
 import com.tiritibambix.sharesonic.ui.components.FrostedCard
+import com.tiritibambix.sharesonic.ui.components.FrostedConfirmDialog
 import com.tiritibambix.sharesonic.ui.components.FrostedOverlay
 import com.tiritibambix.sharesonic.ui.components.FrostedTextPromptDialog
 import com.tiritibambix.sharesonic.ui.player.PlayerViewModel
 import com.tiritibambix.sharesonic.ui.theme.textSecondary
 import com.tiritibambix.sharesonic.utils.LocalIsTV
+import com.tiritibambix.sharesonic.utils.TvCircleShape
+import com.tiritibambix.sharesonic.utils.TvListFocus
+import com.tiritibambix.sharesonic.utils.TvListFocusEffect
+import com.tiritibambix.sharesonic.utils.TvPillShape
+import com.tiritibambix.sharesonic.utils.TvRefocusAfter
+import com.tiritibambix.sharesonic.utils.rememberTvListFocus
+import com.tiritibambix.sharesonic.utils.tvFocusRing
+import com.tiritibambix.sharesonic.utils.tvTextFieldKeys
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -70,11 +79,29 @@ fun PlaylistDetailScreen(
     var showRenameDialog by remember { mutableStateOf(false) }
     var showAddDialog by remember { mutableStateOf(false) }
 
+    // TV: removing asks first (a stray OK would otherwise delete the entry).
+    var tvRemoveTarget by remember { mutableStateOf<Pair<Int, PlaylistEntry>?>(null) }
+
     val contentBlur by androidx.compose.animation.core.animateDpAsState(
-        targetValue = if (showRenameDialog || showAddDialog) 18.dp else 0.dp,
+        targetValue = if (showRenameDialog || showAddDialog || tvRemoveTarget != null) 18.dp else 0.dp,
         animationSpec = androidx.compose.animation.core.tween(200),
         label = "contentBlur"
     )
+
+    // TV focus. Rows are keyed by POSITION on TV (see the LazyColumn), so a
+    // reorder or a reload doesn't re-create them; each control registers under
+    // "<control>_<index>" and focus is moved explicitly after an edit.
+    val listFocus = rememberTvListFocus(isTV)
+    val tvEntries = (state as? PlaylistDetailState.Ready)?.entries.orEmpty()
+    TvListFocusEffect(
+        listFocus, listState,
+        keys = tvEntries.indices.map { "play_$it" },
+        indexOf = { key -> key.substringAfterLast('_').toIntOrNull()?.takeIf { it in tvEntries.indices } ?: -1 },
+    )
+    TvRefocusAfter(isTV, showRenameDialog || showAddDialog || tvRemoveTarget != null) {
+        // A removal already queued its own target (see the confirm dialog).
+        if (listFocus.pendingKey == null) listFocus.pendingKey = listFocus.last
+    }
 
     Scaffold(
         modifier = Modifier.blur(contentBlur),
@@ -88,7 +115,7 @@ fun PlaylistDetailScreen(
                 ),
                 title = { Text(playlistName, maxLines = 1, overflow = TextOverflow.Ellipsis, style = MaterialTheme.typography.titleSmall) },
                 navigationIcon = {
-                    IconButton(onClick = onBack, modifier = Modifier.size(36.dp)) {
+                    IconButton(onClick = onBack, modifier = Modifier.tvFocusRing(isTV, TvCircleShape).size(36.dp)) {
                         Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = stringResource(R.string.common_back), modifier = Modifier.size(20.dp))
                     }
                 },
@@ -104,7 +131,7 @@ fun PlaylistDetailScreen(
                                     playerViewModel.playQueue(entries.map { it.dto })
                                     onOpenNowPlaying()
                                 },
-                                modifier = Modifier.size(36.dp)
+                                modifier = Modifier.tvFocusRing(true, TvCircleShape).size(36.dp)
                             ) {
                                 Icon(Icons.Default.PlayArrow, contentDescription = stringResource(R.string.playlist_detail_play_all), modifier = Modifier.size(20.dp))
                             }
@@ -113,16 +140,16 @@ fun PlaylistDetailScreen(
                                     playerViewModel.playQueue(entries.map { it.dto }.shuffled())
                                     onOpenNowPlaying()
                                 },
-                                modifier = Modifier.size(36.dp)
+                                modifier = Modifier.tvFocusRing(true, TvCircleShape).size(36.dp)
                             ) {
                                 Icon(Icons.Default.Shuffle, contentDescription = stringResource(R.string.playlist_detail_shuffle), modifier = Modifier.size(20.dp))
                             }
                         }
                     }
-                    IconButton(onClick = { showRenameDialog = true }, modifier = Modifier.size(36.dp)) {
+                    IconButton(onClick = { showRenameDialog = true }, modifier = Modifier.tvFocusRing(isTV, TvCircleShape).size(36.dp)) {
                         Icon(Icons.Default.Edit, contentDescription = stringResource(R.string.common_rename), modifier = Modifier.size(20.dp))
                     }
-                    IconButton(onClick = { showAddDialog = true }, modifier = Modifier.size(36.dp)) {
+                    IconButton(onClick = { showAddDialog = true }, modifier = Modifier.tvFocusRing(isTV, TvCircleShape).size(36.dp)) {
                         Icon(Icons.Default.Add, contentDescription = stringResource(R.string.playlist_detail_add_songs), modifier = Modifier.size(20.dp))
                     }
                 }
@@ -191,7 +218,9 @@ fun PlaylistDetailScreen(
                             modifier = Modifier.fillMaxSize(),
                             contentPadding = PaddingValues(bottom = listBottomPadding)
                         ) {
-                            itemsIndexed(s.entries, key = { _, e -> e.entryId }) { index, entry ->
+                            // TV keys rows by position so a reorder / reload keeps the
+                            // same row composables — and the focus on them.
+                            itemsIndexed(s.entries, key = { i, e -> if (isTV) i else e.entryId }) { index, entry ->
                                 val isFirst = index == 0
                                 val isLast = index == s.entries.lastIndex
                                 val isDragged = draggedKey == entry.entryId
@@ -209,20 +238,32 @@ fun PlaylistDetailScreen(
                                             playerViewModel.playSong(entry.dto)
                                             onOpenNowPlaying()
                                         },
-                                        onRemove = { viewModel.removeSong(entry.entryId) },
+                                        onRemove = {
+                                            if (isTV) tvRemoveTarget = index to entry
+                                            else viewModel.removeSong(entry.entryId)
+                                        },
                                         // TV keeps the compact ↑/↓ arrow pair — no drag on a remote.
+                                        // Focus follows the moved song; at the new edge the
+                                        // arrow it came from is disabled, so the other one.
                                         onMoveUp = if (!isTV || isFirst) null else {
                                             {
                                                 viewModel.moveEntry(index, index - 1)
                                                 viewModel.commitReorder()
+                                                val to = index - 1
+                                                listFocus.pendingKey = if (to == 0) "down_0" else "up_$to"
                                             }
                                         },
                                         onMoveDown = if (!isTV || isLast) null else {
                                             {
                                                 viewModel.moveEntry(index, index + 1)
                                                 viewModel.commitReorder()
+                                                val to = index + 1
+                                                listFocus.pendingKey =
+                                                    if (to == s.entries.lastIndex) "up_$to" else "down_$to"
                                             }
                                         },
+                                        tvFocus = listFocus,
+                                        index = index,
                                         // Phone shows a drag handle whose pointerInput drives the
                                         // reorder. TV hides it.
                                         dragHandleModifier = if (isTV) null else Modifier.pointerInput(entry.entryId) {
@@ -273,6 +314,24 @@ fun PlaylistDetailScreen(
         }
     }
 
+    // ── TV: confirm before removing an entry ───────────────────────────────
+    tvRemoveTarget?.let { (index, entry) ->
+        FrostedConfirmDialog(
+            title = stringResource(R.string.playlist_detail_remove),
+            message = entry.dto.displayName,
+            confirmLabel = stringResource(R.string.playlist_detail_remove),
+            destructive = true,
+            onConfirm = {
+                viewModel.removeSong(entry.entryId)
+                tvRemoveTarget = null
+                // Rows are keyed by position: the next song slides into this
+                // slot, so its ✕ keeps the focus (or the new last one's).
+                listFocus.pendingKey = "del_${minOf(index, tvEntries.lastIndex - 1).coerceAtLeast(0)}"
+            },
+            onDismiss = { tvRemoveTarget = null }
+        )
+    }
+
     // ── Rename dialog (frosted) ────────────────────────────────────────────
     if (showRenameDialog) {
         FrostedTextPromptDialog(
@@ -310,13 +369,16 @@ fun PlaylistDetailScreen(
                     singleLine = true,
                     trailingIcon = {
                         if (addQuery.isNotEmpty()) {
-                            IconButton(onClick = { addQuery = ""; viewModel.clearAddSongsSearch() }) {
+                            IconButton(
+                                onClick = { addQuery = ""; viewModel.clearAddSongsSearch() },
+                                modifier = Modifier.tvFocusRing(isTV, TvCircleShape)
+                            ) {
                                 Icon(Icons.Default.Clear, contentDescription = null)
                             }
                         }
                     },
                     shape = RoundedCornerShape(12.dp),
-                    modifier = Modifier.fillMaxWidth()
+                    modifier = Modifier.fillMaxWidth().tvTextFieldKeys(isTV)
                 )
                 Box(
                     modifier = Modifier
@@ -369,7 +431,10 @@ fun PlaylistDetailScreen(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.End,
                 ) {
-                    TextButton(onClick = closeAdd) { Text(stringResource(R.string.common_close)) }
+                    TextButton(
+                        onClick = closeAdd,
+                        modifier = Modifier.tvFocusRing(isTV, TvPillShape)
+                    ) { Text(stringResource(R.string.common_close)) }
                 }
             }
         }
@@ -388,6 +453,9 @@ private fun SwipeToRemoveSongRow(
     onMoveDown: (() -> Unit)?,
     /** Phone drag handle carrier — passed to SongRow's DragHandle icon. Null on TV. */
     dragHandleModifier: Modifier? = null,
+    /** TV: registers each control as "<control>_<index>" for focus moves. */
+    tvFocus: TvListFocus? = null,
+    index: Int = -1,
 ) {
     if (isTV) {
         // TV: no swipe — show visible ↑ ↓ ✕ buttons at the end of each row
@@ -403,9 +471,18 @@ private fun SwipeToRemoveSongRow(
                         onMoveUp = onMoveUp,
                         onMoveDown = onMoveDown,
                         dragHandleModifier = null,
+                        tvFocus = tvFocus,
+                        index = index,
                     )
                 }
-                IconButton(onClick = onRemove, modifier = Modifier.size(40.dp).padding(end = 8.dp)) {
+                IconButton(
+                    onClick = onRemove,
+                    modifier = Modifier
+                        .then(tvFocus?.itemModifier("del_$index", index) ?: Modifier)
+                        .tvFocusRing(true, TvCircleShape)
+                        .size(40.dp)
+                        .padding(end = 8.dp)
+                ) {
                     Icon(
                         Icons.Default.Close,
                         contentDescription = stringResource(R.string.playlist_detail_remove),
@@ -455,13 +532,22 @@ private fun SongRow(
      *  `detectDragGesturesAfterLongPress`. Non-null ⇒ the drag handle icon is
      *  shown at the row's right edge. */
     dragHandleModifier: Modifier? = null,
+    /** TV only (non-null): focus registration for play / ↑ / ↓. */
+    tvFocus: TvListFocus? = null,
+    index: Int = -1,
 ) {
+    val isTV = tvFocus != null
+    fun tvMod(control: String): Modifier =
+        tvFocus?.itemModifier("${control}_$index", index) ?: Modifier
     Row(
         modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 10.dp),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(12.dp)
     ) {
-        IconButton(onClick = onClick, modifier = Modifier.size(40.dp)) {
+        IconButton(
+            onClick = onClick,
+            modifier = Modifier.then(tvMod("play")).tvFocusRing(isTV, TvCircleShape).size(40.dp)
+        ) {
             Icon(Icons.Default.PlayArrow, contentDescription = stringResource(R.string.player_play), tint = MaterialTheme.colorScheme.primary)
         }
         Column(modifier = Modifier.weight(1f)) {
@@ -498,14 +584,16 @@ private fun SongRow(
         // onMoveDown null); the disabled arrow renders greyed but not hidden,
         // so the row's right edge stays visually stable across the list.
         if (onMoveUp != null || onMoveDown != null) {
+            // TV: no overlap between the two arrows so each focus ring reads
+            // clearly (the negative spacing made them overlap).
             Column(
                 horizontalAlignment = Alignment.CenterHorizontally,
-                verticalArrangement = Arrangement.spacedBy((-6).dp)
+                verticalArrangement = Arrangement.spacedBy(if (isTV) 4.dp else (-6).dp)
             ) {
                 IconButton(
                     onClick = { onMoveUp?.invoke() },
                     enabled = onMoveUp != null,
-                    modifier = Modifier.size(28.dp),
+                    modifier = Modifier.then(tvMod("up")).tvFocusRing(isTV, TvCircleShape).size(if (isTV) 32.dp else 28.dp),
                 ) {
                     Icon(
                         Icons.Default.KeyboardArrowUp,
@@ -518,7 +606,7 @@ private fun SongRow(
                 IconButton(
                     onClick = { onMoveDown?.invoke() },
                     enabled = onMoveDown != null,
-                    modifier = Modifier.size(28.dp),
+                    modifier = Modifier.then(tvMod("down")).tvFocusRing(isTV, TvCircleShape).size(if (isTV) 32.dp else 28.dp),
                 ) {
                     Icon(
                         Icons.Default.KeyboardArrowDown,
@@ -575,7 +663,7 @@ private fun AddSongRow(song: EntryDto, onAdd: () -> Unit) {
                 )
             }
         }
-        IconButton(onClick = onAdd, modifier = Modifier.size(36.dp)) {
+        IconButton(onClick = onAdd, modifier = Modifier.tvFocusRing(LocalIsTV.current, TvCircleShape).size(36.dp)) {
             Icon(Icons.Default.Add, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
         }
     }

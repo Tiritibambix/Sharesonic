@@ -91,5 +91,7 @@ dependencies {
     implementation(libs.androidx.palette)
     implementation(libs.androidx.glance.appwidget)
     implementation(libs.androidx.glance.material3)
+    // QR code for share links on Android TV (no share target / browser there)
+    implementation(libs.zxing.core)
     debugImplementation(libs.androidx.ui.tooling)
 }

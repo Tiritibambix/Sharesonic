@@ -4,6 +4,7 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ChevronRight
 import androidx.compose.material.icons.filled.Dns
@@ -24,6 +25,11 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.res.stringResource
 import com.tiritibambix.sharesonic.R
+import com.tiritibambix.sharesonic.utils.LocalIsTV
+import com.tiritibambix.sharesonic.utils.TvListFocusEffect
+import com.tiritibambix.sharesonic.utils.TvRowShape
+import com.tiritibambix.sharesonic.utils.rememberTvListFocus
+import com.tiritibambix.sharesonic.utils.tvFocusRing
 
 /**
  * Top-level Settings screen — a classic navigable menu (no tabs):
@@ -41,16 +47,24 @@ fun SettingsScreen(
     onNavigateToLanguage: () -> Unit,
     onNavigateToPublicLinks: () -> Unit
 ) {
+    // TV: first row focused on entry, and the row that was opened again when
+    // coming back from its sub-screen. Rows sit at every other item (dividers).
+    val isTV = LocalIsTV.current
+    val listState = rememberLazyListState()
+    val listFocus = rememberTvListFocus(isTV)
+    val rowKeys = listOf("server", "autodj", "equalizer", "theme", "language", "links")
+    TvListFocusEffect(listFocus, listState, keys = rowKeys, indexOf = { rowKeys.indexOf(it) * 2 })
     Scaffold(
         topBar = { TopAppBar(title = { Text(stringResource(R.string.settings_title)) }) }
     ) { padding ->
-        LazyColumn(modifier = Modifier.padding(padding).fillMaxSize()) {
+        LazyColumn(state = listState, modifier = Modifier.padding(padding).fillMaxSize()) {
             item {
                 SettingsMenuRow(
                     icon = Icons.Default.Dns,
                     title = stringResource(R.string.settings_server),
                     subtitle = stringResource(R.string.settings_server_subtitle),
-                    onClick = onNavigateToServer
+                    onClick = onNavigateToServer,
+                    tvFocusModifier = listFocus.itemModifier("server")
                 )
             }
             item { HorizontalDivider() }
@@ -59,7 +73,8 @@ fun SettingsScreen(
                     icon = Icons.Default.Headphones,
                     title = stringResource(R.string.settings_autodj),
                     subtitle = stringResource(R.string.settings_autodj_subtitle),
-                    onClick = onNavigateToAutoDj
+                    onClick = onNavigateToAutoDj,
+                    tvFocusModifier = listFocus.itemModifier("autodj")
                 )
             }
             item { HorizontalDivider() }
@@ -68,7 +83,8 @@ fun SettingsScreen(
                     icon = Icons.Default.GraphicEq,
                     title = stringResource(R.string.settings_equalizer),
                     subtitle = stringResource(R.string.settings_equalizer_subtitle),
-                    onClick = onNavigateToEqualizer
+                    onClick = onNavigateToEqualizer,
+                    tvFocusModifier = listFocus.itemModifier("equalizer")
                 )
             }
             item { HorizontalDivider() }
@@ -77,7 +93,8 @@ fun SettingsScreen(
                     icon = Icons.Default.Palette,
                     title = stringResource(R.string.settings_theme),
                     subtitle = stringResource(R.string.settings_theme_subtitle),
-                    onClick = onNavigateToTheme
+                    onClick = onNavigateToTheme,
+                    tvFocusModifier = listFocus.itemModifier("theme")
                 )
             }
             item { HorizontalDivider() }
@@ -86,7 +103,8 @@ fun SettingsScreen(
                     icon = Icons.Default.Language,
                     title = stringResource(R.string.settings_language),
                     subtitle = stringResource(R.string.settings_language_subtitle),
-                    onClick = onNavigateToLanguage
+                    onClick = onNavigateToLanguage,
+                    tvFocusModifier = listFocus.itemModifier("language")
                 )
             }
             item { HorizontalDivider() }
@@ -95,7 +113,8 @@ fun SettingsScreen(
                     icon = Icons.Default.Link,
                     title = stringResource(R.string.settings_public_links),
                     subtitle = stringResource(R.string.settings_public_links_subtitle),
-                    onClick = onNavigateToPublicLinks
+                    onClick = onNavigateToPublicLinks,
+                    tvFocusModifier = listFocus.itemModifier("links")
                 )
             }
         }
@@ -107,10 +126,14 @@ private fun SettingsMenuRow(
     icon: ImageVector,
     title: String,
     subtitle: String,
-    onClick: () -> Unit
+    onClick: () -> Unit,
+    tvFocusModifier: Modifier = Modifier,
 ) {
     ListItem(
-        modifier = Modifier.clickable(onClick = onClick),
+        modifier = Modifier
+            .then(tvFocusModifier)
+            .tvFocusRing(LocalIsTV.current, TvRowShape, 1f)
+            .clickable(onClick = onClick),
         leadingContent = { Icon(icon, contentDescription = null) },
         headlineContent = { Text(title) },
         supportingContent = { Text(subtitle) },

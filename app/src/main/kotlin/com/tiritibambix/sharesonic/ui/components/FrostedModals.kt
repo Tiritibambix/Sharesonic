@@ -8,6 +8,7 @@ import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
@@ -21,10 +22,13 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -32,6 +36,14 @@ import com.tiritibambix.sharesonic.R
 import com.tiritibambix.sharesonic.data.api.models.EntryDto
 import com.tiritibambix.sharesonic.data.api.models.NativePlaylist
 import com.tiritibambix.sharesonic.ui.theme.textSecondary
+import com.tiritibambix.sharesonic.utils.LocalIsTV
+import com.tiritibambix.sharesonic.utils.TvCircleShape
+import com.tiritibambix.sharesonic.utils.TvInitialFocus
+import com.tiritibambix.sharesonic.utils.TvPillShape
+import com.tiritibambix.sharesonic.utils.tvFocusRing
+import com.tiritibambix.sharesonic.utils.tvFocusTrap
+import com.tiritibambix.sharesonic.utils.tvKeyboardOptions
+import com.tiritibambix.sharesonic.utils.tvTextFieldKeys
 
 /**
  * Full-screen frosted-glass overlay: a dark scrim over the (parent-blurred)
@@ -48,23 +60,33 @@ fun FrostedOverlay(
     onDismiss: () -> Unit,
     content: @Composable () -> Unit,
 ) {
+    val isTV = LocalIsTV.current
+    val tvTrap = remember { FocusRequester() }
     // Back closes THIS modal first — without this, on TV the Back key would
     // bubble to a parent (e.g. PlayerPanel) and collapse the whole surface
     // behind an open picker instead of dismissing the picker itself.
     BackHandler(onBack = onDismiss)
+    // TV: the scrim and card must NOT be clickable — a clickable is focusable, and
+    // D-pad focus search never enters a focused node's children, so everything in
+    // the card would be unreachable. Instead the card is a focus trap (arrows stay
+    // inside, Back dismisses) that takes the initial focus.
     Box(
         modifier = Modifier
             .fillMaxSize()
             .background(Color.Black.copy(alpha = 0.32f))
-            .clickable(
-                interactionSource = remember { MutableInteractionSource() },
-                indication = null,
-                onClick = onDismiss,
+            .then(
+                if (isTV) Modifier
+                else Modifier.clickable(
+                    interactionSource = remember { MutableInteractionSource() },
+                    indication = null,
+                    onClick = onDismiss,
+                )
             ),
         contentAlignment = Alignment.Center,
     ) {
         Box(
-            modifier = Modifier.clickable(
+            modifier = if (isTV) Modifier.tvFocusTrap(true, tvTrap)
+            else Modifier.clickable(
                 interactionSource = remember { MutableInteractionSource() },
                 indication = null,
                 onClick = {},
@@ -73,6 +95,7 @@ fun FrostedOverlay(
             content()
         }
     }
+    TvInitialFocus(isTV, tvTrap)
 }
 
 /** The solid, theme-coloured card that sits over the frosted backdrop. */
@@ -118,6 +141,11 @@ fun FrostedPlaylistPicker(
 ) {
     var showCreateInput by remember { mutableStateOf(false) }
     var newName by remember { mutableStateOf("") }
+    val isTV = LocalIsTV.current
+    // TV: the "New playlist" row disappears when activated, which would drop
+    // focus — send it to the name field that replaces it.
+    val tvNameField = remember { FocusRequester() }
+    if (showCreateInput) TvInitialFocus(isTV, tvNameField)
 
     FrostedOverlay(onDismiss = onDismiss) {
         FrostedCard(modifier = Modifier.heightIn(max = 480.dp)) {
@@ -148,15 +176,25 @@ fun FrostedPlaylistPicker(
                         onValueChange = { newName = it },
                         placeholder = { Text(stringResource(R.string.playlists_name_label)) },
                         singleLine = true,
-                        modifier = Modifier.weight(1f),
+                        modifier = Modifier
+                            .weight(1f)
+                            .then(if (isTV) Modifier.focusRequester(tvNameField) else Modifier)
+                            .tvTextFieldKeys(isTV),
                         shape = RoundedCornerShape(12.dp),
                         textStyle = MaterialTheme.typography.bodyMedium,
+                        keyboardOptions = if (isTV) KeyboardOptions(imeAction = ImeAction.Done)
+                                          else KeyboardOptions.Default,
+                        keyboardActions = if (isTV) KeyboardActions(onDone = {
+                            if (newName.isNotBlank()) onCreate(newName.trim())
+                        }) else KeyboardActions.Default,
                     )
                     IconButton(
                         onClick = {
                             if (newName.isNotBlank()) onCreate(newName.trim())
                         },
-                        modifier = Modifier.size(40.dp),
+                        modifier = Modifier
+                            .tvFocusRing(isTV, TvCircleShape)
+                            .size(40.dp),
                     ) {
                         Icon(
                             Icons.Default.Check,
@@ -169,6 +207,7 @@ fun FrostedPlaylistPicker(
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
+                        .tvFocusRing(isTV, RoundedCornerShape(10.dp), 1.02f)
                         .clip(RoundedCornerShape(10.dp))
                         .clickable { showCreateInput = true }
                         .padding(vertical = 10.dp),
@@ -191,6 +230,7 @@ fun FrostedPlaylistPicker(
                         Row(
                             modifier = Modifier
                                 .fillMaxWidth()
+                                .tvFocusRing(isTV, RoundedCornerShape(10.dp), 1.02f)
                                 .clip(RoundedCornerShape(10.dp))
                                 .clickable { onPick(playlist.name) }
                                 .padding(vertical = 10.dp),
@@ -275,6 +315,7 @@ private fun ContextRow(
     Row(
         modifier = Modifier
             .fillMaxWidth()
+            .tvFocusRing(LocalIsTV.current, RoundedCornerShape(10.dp), 1.02f)
             .clip(androidx.compose.foundation.shape.RoundedCornerShape(10.dp))
             .clickable(onClick = onClick)
             .padding(vertical = 12.dp),
@@ -298,6 +339,7 @@ fun FrostedShareExpiryDialog(
     var daysText by remember { mutableStateOf("") }
     val parsedDays: Int? = daysText.trim().toIntOrNull()?.takeIf { it > 0 }
     val isValid = daysText.isBlank() || parsedDays != null
+    val isTV = LocalIsTV.current
 
     FrostedOverlay(onDismiss = onDismiss) {
         FrostedCard {
@@ -321,18 +363,29 @@ fun FrostedShareExpiryDialog(
                 placeholder = { Text(stringResource(R.string.share_expiry_permanent)) },
                 singleLine = true,
                 isError = !isValid,
-                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                keyboardOptions = if (isTV) KeyboardOptions(
+                    keyboardType = KeyboardType.Number,
+                    imeAction = ImeAction.Done,
+                ).tvKeyboardOptions(true)
+                else KeyboardOptions(keyboardType = KeyboardType.Number),
+                keyboardActions = if (isTV) KeyboardActions(onDone = {
+                    if (isValid) onConfirm(parsedDays)
+                }) else KeyboardActions.Default,
                 shape = RoundedCornerShape(12.dp),
-                modifier = Modifier.fillMaxWidth(),
+                modifier = Modifier.fillMaxWidth().tvTextFieldKeys(isTV),
             )
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.End,
             ) {
-                TextButton(onClick = onDismiss) { Text(stringResource(R.string.common_cancel)) }
+                TextButton(
+                    onClick = onDismiss,
+                    modifier = Modifier.tvFocusRing(isTV, TvPillShape),
+                ) { Text(stringResource(R.string.common_cancel)) }
                 TextButton(
                     onClick = { onConfirm(parsedDays) },
                     enabled = isValid,
+                    modifier = Modifier.tvFocusRing(isTV, TvPillShape),
                 ) { Text(stringResource(R.string.share_expiry_confirm)) }
             }
         }
@@ -353,6 +406,7 @@ fun FrostedConfirmDialog(
     onDismiss: () -> Unit,
     destructive: Boolean = false,
 ) {
+    val isTV = LocalIsTV.current
     FrostedOverlay(onDismiss = onDismiss) {
         FrostedCard {
             Text(
@@ -369,8 +423,14 @@ fun FrostedConfirmDialog(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.End,
             ) {
-                TextButton(onClick = onDismiss) { Text(stringResource(R.string.common_cancel)) }
-                TextButton(onClick = onConfirm) {
+                TextButton(
+                    onClick = onDismiss,
+                    modifier = Modifier.tvFocusRing(isTV, TvPillShape),
+                ) { Text(stringResource(R.string.common_cancel)) }
+                TextButton(
+                    onClick = onConfirm,
+                    modifier = Modifier.tvFocusRing(isTV, TvPillShape),
+                ) {
                     Text(
                         confirmLabel,
                         color = if (destructive) MaterialTheme.colorScheme.error
@@ -398,6 +458,7 @@ fun FrostedTextPromptDialog(
     onDismiss: () -> Unit,
 ) {
     var text by remember { mutableStateOf(initialValue) }
+    val isTV = LocalIsTV.current
 
     FrostedOverlay(onDismiss = onDismiss) {
         FrostedCard {
@@ -419,16 +480,25 @@ fun FrostedTextPromptDialog(
                 label = { Text(label) },
                 singleLine = true,
                 shape = RoundedCornerShape(12.dp),
-                modifier = Modifier.fillMaxWidth(),
+                modifier = Modifier.fillMaxWidth().tvTextFieldKeys(isTV),
+                keyboardOptions = if (isTV) KeyboardOptions(imeAction = ImeAction.Done)
+                                  else KeyboardOptions.Default,
+                keyboardActions = if (isTV) KeyboardActions(onDone = {
+                    if (text.isNotBlank()) onConfirm(text.trim())
+                }) else KeyboardActions.Default,
             )
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.End,
             ) {
-                TextButton(onClick = onDismiss) { Text(stringResource(R.string.common_cancel)) }
+                TextButton(
+                    onClick = onDismiss,
+                    modifier = Modifier.tvFocusRing(isTV, TvPillShape),
+                ) { Text(stringResource(R.string.common_cancel)) }
                 TextButton(
                     onClick = { if (text.isNotBlank()) onConfirm(text.trim()) },
                     enabled = text.isNotBlank(),
+                    modifier = Modifier.tvFocusRing(isTV, TvPillShape),
                 ) { Text(confirmLabel) }
             }
         }

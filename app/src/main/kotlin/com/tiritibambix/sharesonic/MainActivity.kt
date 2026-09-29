@@ -35,7 +35,11 @@ import com.tiritibambix.sharesonic.ui.player.rememberAmbientColor
 import com.tiritibambix.sharesonic.ui.theme.SharesonicTheme
 import com.tiritibambix.sharesonic.ui.theme.defaultPrimary
 import com.tiritibambix.sharesonic.utils.LocalIsTV
+import com.tiritibambix.sharesonic.utils.TvPillShape
+import com.tiritibambix.sharesonic.utils.TvRowShape
 import com.tiritibambix.sharesonic.utils.isTV
+import com.tiritibambix.sharesonic.utils.tvFocusRing
+import com.tiritibambix.sharesonic.utils.tvScrollKeys
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.first
@@ -124,23 +128,44 @@ class MainActivity : ComponentActivity() {
                     // Surface the previous crash's stack trace once, copyable.
                     var showCrash by remember { mutableStateOf(lastCrash != null) }
                     if (showCrash && lastCrash != null) {
+                        val dismissCrash = {
+                            crashPrefs.edit().remove(SharesonicApp.KEY_LAST_CRASH).apply()
+                            showCrash = false
+                        }
+                        val crashScroll = rememberScrollState()
                         AlertDialog(
-                            onDismissRequest = { },
+                            // TV: Back closes it (there's no other way to reach
+                            // "Dismiss" quickly), and the trace scrolls with ↑ / ↓.
+                            onDismissRequest = if (runningOnTV) dismissCrash else ({ }),
                             title = { Text(stringResource(R.string.crash_title)) },
                             text = {
-                                SelectionContainer {
+                                if (runningOnTV) {
+                                    // No SelectionContainer on TV: it is itself
+                                    // focusable, which would make the scrollable
+                                    // text inside it unreachable by D-pad.
                                     Text(
                                         text = lastCrash,
                                         style = MaterialTheme.typography.bodySmall,
-                                        modifier = Modifier.verticalScroll(rememberScrollState())
+                                        modifier = Modifier
+                                            .tvFocusRing(true, TvRowShape, 1f)
+                                            .tvScrollKeys(true, crashScroll)
+                                            .verticalScroll(crashScroll)
                                     )
+                                } else {
+                                    SelectionContainer {
+                                        Text(
+                                            text = lastCrash,
+                                            style = MaterialTheme.typography.bodySmall,
+                                            modifier = Modifier.verticalScroll(crashScroll)
+                                        )
+                                    }
                                 }
                             },
                             confirmButton = {
-                                TextButton(onClick = {
-                                    crashPrefs.edit().remove(SharesonicApp.KEY_LAST_CRASH).apply()
-                                    showCrash = false
-                                }) { Text(stringResource(R.string.common_dismiss)) }
+                                TextButton(
+                                    onClick = dismissCrash,
+                                    modifier = Modifier.tvFocusRing(runningOnTV, TvPillShape)
+                                ) { Text(stringResource(R.string.common_dismiss)) }
                             }
                         )
                     }

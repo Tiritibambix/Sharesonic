@@ -15,6 +15,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Menu
@@ -36,6 +37,8 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.stringResource
@@ -56,6 +59,10 @@ import com.tiritibambix.sharesonic.ui.theme.VelvetBg
 import com.tiritibambix.sharesonic.ui.theme.VelvetPrimary
 import com.tiritibambix.sharesonic.ui.theme.borderSoft
 import com.tiritibambix.sharesonic.ui.theme.textSecondary
+import com.tiritibambix.sharesonic.utils.LocalIsTV
+import com.tiritibambix.sharesonic.utils.TvCircleShape
+import com.tiritibambix.sharesonic.utils.TvInitialFocus
+import com.tiritibambix.sharesonic.utils.tvFocusRing
 
 /**
  * Theme + accent picker. Five stacked rows (Velvet's five CSS themes) each
@@ -74,13 +81,17 @@ fun ThemeSettingsScreen(
     val accentArgb by viewModel.accentColor.collectAsState()
     val accentDynamic by viewModel.accentDynamic.collectAsState()
     var showAccentSheet by remember { mutableStateOf(false) }
+    // TV: focus starts on the theme currently in use.
+    val isTV = LocalIsTV.current
+    val tvSelected = remember { FocusRequester() }
+    TvInitialFocus(isTV, tvSelected)
 
     Scaffold(
         topBar = {
             TopAppBar(
                 title = { Text(stringResource(R.string.theme_title)) },
                 navigationIcon = {
-                    IconButton(onClick = onBack) {
+                    IconButton(onClick = onBack, modifier = Modifier.tvFocusRing(isTV, TvCircleShape)) {
                         Icon(Icons.Default.Menu, contentDescription = stringResource(R.string.common_menu))
                     }
                 }
@@ -106,6 +117,8 @@ fun ThemeSettingsScreen(
                     spec = spec,
                     selected = appTheme == spec.theme,
                     onSelect = { viewModel.setAppTheme(spec.theme) },
+                    tvFocusModifier = if (isTV && appTheme == spec.theme) Modifier.focusRequester(tvSelected)
+                                      else Modifier,
                 )
             }
 
@@ -167,10 +180,18 @@ private fun currentThemeDefault(theme: AppTheme): Color = when (theme) {
 }
 
 @Composable
-private fun ThemeRow(spec: ThemeSpec, selected: Boolean, onSelect: () -> Unit) {
+private fun ThemeRow(
+    spec: ThemeSpec,
+    selected: Boolean,
+    onSelect: () -> Unit,
+    tvFocusModifier: Modifier = Modifier,
+) {
+    val isTV = LocalIsTV.current
     Surface(
         modifier = Modifier
             .fillMaxWidth()
+            .then(tvFocusModifier)
+            .tvFocusRing(isTV, RoundedCornerShape(12.dp), 1.02f)
             .clickable(onClick = onSelect),
         shape = androidx.compose.foundation.shape.RoundedCornerShape(12.dp),
         color = MaterialTheme.colorScheme.surface,
@@ -210,7 +231,9 @@ private fun ThemeRow(spec: ThemeSpec, selected: Boolean, onSelect: () -> Unit) {
                     color = MaterialTheme.colorScheme.textSecondary,
                 )
             }
-            RadioButton(selected = selected, onClick = onSelect)
+            // TV: the row is the single focus stop — a clickable radio inside
+            // it would be a second, unreachable-by-arrows one.
+            RadioButton(selected = selected, onClick = if (isTV) null else onSelect)
         }
     }
 }
@@ -220,6 +243,7 @@ private fun AccentRow(current: Color, dynamic: Boolean, onTap: () -> Unit) {
     Surface(
         modifier = Modifier
             .fillMaxWidth()
+            .tvFocusRing(LocalIsTV.current, RoundedCornerShape(12.dp), 1.02f)
             .clickable(onClick = onTap),
         shape = androidx.compose.foundation.shape.RoundedCornerShape(12.dp),
         color = MaterialTheme.colorScheme.surface,

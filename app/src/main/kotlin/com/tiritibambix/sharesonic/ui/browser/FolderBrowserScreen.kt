@@ -1,5 +1,6 @@
 package com.tiritibambix.sharesonic.ui.browser
 
+import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.combinedClickable
@@ -28,6 +29,8 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.blur
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.hapticfeedback.HapticFeedback
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.input.pointer.pointerInput
@@ -46,6 +49,15 @@ import com.tiritibambix.sharesonic.ui.components.FrostedShareExpiryDialog
 import com.tiritibambix.sharesonic.ui.player.PlayerViewModel
 import com.tiritibambix.sharesonic.ui.theme.textSecondary
 import com.tiritibambix.sharesonic.utils.LocalIsTV
+import com.tiritibambix.sharesonic.utils.TvCircleShape
+import com.tiritibambix.sharesonic.utils.TvInitialFocus
+import com.tiritibambix.sharesonic.utils.TvListFocusEffect
+import com.tiritibambix.sharesonic.utils.TvPillShape
+import com.tiritibambix.sharesonic.utils.TvRefocusAfter
+import com.tiritibambix.sharesonic.utils.TvRowShape
+import com.tiritibambix.sharesonic.utils.rememberTvListFocus
+import com.tiritibambix.sharesonic.utils.tvFocusRing
+import com.tiritibambix.sharesonic.utils.tvFocusTrap
 import kotlinx.coroutines.launch
 
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalFoundationApi::class)
@@ -181,6 +193,11 @@ fun FolderBrowserScreen(
     // Reset drag state when the folder changes
     LaunchedEffect(entries) { draggingLetter = null }
 
+    // TV: initial focus on the first row, and back on the row that was opened
+    // when returning to this folder (the key is saved with the back-stack entry).
+    val listFocus = rememberTvListFocus(isTV)
+    TvListFocusEffect(listFocus, listState, keys = entries.map { it.id })
+
     LaunchedEffect(shareState) {
         if (shareState is ShareState.Done) {
             onShareCreated((shareState as ShareState.Done).url)
@@ -201,6 +218,16 @@ fun FolderBrowserScreen(
     // state and the TV overlay state never interfere.
     var showTVDrawer by remember { mutableStateOf(false) }
     val drawerOpen = if (isTV) showTVDrawer else drawerState.isOpen
+    // TV: Back closes the drawer (it would otherwise leave the folder, or quit
+    // the app at the library root), and focus returns to the hamburger.
+    val tvMenuButton = remember { FocusRequester() }
+    BackHandler(enabled = isTV && showTVDrawer) { showTVDrawer = false }
+    TvRefocusAfter(isTV, showTVDrawer) { runCatching { tvMenuButton.requestFocus() } }
+    // TV: when a menu / picker / prompt closes, put focus back on the row it was
+    // opened from instead of dropping it.
+    TvRefocusAfter(isTV, showContextMenu || showPlaylistPicker || shareExpiryTarget != null) {
+        listFocus.pendingKey = listFocus.last
+    }
 
     // Frosted-glass cue: blur the browser behind the drawer while it's open, and
     // size the sheet to ~80% of the screen width so a blurred sliver of the browser
@@ -261,37 +288,40 @@ fun FolderBrowserScreen(
                             if (isTV) showTVDrawer = true
                             else drawerScope.launch { drawerState.open() }
                         },
-                        modifier = Modifier.size(36.dp)
+                        modifier = Modifier
+                            .then(if (isTV) Modifier.focusRequester(tvMenuButton) else Modifier)
+                            .tvFocusRing(isTV, TvCircleShape)
+                            .size(36.dp)
                     ) {
                         Icon(Icons.Default.Menu, contentDescription = stringResource(R.string.common_menu), modifier = Modifier.size(20.dp))
                     }
                 },
                 actions = {
                     if (folderName != "Library") {
-                        IconButton(onClick = onGoRoot, modifier = Modifier.size(36.dp)) {
+                        IconButton(onClick = onGoRoot, modifier = Modifier.tvFocusRing(isTV, TvCircleShape).size(36.dp)) {
                             Icon(Icons.Default.Home, contentDescription = stringResource(R.string.browser_home), modifier = Modifier.size(20.dp))
                         }
                     }
                     if (isTV) {
                         if (hasTracks) {
-                            IconButton(onClick = ::playInOrder, modifier = Modifier.size(36.dp)) {
+                            IconButton(onClick = ::playInOrder, modifier = Modifier.tvFocusRing(true, TvCircleShape).size(36.dp)) {
                                 if (playAllLoading)
                                     CircularProgressIndicator(modifier = Modifier.size(16.dp), strokeWidth = 2.dp)
                                 else
                                     Icon(Icons.Default.PlayArrow, contentDescription = stringResource(R.string.browser_play_all), modifier = Modifier.size(20.dp))
                             }
                         }
-                        IconButton(onClick = { triggerShuffle() }, modifier = Modifier.size(36.dp)) {
+                        IconButton(onClick = { triggerShuffle() }, modifier = Modifier.tvFocusRing(true, TvCircleShape).size(36.dp)) {
                             if (shuffleLoading)
                                 CircularProgressIndicator(modifier = Modifier.size(16.dp), strokeWidth = 2.dp)
                             else
                                 Icon(Icons.Default.Shuffle, contentDescription = stringResource(R.string.browser_shuffle), modifier = Modifier.size(20.dp))
                         }
                     }
-                    IconButton(onClick = onOpenSearch, modifier = Modifier.size(36.dp)) {
+                    IconButton(onClick = onOpenSearch, modifier = Modifier.tvFocusRing(isTV, TvCircleShape).size(36.dp)) {
                         Icon(Icons.Default.Search, contentDescription = stringResource(R.string.browser_search), modifier = Modifier.size(20.dp))
                     }
-                    IconButton(onClick = onOpenPlaylists, modifier = Modifier.size(36.dp)) {
+                    IconButton(onClick = onOpenPlaylists, modifier = Modifier.tvFocusRing(isTV, TvCircleShape).size(36.dp)) {
                         Icon(Icons.Default.QueueMusic, contentDescription = stringResource(R.string.browser_playlists), modifier = Modifier.size(20.dp))
                     }
                 }
@@ -352,7 +382,10 @@ fun FolderBrowserScreen(
                         verticalArrangement = Arrangement.spacedBy(12.dp)
                     ) {
                         Text(s.message, color = MaterialTheme.colorScheme.error)
-                        Button(onClick = { viewModel.refresh() }) { Text(stringResource(R.string.common_more)) }
+                        Button(
+                            onClick = { viewModel.refresh() },
+                            modifier = Modifier.tvFocusRing(isTV, TvPillShape)
+                        ) { Text(stringResource(R.string.common_more)) }
                     }
                 }
 
@@ -395,7 +428,8 @@ fun FolderBrowserScreen(
                                                     onShowMenu = {
                                                         contextEntry = entry
                                                         showContextMenu = true
-                                                    }
+                                                    },
+                                                    tvFocusModifier = listFocus.itemModifier(entry.id)
                                                 )
                                             }
                                         } else {
@@ -513,7 +547,8 @@ fun FolderBrowserScreen(
                                             onShowMenu = if (isTV) ({
                                                 contextEntry = entry
                                                 showContextMenu = true
-                                            }) else null
+                                            }) else null,
+                                            tvFocusModifier = listFocus.itemModifier(entry.id)
                                         )
                                     }
                                     HorizontalDivider(thickness = 0.5.dp)
@@ -555,8 +590,12 @@ fun FolderBrowserScreen(
             enter = slideInHorizontally { -it } + fadeIn(animationSpec = tween(200)),
             exit  = slideOutHorizontally { -it } + fadeOut(animationSpec = tween(200))
         ) {
+            // Focus goes into the drawer when it opens and can't wander out of it
+            // (arrows would otherwise reach the browser behind); Back closes it.
+            val drawerFocus = remember { FocusRequester() }
+            TvInitialFocus(true, drawerFocus)
             Row(Modifier.fillMaxSize()) {
-                ModalDrawerSheet(Modifier.width(320.dp)) {
+                ModalDrawerSheet(Modifier.width(320.dp).tvFocusTrap(true, drawerFocus)) {
                     DrawerMenuItems(
                         onClose = { showTVDrawer = false },
                         onOpenServerSettings = onOpenServerSettings,
@@ -603,19 +642,29 @@ fun FolderBrowserScreen(
     // ── Context menu (long press) — frosted-glass overlay ─────────────────────
     if (showContextMenu && contextEntry != null) {
         val entry = contextEntry!!
+        // TV: same treatment as FrostedOverlay — the scrim and card can't be
+        // clickable (their rows would be unreachable), the card traps focus and
+        // takes it on open, and Back closes the menu.
+        val tvMenuFocus = remember { FocusRequester() }
+        BackHandler(enabled = isTV) { showContextMenu = false }
+        TvInitialFocus(isTV, tvMenuFocus)
         Box(
             modifier = Modifier
                 .fillMaxSize()
                 .background(Color.Black.copy(alpha = 0.32f))
-                .clickable(
-                    interactionSource = remember { androidx.compose.foundation.interaction.MutableInteractionSource() },
-                    indication = null,
-                    onClick = { showContextMenu = false }
+                .then(
+                    if (isTV) Modifier
+                    else Modifier.clickable(
+                        interactionSource = remember { androidx.compose.foundation.interaction.MutableInteractionSource() },
+                        indication = null,
+                        onClick = { showContextMenu = false }
+                    )
                 ),
             contentAlignment = Alignment.Center,
         ) {
             Box(
-                modifier = Modifier.clickable(
+                modifier = if (isTV) Modifier.tvFocusTrap(true, tvMenuFocus)
+                else Modifier.clickable(
                     interactionSource = remember { androidx.compose.foundation.interaction.MutableInteractionSource() },
                     indication = null,
                     onClick = {},
@@ -771,6 +820,10 @@ private fun DrawerMenuItems(
     onOpenPublicLinks: () -> Unit,
     onOpenEqualizer: () -> Unit
 ) {
+    val isTV = LocalIsTV.current
+    val itemModifier = Modifier
+        .padding(horizontal = 12.dp, vertical = 4.dp)
+        .tvFocusRing(isTV, TvPillShape, 1.02f)
     Spacer(Modifier.height(12.dp))
     Text(
         stringResource(R.string.app_name),
@@ -783,42 +836,42 @@ private fun DrawerMenuItems(
         icon = { Icon(Icons.Default.Dns, contentDescription = null) },
         selected = false,
         onClick = { onClose(); onOpenServerSettings() },
-        modifier = Modifier.padding(horizontal = 12.dp, vertical = 4.dp)
+        modifier = itemModifier
     )
     NavigationDrawerItem(
         label = { Text(stringResource(R.string.browser_drawer_autodj)) },
         icon = { Icon(Icons.Default.Headphones, contentDescription = null) },
         selected = false,
         onClick = { onClose(); onOpenAutoDjSettings() },
-        modifier = Modifier.padding(horizontal = 12.dp, vertical = 4.dp)
+        modifier = itemModifier
     )
     NavigationDrawerItem(
         label = { Text(stringResource(R.string.browser_drawer_equalizer)) },
         icon = { Icon(Icons.Default.GraphicEq, contentDescription = null) },
         selected = false,
         onClick = { onClose(); onOpenEqualizer() },
-        modifier = Modifier.padding(horizontal = 12.dp, vertical = 4.dp)
+        modifier = itemModifier
     )
     NavigationDrawerItem(
         label = { Text(stringResource(R.string.browser_drawer_theme)) },
         icon = { Icon(Icons.Default.Palette, contentDescription = null) },
         selected = false,
         onClick = { onClose(); onOpenThemeSettings() },
-        modifier = Modifier.padding(horizontal = 12.dp, vertical = 4.dp)
+        modifier = itemModifier
     )
     NavigationDrawerItem(
         label = { Text(stringResource(R.string.browser_drawer_language)) },
         icon = { Icon(Icons.Default.Language, contentDescription = null) },
         selected = false,
         onClick = { onClose(); onOpenLanguageSettings() },
-        modifier = Modifier.padding(horizontal = 12.dp, vertical = 4.dp)
+        modifier = itemModifier
     )
     NavigationDrawerItem(
         label = { Text(stringResource(R.string.browser_drawer_public_links)) },
         icon = { Icon(Icons.Default.Link, contentDescription = null) },
         selected = false,
         onClick = { onClose(); onOpenPublicLinks() },
-        modifier = Modifier.padding(horizontal = 12.dp, vertical = 4.dp)
+        modifier = itemModifier
     )
 }
 
@@ -833,8 +886,52 @@ private fun EntryRow(
     onClick: () -> Unit,
     onLongClick: () -> Unit,
     /** On TV, tapping this opens the context menu (replaces swipe / long-press). */
-    onShowMenu: (() -> Unit)?
+    onShowMenu: (() -> Unit)?,
+    /** TV: focus bookkeeping for the row's main area (see TvListFocus). */
+    tvFocusModifier: Modifier = Modifier,
 ) {
+    if (isTV) {
+        // TV: the row itself must not be clickable — D-pad focus never enters a
+        // focused node's children, so a "⋮" inside a clickable row can't be
+        // reached. The main area (art + text) is the clickable, the "⋮" is its
+        // sibling: Right from the main area lands on it.
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 8.dp, vertical = 4.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            Row(
+                modifier = Modifier
+                    .weight(1f)
+                    .then(tvFocusModifier)
+                    .tvFocusRing(true, TvRowShape, 1.02f)
+                    .clip(TvRowShape)
+                    .combinedClickable(onClick = onClick, onLongClick = onLongClick)
+                    .padding(horizontal = 4.dp, vertical = 4.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(12.dp)
+            ) {
+                EntryRowContent(entry, coverArtUrl)
+            }
+            if (onShowMenu != null) {
+                IconButton(
+                    onClick = onShowMenu,
+                    modifier = Modifier
+                        .tvFocusRing(true, TvCircleShape)
+                        .size(36.dp)
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.MoreVert,
+                        contentDescription = stringResource(R.string.common_more),
+                        tint = MaterialTheme.colorScheme.textSecondary
+                    )
+                }
+            }
+        }
+        return
+    }
     Row(
         modifier = Modifier
             .fillMaxWidth()
@@ -843,81 +940,76 @@ private fun EntryRow(
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(12.dp)
     ) {
-        // Thumbnail: real cover art if available. Files without artwork use the
-        // ambient-tinted placeholder so each song still gets a distinctive tile.
-        // Folders keep their explicit Folder icon — a directory isn't "missing
-        // artwork", the icon is intentional and the primary tint signals type.
-        if (coverArtUrl != null) {
-            AsyncImage(
-                model = coverArtUrl,
+        EntryRowContent(entry, coverArtUrl)
+    }
+}
+
+/** Thumbnail + title/subtitle + duration: the content shared by phone and TV rows. */
+@Composable
+private fun RowScope.EntryRowContent(entry: EntryDto, coverArtUrl: String?) {
+    // Thumbnail: real cover art if available. Files without artwork use the
+    // ambient-tinted placeholder so each song still gets a distinctive tile.
+    // Folders keep their explicit Folder icon — a directory isn't "missing
+    // artwork", the icon is intentional and the primary tint signals type.
+    if (coverArtUrl != null) {
+        AsyncImage(
+            model = coverArtUrl,
+            contentDescription = null,
+            contentScale = ContentScale.Crop,
+            modifier = Modifier
+                .size(48.dp)
+                .clip(RoundedCornerShape(4.dp))
+        )
+    } else if (entry.isDir) {
+        Surface(
+            modifier = Modifier.size(48.dp),
+            shape = RoundedCornerShape(4.dp),
+            color = MaterialTheme.colorScheme.surfaceVariant
+        ) {
+            Icon(
+                imageVector = Icons.Default.Folder,
                 contentDescription = null,
-                contentScale = ContentScale.Crop,
-                modifier = Modifier
-                    .size(48.dp)
-                    .clip(RoundedCornerShape(4.dp))
-            )
-        } else if (entry.isDir) {
-            Surface(
-                modifier = Modifier.size(48.dp),
-                shape = RoundedCornerShape(4.dp),
-                color = MaterialTheme.colorScheme.surfaceVariant
-            ) {
-                Icon(
-                    imageVector = Icons.Default.Folder,
-                    contentDescription = null,
-                    modifier = Modifier.padding(12.dp),
-                    tint = MaterialTheme.colorScheme.primary
-                )
-            }
-        } else {
-            com.tiritibambix.sharesonic.ui.player.NoArtworkThumb(
-                seedKey = entry.id,
-                modifier = Modifier.size(48.dp),
-                shape = RoundedCornerShape(4.dp),
+                modifier = Modifier.padding(12.dp),
+                tint = MaterialTheme.colorScheme.primary
             )
         }
+    } else {
+        com.tiritibambix.sharesonic.ui.player.NoArtworkThumb(
+            seedKey = entry.id,
+            modifier = Modifier.size(48.dp),
+            shape = RoundedCornerShape(4.dp),
+        )
+    }
 
-        Column(modifier = Modifier.weight(1f)) {
+    Column(modifier = Modifier.weight(1f)) {
+        Text(
+            text = entry.displayName,
+            style = MaterialTheme.typography.bodyLarge,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis
+        )
+        if (!entry.isDir) {
             Text(
-                text = entry.displayName,
-                style = MaterialTheme.typography.bodyLarge,
+                text = buildString {
+                    entry.artist?.let { append(it) }
+                    if (!entry.artist.isNullOrBlank() && !entry.album.isNullOrBlank()) append(" · ")
+                    entry.album?.let { append(it) }
+                }.ifBlank { "" },
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.textSecondary,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis
             )
-            if (!entry.isDir) {
-                Text(
-                    text = buildString {
-                        entry.artist?.let { append(it) }
-                        if (!entry.artist.isNullOrBlank() && !entry.album.isNullOrBlank()) append(" · ")
-                        entry.album?.let { append(it) }
-                    }.ifBlank { "" },
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.textSecondary,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis
-                )
-            }
         }
+    }
 
-        // Duration hint for songs
-        if (!entry.isDir && entry.duration != null) {
-            Text(
-                text = formatDuration(entry.duration),
-                style = MaterialTheme.typography.labelSmall,
-                color = MaterialTheme.colorScheme.textSecondary
-            )
-        }
-
-        // TV: explicit "⋮" button — opens the context menu instead of swipe/long-press
-        if (isTV && onShowMenu != null) {
-            IconButton(onClick = onShowMenu, modifier = Modifier.size(36.dp)) {
-                Icon(
-                    imageVector = Icons.Default.MoreVert,
-                    contentDescription = stringResource(R.string.common_more),
-                    tint = MaterialTheme.colorScheme.textSecondary
-                )
-            }
-        }
+    // Duration hint for songs
+    if (!entry.isDir && entry.duration != null) {
+        Text(
+            text = formatDuration(entry.duration),
+            style = MaterialTheme.typography.labelSmall,
+            color = MaterialTheme.colorScheme.textSecondary
+        )
     }
 }
 
@@ -930,6 +1022,7 @@ private fun ContextMenuRow(
     Row(
         modifier = Modifier
             .fillMaxWidth()
+            .tvFocusRing(LocalIsTV.current, RoundedCornerShape(10.dp), 1.02f)
             .clip(RoundedCornerShape(10.dp))
             .clickable(onClick = onClick)
             .padding(vertical = 12.dp),

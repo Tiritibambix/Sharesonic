@@ -15,12 +15,23 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import com.tiritibambix.sharesonic.R
 import com.tiritibambix.sharesonic.ui.theme.textSecondary
+import com.tiritibambix.sharesonic.utils.LocalIsTV
+import com.tiritibambix.sharesonic.utils.TvCircleShape
+import com.tiritibambix.sharesonic.utils.TvInitialFocus
+import com.tiritibambix.sharesonic.utils.TvPillShape
+import com.tiritibambix.sharesonic.utils.TvRowShape
+import com.tiritibambix.sharesonic.utils.tvFocusRing
+import com.tiritibambix.sharesonic.utils.tvKeyboardOptions
+import com.tiritibambix.sharesonic.utils.tvSliderKeys
+import com.tiritibambix.sharesonic.utils.tvTextFieldKeys
 import kotlin.math.roundToInt
 
 /**
@@ -36,6 +47,10 @@ fun AutoDjSettingsContent(
 ) {
     val s by viewModel.settings.collectAsState()
     val vpaths by viewModel.availableVpaths.collectAsState()
+    val isTV = LocalIsTV.current
+    // TV: land on the first setting rather than the top-bar icon.
+    val tvFirst = remember { FocusRequester() }
+    TvInitialFocus(isTV, tvFirst)
 
     // Leave room for the mini player bar so the last rows (genres, source folders…)
     // aren't hidden behind it.
@@ -45,7 +60,9 @@ fun AutoDjSettingsContent(
     )
 
     LazyColumn(
-        modifier = modifier.fillMaxSize(),
+        modifier = modifier
+            .fillMaxSize()
+            .then(if (isTV) Modifier.focusRequester(tvFirst) else Modifier),
         contentPadding = PaddingValues(bottom = bottomPadding)
     ) {
 
@@ -144,7 +161,8 @@ fun AutoDjSettingsContent(
                             FilterChip(
                                 selected = s.genreMode == mode,
                                 onClick = { viewModel.setGenreMode(mode) },
-                                label = { Text(label) }
+                                label = { Text(label) },
+                                modifier = Modifier.tvFocusRing(isTV, TvRowShape)
                             )
                         }
                 }
@@ -285,7 +303,7 @@ fun AutoDjSettingsScreen(
             TopAppBar(
                 title = { Text(stringResource(R.string.autodj_title)) },
                 navigationIcon = {
-                    IconButton(onClick = onBack) {
+                    IconButton(onClick = onBack, modifier = Modifier.tvFocusRing(LocalIsTV.current, TvCircleShape)) {
                         Icon(Icons.Default.Menu, contentDescription = stringResource(R.string.common_menu))
                     }
                 }
@@ -316,6 +334,7 @@ private fun StarRatingPicker(
     rating: Int,
     onRatingChange: (Int) -> Unit
 ) {
+    val isTV = LocalIsTV.current
     Row(
         modifier = Modifier
             .fillMaxWidth()
@@ -338,7 +357,7 @@ private fun StarRatingPicker(
                         // Tap the active star again → reset to 0 (any)
                         onRatingChange(if (rating == star) 0 else star)
                     },
-                    modifier = Modifier.size(36.dp)
+                    modifier = Modifier.tvFocusRing(isTV, TvCircleShape, 1.1f).size(36.dp)
                 ) {
                     Icon(
                         imageVector = if (star <= rating) Icons.Filled.Star
@@ -355,10 +374,12 @@ private fun StarRatingPicker(
             }
             // Explicit, always-visible way back to "Any rating" — avoids the
             // dead end where users couldn't figure out how to clear the minimum.
+            // TV: stays enabled (a no-op at "any") — disabling the focused
+            // button would drop the D-pad focus.
             IconButton(
-                onClick = { onRatingChange(0) },
-                enabled = rating != 0,
-                modifier = Modifier.size(36.dp)
+                onClick = { if (rating != 0) onRatingChange(0) },
+                enabled = isTV || rating != 0,
+                modifier = Modifier.tvFocusRing(isTV, TvCircleShape, 1.1f).size(36.dp)
             ) {
                 Icon(
                     imageVector = Icons.Default.Close,
@@ -415,6 +436,7 @@ private fun SourceFoldersSelector(
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
+                    .tvFocusRing(LocalIsTV.current, TvRowShape, 1.02f)
                     .clickable {
                         val newSelected = if (isChecked) effectiveSelected - vpath
                                           else effectiveSelected + vpath
@@ -465,9 +487,9 @@ private fun KeywordsEditor(
                 text = v
                 onUpdate(v.split(",").map { it.trim() }.filter { it.isNotBlank() })
             },
-            modifier = Modifier.fillMaxWidth(),
+            modifier = Modifier.fillMaxWidth().tvTextFieldKeys(LocalIsTV.current),
             placeholder = { Text(stringResource(R.string.autodj_keywords_placeholder)) },
-            keyboardOptions = KeyboardOptions(imeAction = ImeAction.Done),
+            keyboardOptions = KeyboardOptions(imeAction = ImeAction.Done).tvKeyboardOptions(LocalIsTV.current),
             singleLine = false,
             minLines = 2
         )
@@ -500,9 +522,9 @@ private fun GenresEditor(
                 text = v
                 onUpdate(v.split(",").map { it.trim() }.filter { it.isNotBlank() })
             },
-            modifier = Modifier.fillMaxWidth(),
+            modifier = Modifier.fillMaxWidth().tvTextFieldKeys(LocalIsTV.current),
             placeholder = { Text(stringResource(R.string.autodj_genres_placeholder)) },
-            keyboardOptions = KeyboardOptions(imeAction = ImeAction.Done),
+            keyboardOptions = KeyboardOptions(imeAction = ImeAction.Done).tvKeyboardOptions(LocalIsTV.current),
             singleLine = false,
             minLines = 2
         )
@@ -552,7 +574,13 @@ private fun SettingRow(
                 )
             }
         }
-        control()
+        // TV: a visible ring around the switch (Material's own focus cue is a
+        // faint 10 % circle on the thumb).
+        if (LocalIsTV.current) {
+            Box(Modifier.tvFocusRing(true, TvPillShape)) { control() }
+        } else {
+            control()
+        }
     }
 }
 
@@ -570,12 +598,24 @@ private fun SliderSetting(
             .padding(horizontal = 16.dp, vertical = 4.dp)
     ) {
         Text(label, style = MaterialTheme.typography.bodyMedium)
+        // TV: Left / Right move one notch (Material3 1.3.0's Slider takes focus
+        // but ignores the arrow keys).
+        val isTV = LocalIsTV.current
         Slider(
             value = value,
             onValueChange = onValueChange,
             valueRange = valueRange,
             steps = steps,
-            modifier = Modifier.fillMaxWidth()
+            modifier = Modifier
+                .fillMaxWidth()
+                .tvFocusRing(isTV, TvPillShape, 1f)
+                .tvSliderKeys(
+                    isTV,
+                    value = value,
+                    range = valueRange,
+                    step = (valueRange.endInclusive - valueRange.start) / (steps + 1),
+                    onValueChange = onValueChange,
+                )
         )
     }
 }
@@ -590,6 +630,7 @@ private fun StepperSetting(
     min: Int,
     max: Int
 ) {
+    val isTV = LocalIsTV.current
     Row(
         modifier = Modifier
             .fillMaxWidth()
@@ -611,10 +652,12 @@ private fun StepperSetting(
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(4.dp)
         ) {
+            // TV: both stay enabled (no-op at the limits) — a button that
+            // disables itself while focused drops the D-pad focus.
             FilledTonalIconButton(
-                onClick = onDecrement,
-                enabled = value > min,
-                modifier = Modifier.size(36.dp)
+                onClick = { if (value > min) onDecrement() },
+                enabled = isTV || value > min,
+                modifier = Modifier.tvFocusRing(isTV, TvCircleShape, 1.1f).size(36.dp)
             ) {
                 Text("−", style = MaterialTheme.typography.titleMedium)
             }
@@ -625,9 +668,9 @@ private fun StepperSetting(
                 textAlign = TextAlign.Center
             )
             FilledTonalIconButton(
-                onClick = onIncrement,
-                enabled = value < max,
-                modifier = Modifier.size(36.dp)
+                onClick = { if (value < max) onIncrement() },
+                enabled = isTV || value < max,
+                modifier = Modifier.tvFocusRing(isTV, TvCircleShape, 1.1f).size(36.dp)
             ) {
                 Text("+", style = MaterialTheme.typography.titleMedium)
             }

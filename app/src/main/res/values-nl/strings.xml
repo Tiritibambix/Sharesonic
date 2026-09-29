@@ -90,6 +90,7 @@
     <string name="links_never_expires">Vervalt nooit</string>
     <string name="links_copy">Kopiëren</string>
     <string name="links_open">Openen</string>
+    <string name="links_qr">QR-code</string>
     <string name="links_revoke">Intrekken</string>
     <string name="links_copied">Link naar klembord gekopieerd</string>
 
@@ -220,6 +221,7 @@
     <string name="share_copy">Kopiëren</string>
     <string name="share_send">Verzenden</string>
     <string name="share_copied">Link naar klembord gekopieerd</string>
+    <string name="share_scan_hint">Scan met je telefoon om de link te openen</string>
     <string name="share_expiry_title">Dagen tot verval</string>
     <string name="share_expiry_permanent">Permanent (geen vervaldatum)</string>
     <string name="share_expiry_days_label">Dagen</string>

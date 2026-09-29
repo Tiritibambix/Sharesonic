@@ -3,6 +3,7 @@ package com.tiritibambix.sharesonic.ui.settings
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.focusGroup
 import androidx.compose.foundation.focusable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -62,6 +63,10 @@ import com.tiritibambix.sharesonic.ui.theme.borderStrong
 import com.tiritibambix.sharesonic.ui.theme.onAccent
 import com.tiritibambix.sharesonic.ui.theme.textSecondary
 import com.tiritibambix.sharesonic.utils.LocalIsTV
+import com.tiritibambix.sharesonic.utils.TvInitialFocus
+import com.tiritibambix.sharesonic.utils.tvFocusRing
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusRequester
 
 /** Curated presets — subset the user asked for, plus the current Velvet primary. */
 private val AccentPresets = listOf(
@@ -151,6 +156,10 @@ fun AccentColorSheet(
     onDismiss: () -> Unit,
 ) {
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
+    // TV: focus starts on the first swatch.
+    val isTV = LocalIsTV.current
+    val tvFirst = remember { FocusRequester() }
+    TvInitialFocus(isTV, tvFirst)
 
     // Local HSV state driven by the custom picker sliders. Seeded from the
     // current accent (or the theme default when nothing is picked). Kept in a
@@ -180,6 +189,7 @@ fun AccentColorSheet(
             )
 
             FlowRow(
+                modifier = if (isTV) Modifier.focusRequester(tvFirst).focusGroup() else Modifier,
                 horizontalArrangement = Arrangement.spacedBy(14.dp),
                 verticalArrangement = Arrangement.spacedBy(14.dp),
             ) {
@@ -246,6 +256,9 @@ fun AccentColorSheet(
                         t = hsv.h / 360f,
                         onChanged = { hsv = hsv.withHue(it * 360f) },
                         onEnd = { onPick(hsv.toColor().toArgb()) },
+                        // 360° is red again — stop just short so the D-pad
+                        // can't wrap the thumb back to the left end.
+                        tvMax = 359f / 360f,
                     )
                     // Saturation bar rendered at V=1 (standard picker
                     // convention) — otherwise picking a dark accent (V → 0)
@@ -281,6 +294,7 @@ fun AccentColorSheet(
 private fun DynamicSwatch(selected: Boolean, onTap: () -> Unit) {
     Box(
         modifier = Modifier
+            .tvSwatchRing(LocalIsTV.current)
             .size(46.dp)
             .clip(CircleShape)
             .background(Brush.sweepGradient(HueTrack))
@@ -309,6 +323,7 @@ private fun Swatch(
 ) {
     Box(
         modifier = Modifier
+            .tvSwatchRing(LocalIsTV.current)
             .size(46.dp)
             .clip(CircleShape)
             .background(color)
@@ -329,6 +344,13 @@ private fun Swatch(
 }
 
 /**
+ * TV focus ring for a swatch, drawn 4 dp outside the circle so it can't be
+ * confused with the "selected" border drawn on the circle itself.
+ */
+private fun Modifier.tvSwatchRing(isTV: Boolean): Modifier =
+    if (!isTV) this else this.tvFocusRing(true, CircleShape, 1.1f).padding(4.dp)
+
+/**
  * Horizontal gradient track with a draggable white thumb. [t] is the
  * fractional position 0..1; [onChanged] fires continuously during a drag /
  * tap for a live preview; [onEnd] fires once on release / tap-up to commit.
@@ -339,6 +361,8 @@ private fun GradientBar(
     t: Float,
     onChanged: (Float) -> Unit,
     onEnd: () -> Unit,
+    /** TV: highest value the D-pad may reach (the hue bar stops short of 360°). */
+    tvMax: Float = 1f,
 ) {
     val h = 26.dp
     var boxSize by remember { mutableStateOf(IntSize.Zero) }
@@ -356,23 +380,29 @@ private fun GradientBar(
             .fillMaxWidth()
             .height(h)
             .onSizeChanged { boxSize = it }
+            // TV: visible focus (a bare focusable shows none), outside the clip.
+            .then(if (isTV) Modifier.tvFocusRing(true, RoundedCornerShape(percent = 50), 1f) else Modifier)
             .clip(RoundedCornerShape(percent = 50))
             .background(Brush.horizontalGradient(colors))
             .border(1.dp, MaterialTheme.colorScheme.borderSoft, RoundedCornerShape(percent = 50))
             // TV: focusable + D-pad left/right nudges the value by 4 % per press
             // (25 presses to sweep the whole bar — comfortable on a remote).
-            // Commits (onEnd) on each press so previews and DataStore stay in sync.
+            // The preview follows every press; the colour is saved once, when
+            // the key is released (not on every press / auto-repeat).
             .then(
                 if (isTV) Modifier
                     .focusable()
                     .onKeyEvent { event ->
-                        if (event.type == KeyEventType.KeyDown) {
-                            when (event.key) {
-                                Key.DirectionLeft  -> { onChanged((t - 0.04f).coerceIn(0f, 1f)); onEnd(); true }
-                                Key.DirectionRight -> { onChanged((t + 0.04f).coerceIn(0f, 1f)); onEnd(); true }
-                                else -> false
-                            }
-                        } else false
+                        val delta = when (event.key) {
+                            Key.DirectionLeft  -> -0.04f
+                            Key.DirectionRight -> 0.04f
+                            else -> return@onKeyEvent false
+                        }
+                        when (event.type) {
+                            KeyEventType.KeyDown -> currentOnChanged((t + delta).coerceIn(0f, tvMax))
+                            KeyEventType.KeyUp -> currentOnEnd()
+                        }
+                        true
                     }
                 else Modifier
             )

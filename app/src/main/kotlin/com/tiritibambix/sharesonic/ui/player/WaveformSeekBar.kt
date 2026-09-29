@@ -22,6 +22,8 @@ import androidx.compose.ui.input.key.type
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.unit.dp
 import com.tiritibambix.sharesonic.utils.LocalIsTV
+import com.tiritibambix.sharesonic.utils.TvRowShape
+import com.tiritibambix.sharesonic.utils.tvFocusRing
 import kotlin.random.Random
 
 /**
@@ -65,6 +67,8 @@ fun WaveformSeekBar(
             // TV: D-pad left/right to seek ±5 % (~3 s on a 1 min track)
             .then(
                 if (isTV) Modifier
+                    // A bare focusable Canvas shows no focus at all.
+                    .tvFocusRing(true, TvRowShape, 1f)
                     .focusable()
                     .onKeyEvent { event ->
                         if (event.type == KeyEventType.KeyDown) {

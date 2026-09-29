@@ -90,6 +90,7 @@
     <string name="links_never_expires">失効しない</string>
     <string name="links_copy">コピー</string>
     <string name="links_open">開く</string>
+    <string name="links_qr">QRコード</string>
     <string name="links_revoke">失効させる</string>
     <string name="links_copied">リンクをコピーしました</string>
 
@@ -220,6 +221,7 @@
     <string name="share_copy">コピー</string>
     <string name="share_send">送信</string>
     <string name="share_copied">リンクをコピーしました</string>
+    <string name="share_scan_hint">スマートフォンでスキャンしてリンクを開く</string>
     <string name="share_expiry_title">失効までの日数</string>
     <string name="share_expiry_permanent">恒久（失効なし）</string>
     <string name="share_expiry_days_label">日</string>

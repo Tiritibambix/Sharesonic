@@ -98,17 +98,23 @@ Compose Navigation. Path arguments (playlist name, folder name, artist name) are
 
 ## Android TV adaptations
 
-`utils/TvHelper.kt` — `LocalIsTV` CompositionLocal provided at the root of the tree in `MainActivity`; `Context.isTV()` reads `UiModeManager`. Every screen that uses gesture-only interactions has an `isTV` branch:
+`utils/TvHelper.kt` — `LocalIsTV` CompositionLocal provided at the root of the tree in `MainActivity`; `Context.isTV()` checks `FEATURE_LEANBACK` (the documented check) with a `UiModeManager` fallback. **Rule: every TV change is behind `isTV` and the phone path stays byte-for-byte what it was** — the helpers in `utils/TvFocus.kt` take `isTV` and return the receiver unchanged when it's false (no `composed {}` on phone).
 
-* Folder browser rows / Search song rows / Queue rows / Playlist rows: `⋮` `IconButton` (instead of swipe + long-press) → same context menu / picker.
-* Folder browser drawer: on TV, `ModalNavigationDrawer` steals focus into its (empty) drawer content on `.open()`; a separate `showTVDrawer: Boolean` drives an `AnimatedVisibility` sheet + scrim overlay instead.
-* Now Playing: `HorizontalPager` uses `userScrollEnabled = !isTV` (D-pad left/right would otherwise fight the pager for focus). Auto-DJ toggle and `⋮` More button are duplicated as `OutlinedButton`s inside `NowPlayingPage` so D-pad can reach them without going up to the TopAppBar.
-* Playlist detail: TV shows compact `↑` / `↓` arrow pair (instead of drag-and-drop) with the same underlying `moveEntry` / `commitReorder` methods.
-* `AccentColorSheet.GradientBar`: `focusable` + `onKeyEvent` on TV — D-pad left/right nudges the value ±4 % per press (25 presses to sweep) and commits each press.
-* `WaveformSeekBar`: same pattern — D-pad ±5 % seek on TV, drag/tap otherwise.
-* `FrostedOverlay`: `BackHandler` calls `onDismiss` so Back closes the modal first before bubbling to the parent's back handler (e.g. the PlayerPanel collapse).
-* Cover art tap opens the pinch-zoom viewer on phone only (`enabled = state.coverArtUrl != null && !isTV`) — no pinch on a remote.
-* Mini player gets an auto `FocusRequester.requestFocus()` after a 150 ms settle when the panel becomes visible or collapses back from Now Playing.
+Compose facts the TV code relies on (Compose UI/Foundation 1.7.0, Material3 1.3.0 — verified in the androidx sources):
+* **2D focus search only looks among the focused node's siblings, never its children.** A focusable inside a focusable (an icon button inside a `clickable` row, anything inside a `clickable` scrim/card, a `SelectionContainer` around focusable text) is unreachable with the D-pad. On TV the container is never clickable: rows split into a clickable main area (`weight(1f)`) + sibling buttons; overlays drop their click-catching scrim/card.
+* `Slider` (M3 1.3.0) takes focus but ignores arrow keys → `tvSliderKeys`. A button that disables itself or disappears while focused drops focus for the whole window → on TV such buttons stay enabled and no-op at their limits (prev/next, clear rating, steppers, Test, share spinners inside the button).
+* Overlays drawn in the same window (frosted modals, browser context menu, track info, TV drawer) don't contain focus by themselves → `tvFocusTrap` (`focusProperties { exit = Cancel }` + `focusGroup`) + `TvInitialFocus`, Back closes them.
+
+Helpers (`utils/TvFocus.kt`): `tvFocusRing` (2 dp accent outline + wash + small zoom, per the Google TV focus system — the M3 10 % state layer is invisible from a sofa), `tvFocusTrap`, `tvBlockFocusEntry` (`enter = Cancel`), `TvInitialFocus`, `TvRefocusAfter` (focus back on the opener when an overlay closes), `tvSliderKeys`, `tvScrollKeys` (focusable text block scrolled by ↑/↓: lyrics, track info, crash trace), `tvTextFieldKeys` + `tvKeyboardOptions` (↑/↓ always leave a field — Compose ignores HDMI-CEC remotes there — OK opens the keyboard, no keyboard on mere focus), `rememberTvListFocus` / `TvListFocusEffect` (first row focused on entry, the opened row again on Back, a re-created row refocused after an edit), `TvSafeHorizontal/Vertical` (48 / 27 dp overscan margins, TV-OV).
+
+Per area:
+* **Player panel:** collapsed, the Now Playing sheet is only offset + transparent, so its focus entry is blocked (`progress == 0`); fully open, the NavHost behind is blocked (`isFullyExpanded`). Opening lands on the Now Playing page with play/pause focused; Back / the arrow collapse to the mini bar; `collapseForNavigation()` (go to folder, share) leaves the focus to the destination. Starting playback no longer steals focus.
+* **Now Playing:** two-column layout on TV (cover left, controls right — stacked, the cover was ~14 dp tall on 960×540 dp); the page blocks are private composables shared verbatim with the phone column. Tabs in the top bar (`userScrollEnabled = !isTV`), Auto-DJ + More duplicated in the page, no swipe hint. Queue rows are keyed by position (no drag on TV) and `↑ ↓ + ✕` move the focus with the edit. Sheets open fully (`skipPartiallyExpanded = isTV`) with a focused first item.
+* **Browser / Search / Playlists:** `⋮` next to a clickable main area; TV drawer traps focus, Back closes it, focus returns to ☰; Search refocuses its field on first entry only; Playlists get "New playlist" in the top bar (FAB hidden); playlist detail keys rows by position on TV so `↑ / ↓` keep focus, `✕` asks for confirmation.
+* **Settings:** radio rows are a single focus stop (radio `onClick = null` on TV); accent bars save on key-up, hue stops at 359°.
+* **Sharing:** TVs have no share target and must not open a browser (TV-WB): `ShareConfirmScreen` shows the link + a QR code (`ui/components/QrCode.kt`, zxing core, local), "Send" only if an app can receive it (`<queries>` for `ACTION_SEND`); Public Links shows a QR instead of "Open".
+* **Launcher:** `android:banner="@mipmap/tv_banner"` — 320×180 px in `mipmap-xhdpi` (+ xxhdpi / xxxhdpi), per the TV banner guidelines.
+* Media keys need no code: unhandled `KEYCODE_MEDIA_*` go to the active session (`PhoneFallbackEventHandler`), which Media3 handles.
 
 ## Velvet Native API
 

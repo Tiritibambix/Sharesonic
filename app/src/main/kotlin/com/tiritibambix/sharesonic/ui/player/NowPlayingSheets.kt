@@ -1,6 +1,7 @@
 package com.tiritibambix.sharesonic.ui.player
 
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.focusGroup
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -14,6 +15,8 @@ import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.text.selection.SelectionContainer
 import androidx.compose.foundation.verticalScroll
@@ -31,7 +34,10 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -40,6 +46,14 @@ import com.tiritibambix.sharesonic.R
 import com.tiritibambix.sharesonic.data.Result
 import com.tiritibambix.sharesonic.data.api.models.EntryDto
 import com.tiritibambix.sharesonic.ui.theme.textSecondary
+import com.tiritibambix.sharesonic.utils.LocalIsTV
+import com.tiritibambix.sharesonic.utils.TvInitialFocus
+import com.tiritibambix.sharesonic.utils.TvPillShape
+import com.tiritibambix.sharesonic.utils.TvRowShape
+import com.tiritibambix.sharesonic.utils.tvFocusRing
+import com.tiritibambix.sharesonic.utils.tvKeyboardOptions
+import com.tiritibambix.sharesonic.utils.tvScrollKeys
+import com.tiritibambix.sharesonic.utils.tvTextFieldKeys
 
 /**
  * Track-info panel — a "frosted" card floating over the darkened Now Playing
@@ -106,12 +120,56 @@ fun TrackInfoDialog(
             color = MaterialTheme.colorScheme.primary.copy(alpha = 0.18f),
         ),
     ) {
+        if (LocalIsTV.current) {
+            // TV: the text block itself takes focus and scrolls with Up / Down
+            // (it's taller than a 540 dp screen); Close sits outside it — inside
+            // a focusable block it couldn't be reached with the D-pad.
+            val scroll = rememberScrollState()
+            Column(modifier = Modifier.padding(horizontal = 22.dp, vertical = 20.dp)) {
+                Column(
+                    modifier = Modifier
+                        .weight(1f, fill = false)
+                        .tvFocusRing(true, RoundedCornerShape(10.dp), 1f)
+                        .tvScrollKeys(true, scroll)
+                        .verticalScroll(scroll),
+                    verticalArrangement = Arrangement.spacedBy(14.dp),
+                ) {
+                    TrackInfoBody(song, rows)
+                }
+                Spacer(Modifier.height(14.dp))
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.End,
+                ) {
+                    TextButton(
+                        onClick = onDismiss,
+                        modifier = Modifier.tvFocusRing(true, TvPillShape)
+                    ) { Text(stringResource(R.string.common_close)) }
+                }
+            }
+            return@Surface
+        }
             Column(
                 modifier = Modifier
                     .padding(horizontal = 22.dp, vertical = 20.dp)
                     .verticalScroll(rememberScrollState()),
                 verticalArrangement = Arrangement.spacedBy(14.dp),
             ) {
+                TrackInfoBody(song, rows)
+
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.End,
+                ) {
+                    TextButton(onClick = onDismiss) { Text(stringResource(R.string.common_close)) }
+                }
+            }
+        }
+    }
+
+/** Header, metadata grid and file path of [TrackInfoDialog]. */
+@Composable
+private fun TrackInfoBody(song: EntryDto, rows: List<Pair<String, String>>) {
                 // ── Header: title + artist + album ──
                 Text(
                     text = (song.title ?: song.name).orEmpty(),
@@ -184,16 +242,7 @@ fun TrackInfoDialog(
                         }
                     }
                 }
-
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.End,
-                ) {
-                    TextButton(onClick = onDismiss) { Text(stringResource(R.string.common_close)) }
-                }
-            }
-        }
-    }
+}
 
 @Composable
 private fun MetadataRow(label: String, value: String) {
@@ -233,13 +282,26 @@ fun MoreActionsSheet(
     onOpenFolder: (() -> Unit)?,
     onDismiss: () -> Unit
 ) {
-    ModalBottomSheet(onDismissRequest = onDismiss) {
-        Column(modifier = Modifier.padding(bottom = 16.dp)) {
+    val isTV = LocalIsTV.current
+    // TV: open fully (a 540 dp screen left it half-open with no way to drag it
+    // up) and put the focus on the first entry.
+    val tvFirst = remember { FocusRequester() }
+    TvInitialFocus(isTV, tvFirst)
+    val item = Modifier.tvFocusRing(isTV, TvRowShape, 1f)
+    ModalBottomSheet(
+        onDismissRequest = onDismiss,
+        sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = isTV),
+    ) {
+        Column(
+            modifier = Modifier
+                .padding(bottom = 16.dp)
+                .then(if (isTV) Modifier.focusRequester(tvFirst).focusGroup() else Modifier)
+        ) {
             if (onOpenFolder != null) {
                 ListItem(
                     headlineContent = { Text(stringResource(R.string.more_go_to_folder)) },
                     leadingContent = { Icon(Icons.Default.FolderOpen, contentDescription = null) },
-                    modifier = Modifier.clickable { onOpenFolder() }
+                    modifier = item.clickable { onOpenFolder() }
                 )
             }
             ListItem(
@@ -253,17 +315,17 @@ fun MoreActionsSheet(
                     )
                 },
                 leadingContent = { Icon(Icons.Default.Bedtime, contentDescription = null) },
-                modifier = Modifier.clickable { onOpenSleepTimer() }
+                modifier = item.clickable { onOpenSleepTimer() }
             )
             ListItem(
                 headlineContent = { Text(stringResource(R.string.more_lyrics)) },
                 leadingContent = { Icon(Icons.Default.Lyrics, contentDescription = null) },
-                modifier = Modifier.clickable { onOpenLyrics() }
+                modifier = item.clickable { onOpenLyrics() }
             )
             ListItem(
                 headlineContent = { Text(stringResource(R.string.more_track_info)) },
                 leadingContent = { Icon(Icons.Default.Info, contentDescription = null) },
-                modifier = Modifier.clickable { onOpenInfo() }
+                modifier = item.clickable { onOpenInfo() }
             )
         }
     }
@@ -280,7 +342,11 @@ fun LyricsSheet(
     fetch: suspend () -> Result<List<String>>,
     onDismiss: () -> Unit
 ) {
-    ModalBottomSheet(onDismissRequest = onDismiss) {
+    val isTV = LocalIsTV.current
+    ModalBottomSheet(
+        onDismissRequest = onDismiss,
+        sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = isTV),
+    ) {
         val result by produceState<Result<List<String>>?>(initialValue = null) {
             value = fetch()
         }
@@ -310,10 +376,22 @@ fun LyricsSheet(
                             color = MaterialTheme.colorScheme.textSecondary
                         )
                     } else {
+                        // TV: the lyrics block takes focus (on open) and scrolls
+                        // with Up / Down — nothing else in the sheet is focusable.
+                        val scroll = rememberScrollState()
+                        val tvLyrics = remember { FocusRequester() }
+                        TvInitialFocus(isTV, tvLyrics)
                         Column(
                             modifier = Modifier
                                 .heightIn(max = 460.dp)
-                                .verticalScroll(rememberScrollState())
+                                .then(
+                                    if (isTV) Modifier
+                                        .focusRequester(tvLyrics)
+                                        .tvFocusRing(true, RoundedCornerShape(10.dp), 1f)
+                                        .tvScrollKeys(true, scroll)
+                                    else Modifier
+                                )
+                                .verticalScroll(scroll)
                         ) {
                             r.data.forEach { line ->
                                 Text(
@@ -347,12 +425,19 @@ fun SleepTimerSheet(
     onDismiss: () -> Unit
 ) {
     var custom by remember { mutableStateOf("") }
-    ModalBottomSheet(onDismissRequest = onDismiss) {
+    val isTV = LocalIsTV.current
+    val tvFirst = remember { FocusRequester() }
+    TvInitialFocus(isTV, tvFirst)
+    ModalBottomSheet(
+        onDismissRequest = onDismiss,
+        sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = isTV),
+    ) {
         Column(
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(horizontal = 20.dp)
-                .padding(bottom = 24.dp),
+                .padding(bottom = 24.dp)
+                .then(if (isTV) Modifier.focusRequester(tvFirst).focusGroup() else Modifier),
             verticalArrangement = Arrangement.spacedBy(12.dp)
         ) {
             Text(stringResource(R.string.sleep_title), style = MaterialTheme.typography.titleMedium)
@@ -360,7 +445,8 @@ fun SleepTimerSheet(
                 listOf(15, 30, 45, 60, 90).forEach { minutes ->
                     AssistChip(
                         onClick = { onPick(minutes) },
-                        label = { Text(stringResource(R.string.sleep_preset_min, minutes)) }
+                        label = { Text(stringResource(R.string.sleep_preset_min, minutes)) },
+                        modifier = Modifier.tvFocusRing(isTV, TvRowShape)
                     )
                 }
             }
@@ -374,18 +460,28 @@ fun SleepTimerSheet(
                     onValueChange = { s -> custom = s.filter { it.isDigit() }.take(3) },
                     label = { Text(stringResource(R.string.sleep_custom_label)) },
                     singleLine = true,
-                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                    modifier = Modifier.weight(1f)
+                    // TV: no keyboard just for passing over the field (OK opens
+                    // it), and the keyboard's Done key sets the timer.
+                    keyboardOptions = if (isTV) KeyboardOptions(
+                        keyboardType = KeyboardType.Number,
+                        imeAction = ImeAction.Done,
+                    ).tvKeyboardOptions(true)
+                    else KeyboardOptions(keyboardType = KeyboardType.Number),
+                    keyboardActions = if (isTV) KeyboardActions(onDone = {
+                        custom.toIntOrNull()?.takeIf { it > 0 }?.let { onPick(it) }
+                    }) else KeyboardActions.Default,
+                    modifier = Modifier.weight(1f).tvTextFieldKeys(isTV)
                 )
                 Button(
                     onClick = { custom.toIntOrNull()?.takeIf { it > 0 }?.let { onPick(it) } },
-                    enabled = custom.toIntOrNull()?.let { it > 0 } == true
+                    enabled = custom.toIntOrNull()?.let { it > 0 } == true,
+                    modifier = Modifier.tvFocusRing(isTV, TvPillShape)
                 ) { Text(stringResource(R.string.common_set)) }
             }
             if (active) {
                 TextButton(
                     onClick = onCancel,
-                    modifier = Modifier.fillMaxWidth()
+                    modifier = Modifier.fillMaxWidth().tvFocusRing(isTV, TvPillShape)
                 ) { Text(stringResource(R.string.sleep_cancel)) }
             }
         }

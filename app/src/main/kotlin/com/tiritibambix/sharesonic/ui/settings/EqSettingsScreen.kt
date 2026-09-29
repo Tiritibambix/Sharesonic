@@ -17,8 +17,11 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.ViewModel
@@ -28,6 +31,12 @@ import androidx.lifecycle.viewModelScope
 import com.tiritibambix.sharesonic.data.settings.SettingsRepository
 import com.tiritibambix.sharesonic.playback.EqualizerController
 import com.tiritibambix.sharesonic.ui.theme.textSecondary
+import com.tiritibambix.sharesonic.utils.LocalIsTV
+import com.tiritibambix.sharesonic.utils.TvCircleShape
+import com.tiritibambix.sharesonic.utils.TvInitialFocus
+import com.tiritibambix.sharesonic.utils.TvPillShape
+import com.tiritibambix.sharesonic.utils.tvFocusRing
+import com.tiritibambix.sharesonic.utils.tvSliderKeys
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.update
@@ -86,12 +95,16 @@ fun EqSettingsScreen(
     onBack: () -> Unit,
     miniPlayerVisible: Boolean = false,
 ) {
+    val isTV = LocalIsTV.current
+    // TV: land on the on/off switch rather than the back arrow.
+    val tvFirst = remember { FocusRequester() }
+    if (viewModel.available) TvInitialFocus(isTV, tvFirst)
     Scaffold(
         topBar = {
             TopAppBar(
                 title = { Text(stringResource(R.string.eq_title)) },
                 navigationIcon = {
-                    IconButton(onClick = onBack) {
+                    IconButton(onClick = onBack, modifier = Modifier.tvFocusRing(isTV, TvCircleShape)) {
                         Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = stringResource(R.string.common_back))
                     }
                 }
@@ -128,9 +141,18 @@ fun EqSettingsScreen(
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Text(stringResource(R.string.eq_enable), style = MaterialTheme.typography.titleMedium)
-                Switch(checked = enabled, onCheckedChange = viewModel::setEnabled)
+                Switch(
+                    checked = enabled,
+                    onCheckedChange = viewModel::setEnabled,
+                    modifier = Modifier
+                        .then(if (isTV) Modifier.focusRequester(tvFirst) else Modifier)
+                        .tvFocusRing(isTV, TvPillShape)
+                )
             }
-            TextButton(onClick = viewModel::reset) { Text(stringResource(R.string.eq_reset_flat)) }
+            TextButton(
+                onClick = viewModel::reset,
+                modifier = Modifier.tvFocusRing(isTV, TvPillShape)
+            ) { Text(stringResource(R.string.eq_reset_flat)) }
             Spacer(Modifier.height(8.dp))
 
             viewModel.centerFreqsHz.forEachIndexed { index, freq ->
@@ -147,11 +169,22 @@ fun EqSettingsScreen(
                             color = MaterialTheme.colorScheme.textSecondary
                         )
                     }
+                    // TV: Left / Right step the band by 1 dB (Material3 1.3.0's
+                    // Slider takes focus but ignores the arrow keys).
                     Slider(
                         value = levelMb.toFloat(),
                         onValueChange = { v -> viewModel.setBand(index, v.toInt().toShort()) },
                         valueRange = minMb.toFloat()..maxMb.toFloat(),
-                        enabled = enabled
+                        enabled = enabled,
+                        modifier = Modifier
+                            .tvFocusRing(isTV, TvPillShape, 1f)
+                            .tvSliderKeys(
+                                isTV && enabled,
+                                value = levelMb.toFloat(),
+                                range = minMb.toFloat()..maxMb.toFloat(),
+                                step = 100f,
+                                onValueChange = { v -> viewModel.setBand(index, v.toInt().toShort()) },
+                            )
                     )
                 }
             }

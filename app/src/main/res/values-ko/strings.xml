@@ -90,6 +90,7 @@
     <string name="links_never_expires">만료 없음</string>
     <string name="links_copy">복사</string>
     <string name="links_open">열기</string>
+    <string name="links_qr">QR 코드</string>
     <string name="links_revoke">취소</string>
     <string name="links_copied">링크가 복사되었습니다</string>
 
@@ -220,6 +221,7 @@
     <string name="share_copy">복사</string>
     <string name="share_send">보내기</string>
     <string name="share_copied">링크가 복사되었습니다</string>
+    <string name="share_scan_hint">휴대폰으로 스캔하여 링크 열기</string>
     <string name="share_expiry_title">만료까지 남은 일수</string>
     <string name="share_expiry_permanent">영구(만료 없음)</string>
     <string name="share_expiry_days_label">일</string>
