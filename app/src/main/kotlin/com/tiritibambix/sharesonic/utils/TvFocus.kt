@@ -24,6 +24,7 @@ import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.withFrameNanos
+import androidx.compose.ui.ExperimentalComposeUiApi
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.composed
 import androidx.compose.ui.focus.FocusDirection
@@ -111,6 +112,7 @@ fun Modifier.tvFocusRing(
  * it (the frosted overlays): arrows can't leave the group, and [requester] can be
  * used to place the initial focus inside it (see [TvInitialFocus]).
  */
+@OptIn(ExperimentalComposeUiApi::class)
 fun Modifier.tvFocusTrap(isTV: Boolean, requester: FocusRequester): Modifier =
     if (!isTV) this else this
         .focusRequester(requester)
@@ -122,6 +124,7 @@ fun Modifier.tvFocusTrap(isTV: Boolean, requester: FocusRequester): Modifier =
  * for content that is composed but not visible (the collapsed Now Playing sheet,
  * the screen hidden under the expanded one).
  */
+@OptIn(ExperimentalComposeUiApi::class)
 fun Modifier.tvBlockFocusEntry(isTV: Boolean, blocked: () -> Boolean): Modifier =
     if (!isTV) this else this
         .focusProperties {
