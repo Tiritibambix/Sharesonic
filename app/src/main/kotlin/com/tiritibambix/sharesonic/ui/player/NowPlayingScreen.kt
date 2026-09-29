@@ -16,6 +16,8 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.pager.HorizontalPager
+import androidx.compose.foundation.pager.PagerState
+import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
@@ -65,14 +67,61 @@ import com.tiritibambix.sharesonic.utils.TvRowShape
 import com.tiritibambix.sharesonic.utils.TvSafeHorizontal
 import com.tiritibambix.sharesonic.utils.TvSafeVertical
 import com.tiritibambix.sharesonic.utils.rememberTvListFocus
-import com.tiritibambix.sharesonic.utils.tvBlockFocusEntry
 import com.tiritibambix.sharesonic.utils.tvFocusRing
 import com.tiritibambix.sharesonic.utils.tvFocusTrap
 import kotlin.random.Random
+import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.launch
 
-private const val PAGE_NOW_PLAYING = 0
-private const val PAGE_QUEUE = 1
+internal const val PAGE_NOW_PLAYING = 0
+internal const val PAGE_QUEUE = 1
+
+/**
+ * Which of the two player pages is showing — Now Playing or Queue.
+ *
+ * Phone: a real [PagerState], so the pages keep their swipe + drag feel.
+ *
+ * TV: a plain index, and [NowPlayingScreen] composes only that page — **no
+ * pager at all**. A pager is a *snapping* scrollable, and D-pad focus fights
+ * it: focusing a child makes Compose bring it into view (its reported bounds
+ * include the focus ring's `graphicsLayer` scale), which nudges the pager off
+ * its snap point; the snap animates back; that movement changes the focused
+ * child's bounds, so another bring-into-view fires — the page shakes
+ * left/right forever. Non-snapping lists settle instead, which is why only
+ * the player jittered. With no scrollable on the page there is nothing left
+ * to scroll, so the fight cannot happen.
+ */
+@Stable
+class PlayerPages internal constructor(
+    internal val pagerState: PagerState,
+    private val isTV: Boolean,
+    private val scope: CoroutineScope,
+    private val tvPage: MutableIntState,
+) {
+    val current: Int get() = if (isTV) tvPage.intValue else pagerState.currentPage
+
+    /** Go to [page], animated on phone. */
+    fun go(page: Int) {
+        if (isTV) tvPage.intValue = page
+        else scope.launch { pagerState.animateScrollToPage(page) }
+    }
+
+    /** Go to [page] with no animation (used when the panel opens). */
+    suspend fun snapTo(page: Int) {
+        if (isTV) tvPage.intValue = page else pagerState.scrollToPage(page)
+    }
+}
+
+@OptIn(ExperimentalFoundationApi::class)
+@Composable
+fun rememberPlayerPages(isTV: Boolean): PlayerPages {
+    val pagerState = rememberPagerState(initialPage = PAGE_NOW_PLAYING) { 2 }
+    val scope = rememberCoroutineScope()
+    val tvPage = remember { mutableIntStateOf(PAGE_NOW_PLAYING) }
+    return remember(pagerState, isTV, scope, tvPage) {
+        PlayerPages(pagerState, isTV, scope, tvPage)
+    }
+}
 
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalFoundationApi::class)
 @Composable
@@ -84,12 +133,11 @@ fun NowPlayingScreen(
     onOpenFolder: (path: String, name: String) -> Unit,
     // Hoisted to PlayerPanel so its single BackHandler can be page-aware
     // (Queue → Now Playing → collapse). See PlayerPanel.kt.
-    pagerState: androidx.compose.foundation.pager.PagerState,
+    pages: PlayerPages,
     /** TV: the play/pause button — PlayerPanel focuses it when the panel opens. */
     playFocus: FocusRequester,
 ) {
     val isTV = LocalIsTV.current
-    val coroutineScope = rememberCoroutineScope()
     val state by viewModel.state.collectAsState()
     val tvFocus = remember(playFocus) { NowPlayingTvFocus(playFocus) }
     var showShareQueueExpiryDialog by remember { mutableStateOf(false) }
@@ -144,21 +192,24 @@ fun NowPlayingScreen(
         }
     }
     val topBarAlpha by androidx.compose.animation.core.animateFloatAsState(
-        targetValue = if (pagerState.currentPage == PAGE_QUEUE && queueScrolled) 0.92f else 0.35f,
+        targetValue = if (pages.current == PAGE_QUEUE && queueScrolled) 0.92f else 0.35f,
         animationSpec = androidx.compose.animation.core.tween(200),
         label = "topBarAlpha",
     )
 
     // ── TV focus ──────────────────────────────────────────────────────────────
-    // Heading to the Now Playing page (tab, back arrow, Back key): focus play/pause
-    // as soon as the move STARTS (targetPage, not settledPage). Moving focus off
-    // the queue row right away stops the pager's focus-follow from fighting the
-    // scroll toward page 0 — otherwise the still-focused row tugs it back and the
-    // page jitters. While the panel is collapsed this request is refused
-    // (PlayerPanel blocks focus entry).
-    LaunchedEffect(pagerState.targetPage) {
-        if (isTV && pagerState.targetPage == PAGE_NOW_PLAYING) {
-            runCatching { tvFocus.play.requestFocus() }
+    // Landing on the Now Playing page (tab, back arrow, Back key): focus
+    // play/pause, since the queue-only controls that may have had focus are gone.
+    // While the panel is collapsed this request is refused (PlayerPanel blocks
+    // focus entry).
+    LaunchedEffect(pages.current) {
+        if (isTV && pages.current == PAGE_NOW_PLAYING) {
+            // Retry for a few frames: the page is swapped in this same frame, so
+            // the button may not be attached yet on the first attempt.
+            repeat(5) {
+                withFrameNanos { }
+                if (runCatching { tvFocus.play.requestFocus() }.isSuccess) return@LaunchedEffect
+            }
         }
     }
     // An overlay drawn in this window (share, playlist picker, save queue, track
@@ -195,34 +246,26 @@ fun NowPlayingScreen(
                     if (isTV) {
                         Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
                             TextButton(
-                                onClick = {
-                                    coroutineScope.launch {
-                                        pagerState.animateScrollToPage(PAGE_NOW_PLAYING)
-                                    }
-                                },
+                                onClick = { pages.go(PAGE_NOW_PLAYING) },
                                 modifier = Modifier.tvFocusRing(true, TvPillShape)
                             ) {
                                 Text(
                                     stringResource(R.string.player_now_playing),
                                     style = MaterialTheme.typography.titleSmall,
-                                    color = if (pagerState.currentPage == PAGE_NOW_PLAYING)
+                                    color = if (pages.current == PAGE_NOW_PLAYING)
                                         MaterialTheme.colorScheme.primary
                                     else
                                         MaterialTheme.colorScheme.textSecondary
                                 )
                             }
                             TextButton(
-                                onClick = {
-                                    coroutineScope.launch {
-                                        pagerState.animateScrollToPage(PAGE_QUEUE)
-                                    }
-                                },
+                                onClick = { pages.go(PAGE_QUEUE) },
                                 modifier = Modifier.tvFocusRing(true, TvPillShape)
                             ) {
                                 Text(
                                     stringResource(R.string.player_queue_counter, state.queueIndex + 1, state.queue.size),
                                     style = MaterialTheme.typography.titleSmall,
-                                    color = if (pagerState.currentPage == PAGE_QUEUE)
+                                    color = if (pages.current == PAGE_QUEUE)
                                         MaterialTheme.colorScheme.primary
                                     else
                                         MaterialTheme.colorScheme.textSecondary
@@ -236,24 +279,20 @@ fun NowPlayingScreen(
                             modifier = Modifier
                                 .clip(RoundedCornerShape(16.dp))
                                 .clickable {
-                                    coroutineScope.launch {
-                                        pagerState.animateScrollToPage(
-                                            if (pagerState.currentPage == PAGE_NOW_PLAYING)
-                                                PAGE_QUEUE
-                                            else
-                                                PAGE_NOW_PLAYING
-                                        )
-                                    }
+                                    pages.go(
+                                        if (pages.current == PAGE_NOW_PLAYING) PAGE_QUEUE
+                                        else PAGE_NOW_PLAYING
+                                    )
                                 }
                                 .padding(horizontal = 4.dp, vertical = 2.dp)
                         ) {
                             repeat(2) { i ->
                                 Box(
                                     modifier = Modifier
-                                        .size(if (pagerState.currentPage == i) 7.dp else 5.dp)
+                                        .size(if (pages.current == i) 7.dp else 5.dp)
                                         .clip(CircleShape)
                                         .background(
-                                            if (pagerState.currentPage == i)
+                                            if (pages.current == i)
                                                 MaterialTheme.colorScheme.primary
                                             else
                                                 MaterialTheme.colorScheme.textSecondary.copy(alpha = 0.4f)
@@ -262,7 +301,7 @@ fun NowPlayingScreen(
                             }
                             Spacer(Modifier.width(6.dp))
                             Text(
-                                text = if (pagerState.currentPage == PAGE_NOW_PLAYING)
+                                text = if (pages.current == PAGE_NOW_PLAYING)
                                     stringResource(R.string.player_now_playing)
                                 else
                                     stringResource(R.string.player_queue_counter, state.queueIndex + 1, state.queue.size),
@@ -276,8 +315,7 @@ fun NowPlayingScreen(
                         // Hierarchical back: from the Queue page, step back to Now
                         // Playing first; from Now Playing, collapse the whole panel.
                         onClick = {
-                            if (pagerState.currentPage == PAGE_QUEUE)
-                                coroutineScope.launch { pagerState.animateScrollToPage(PAGE_NOW_PLAYING) }
+                            if (pages.current == PAGE_QUEUE) pages.go(PAGE_NOW_PLAYING)
                             else onBack()
                         },
                         modifier = Modifier.tvFocusRing(isTV, TvCircleShape).size(36.dp)
@@ -302,7 +340,7 @@ fun NowPlayingScreen(
                         )
                     }
                     when {
-                        pagerState.currentPage == PAGE_QUEUE && state.queue.isNotEmpty() -> {
+                        pages.current == PAGE_QUEUE && state.queue.isNotEmpty() -> {
                             // Save the whole queue as a new playlist (frosted name prompt)
                             IconButton(
                                 onClick = {
@@ -354,7 +392,7 @@ fun NowPlayingScreen(
                                 }
                             }
                         }
-                        pagerState.currentPage == PAGE_NOW_PLAYING && state.currentSong != null -> {
+                        pages.current == PAGE_NOW_PLAYING && state.currentSong != null -> {
                             IconButton(
                                 onClick = { showMoreSheet = true },
                                 modifier = Modifier.tvFocusRing(isTV, TvCircleShape).size(36.dp)
@@ -387,44 +425,47 @@ fun NowPlayingScreen(
             return@Scaffold
         }
 
-        HorizontalPager(
-            state = pagerState,
-            // TV: disable touch-swipe between pages; navigation is via the
-            // TextButton tabs in the TopAppBar (D-pad reachable). Without this,
-            // the pager intercepts D-pad left/right and fights with focus traversal.
-            userScrollEnabled = !isTV,
-            modifier = Modifier.fillMaxSize()
-        ) { page ->
-            // TV: forbid focus from entering the page that isn't the current one.
-            // A focusable on the off-screen page would otherwise let the pager's
-            // focus-driven bring-into-view scroll pull the pager toward it, then
-            // the current page pulls it back — the fast left/right jitter. Swipe
-            // is already off (userScrollEnabled), so pages only change via the
-            // tabs / Back, which set currentPage first.
-            val pageContent = Modifier
-                .fillMaxSize()
-                .tvBlockFocusEntry(isTV) { pagerState.currentPage != page }
-            when (page) {
-                PAGE_NOW_PLAYING -> Box(modifier = pageContent) {
-                    NowPlayingPage(
-                        state = state,
-                        viewModel = viewModel,
-                        onCoverTap = { showCoverZoom = true },
-                        onShare = { showShareExpiryDialog = true },
-                        onAddToPlaylist = { playlistTargetSong = state.currentSong; viewModel.loadPlaylists() },
-                        onMoreActions = { showMoreSheet = true },
-                        topPadding = topPadding,
-                        tvFocus = tvFocus,
-                    )
+        // The two pages, as composables shared by both containers below.
+        val nowPlayingPage: @Composable () -> Unit = {
+            NowPlayingPage(
+                state = state,
+                viewModel = viewModel,
+                onCoverTap = { showCoverZoom = true },
+                onShare = { showShareExpiryDialog = true },
+                onAddToPlaylist = { playlistTargetSong = state.currentSong; viewModel.loadPlaylists() },
+                onMoreActions = { showMoreSheet = true },
+                topPadding = topPadding,
+                tvFocus = tvFocus,
+            )
+        }
+        val queuePage: @Composable () -> Unit = {
+            QueuePage(
+                state, viewModel, isTV,
+                listState = queueListState,
+                onAddToPlaylist = { song -> playlistTargetSong = song; viewModel.loadPlaylists() },
+                topPadding = topPadding,
+                tvFocus = tvFocus,
+            )
+        }
+
+        if (isTV) {
+            // TV: no pager — just the current page. See [PlayerPages] for why: a
+            // snapping pager and D-pad focus pull against each other forever.
+            // Pages change through the top-bar tabs and Back.
+            Box(modifier = Modifier.fillMaxSize()) {
+                when (pages.current) {
+                    PAGE_QUEUE -> queuePage()
+                    else       -> nowPlayingPage()
                 }
-                PAGE_QUEUE       -> Box(modifier = pageContent) {
-                    QueuePage(
-                        state, viewModel, isTV,
-                        listState = queueListState,
-                        onAddToPlaylist = { song -> playlistTargetSong = song; viewModel.loadPlaylists() },
-                        topPadding = topPadding,
-                        tvFocus = tvFocus,
-                    )
+            }
+        } else {
+            HorizontalPager(
+                state = pages.pagerState,
+                modifier = Modifier.fillMaxSize()
+            ) { page ->
+                when (page) {
+                    PAGE_QUEUE -> queuePage()
+                    else       -> nowPlayingPage()
                 }
             }
         }

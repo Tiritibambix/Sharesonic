@@ -12,7 +12,6 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.offset
-import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
@@ -125,13 +124,12 @@ fun PlayerPanel(
 ) {
     if (!visible) return
 
-    // The Now Playing ⇆ Queue pager lives here (not inside NowPlayingScreen) so the
-    // single BackHandler below can be page-aware: from the Queue page, Back steps
-    // back to Now Playing; from Now Playing, it collapses the whole panel. Page 0 =
-    // Now Playing, page 1 = Queue.
-    val pagerState = rememberPagerState(initialPage = 0) { 2 }
-    val panelScope = rememberCoroutineScope()
     val isTV = LocalIsTV.current
+    // The Now Playing ⇆ Queue page state lives here (not inside NowPlayingScreen)
+    // so the single BackHandler below can be page-aware: from the Queue page, Back
+    // steps back to Now Playing; from Now Playing, it collapses the whole panel.
+    // Phone gets a real pager, TV a plain index — see [PlayerPages].
+    val pages = rememberPlayerPages(isTV)
     val miniFocusRequester = remember { FocusRequester() }
     val playFocus = remember { FocusRequester() }
     var tvWasExpanded by remember { mutableStateOf(false) }
@@ -147,7 +145,7 @@ fun PlayerPanel(
         if (!isTV) return@LaunchedEffect
         if (state.isExpanded) {
             tvWasExpanded = true
-            if (pagerState.currentPage != 0) pagerState.scrollToPage(0)
+            if (pages.current != PAGE_NOW_PLAYING) pages.snapTo(PAGE_NOW_PLAYING)
             snapshotFlow { state.isFullyExpanded }.first { it }
             repeat(10) {
                 withFrameNanos { }
@@ -219,7 +217,7 @@ fun PlayerPanel(
                 onBack = { state.collapse() },
                 onShareCreated = onShareCreated,
                 onOpenFolder = onOpenFolder,
-                pagerState = pagerState,
+                pages = pages,
                 playFocus = playFocus,
             )
         }
@@ -265,8 +263,8 @@ fun PlayerPanel(
     // Hierarchical back: on the Queue page, step back to Now Playing first;
     // only collapse the whole panel once already on Now Playing.
     BackHandler(enabled = state.isExpanded) {
-        if (pagerState.currentPage != 0) {
-            panelScope.launch { pagerState.animateScrollToPage(0) }
+        if (pages.current != PAGE_NOW_PLAYING) {
+            pages.go(PAGE_NOW_PLAYING)
         } else {
             state.collapse()
         }
