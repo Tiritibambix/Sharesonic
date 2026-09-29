@@ -1,10 +1,9 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!--
-    Adaptive-icon background layer — full-bleed Velvet gradient, matching the
-    in-app dark navy/purple background (#1a1a2e → #16213e), unchanged between
-    the v8 and definitive v10 icon designs. The system masks this into whatever shape the
-    launcher needs (circle, squircle, rounded square…), so it must cover the
-    entire 108x108 canvas with no transparency.
+    Adaptive-icon background layer: full-bleed violet to blue diagonal
+    gradient (#7c3aed → #2563eb across the visible 72dp viewport) with a soft
+    white highlight in the upper left. The system masks this into whatever
+    shape the launcher needs, so it covers the entire 108x108 canvas.
 -->
 <vector xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:aapt="http://schemas.android.com/aapt"
@@ -17,19 +16,26 @@
         <aapt:attr name="android:fillColor">
             <gradient
                 android:type="linear"
-                android:startX="0"
-                android:startY="0"
-                android:endX="108"
-                android:endY="108"
-                android:startColor="#1a1a2e"
-                android:endColor="#16213e"/>
+                android:startX="18"
+                android:startY="18"
+                android:endX="90"
+                android:endY="90"
+                android:startColor="#7C3AED"
+                android:endColor="#2563EB"/>
         </aapt:attr>
     </path>
 
-    <!-- Faint glass highlight along the top edge, echoing the original icon's "Reflet" -->
-    <path
-        android:pathData="M0,0 L108,0 L108,30 L0,30 Z"
-        android:fillColor="#FFFFFF"
-        android:fillAlpha="0.025"/>
+    <!-- Highlight -->
+    <path android:pathData="M0,0 L108,0 L108,108 L0,108 Z">
+        <aapt:attr name="android:fillColor">
+            <gradient
+                android:type="radial"
+                android:centerX="40"
+                android:centerY="30"
+                android:gradientRadius="46"
+                android:startColor="#2EFFFFFF"
+                android:endColor="#00FFFFFF"/>
+        </aapt:attr>
+    </path>
 
 </vector>

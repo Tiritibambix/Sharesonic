@@ -1,97 +1,62 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!--
-    Adaptive-icon foreground layer — converted from sharesonic_icon_v10.svg
-    (wide audio waves, centered play button, shuffle + share glyphs at the
-    bottom).
+    Adaptive-icon foreground layer: "Halo". A play triangle inside a ring of
+    32 waveform bars, all pure white (depth comes from per-bar alpha), drawn
+    directly on the 108x108 canvas. Outer extent r = 32.7 around (54,54), so
+    it stays inside the 66dp safe zone under every launcher mask.
 
-    The whole composition is scaled down (×0.15) and recentered so it sits
-    inside the adaptive-icon "safe zone" — a circle roughly 66–72dp in
-    diameter centered on the 108x108 canvas — so nothing gets clipped by
-    circle/squircle/rounded-square launcher masks. The original SVG's own
-    rounded-rect background, dot grid and reflection are intentionally
-    omitted here; they're reproduced by ic_launcher_background.xml instead.
+    Being white-with-alpha only, this layer doubles as the <monochrome> alpha
+    mask for Android 13+ themed icons (see mipmap-anydpi-v26/ic_launcher.xml).
+
+    Bar i of 32: t = i/32 * 2pi, angle t - pi/2 (bar 0 at the top),
+    length = clamp(3.2, 11, 6.6 + 2.9 sin(3t + 0.5) + 1.5 sin(8t + 1.2)),
+    from r = 20.5, alpha = 0.5 + 0.48 (length - 3.2) / 7.8.
 -->
 <vector xmlns:android="http://schemas.android.com/apk/res/android"
-    xmlns:aapt="http://schemas.android.com/aapt"
     android:width="108dp"
     android:height="108dp"
     android:viewportWidth="108"
     android:viewportHeight="108">
 
-    <group
-        android:scaleX="0.15"
-        android:scaleY="0.15"
-        android:translateX="4"
-        android:translateY="-1">
+    <!-- Waveform ring -->
+    <path android:pathData="M54,33.5 L54,24.5" android:strokeColor="#FFFFFF" android:strokeAlpha="0.86" android:strokeWidth="2.4" android:strokeLineCap="round"/>
+    <path android:pathData="M58,33.89 L59.95,24.09" android:strokeColor="#FFFFFF" android:strokeAlpha="0.92" android:strokeWidth="2.4" android:strokeLineCap="round"/>
+    <path android:pathData="M61.85,35.06 L64.91,27.67" android:strokeColor="#FFFFFF" android:strokeAlpha="0.8" android:strokeWidth="2.4" android:strokeLineCap="round"/>
+    <path android:pathData="M65.39,36.95 L69.83,30.3" android:strokeColor="#FFFFFF" android:strokeAlpha="0.8" android:strokeWidth="2.4" android:strokeLineCap="round"/>
+    <path android:pathData="M68.5,39.5 L74.86,33.14" android:strokeColor="#FFFFFF" android:strokeAlpha="0.86" android:strokeWidth="2.4" android:strokeLineCap="round"/>
+    <path android:pathData="M71.05,42.61 L76.03,39.28" android:strokeColor="#FFFFFF" android:strokeAlpha="0.67" android:strokeWidth="2.4" android:strokeLineCap="round"/>
+    <path android:pathData="M72.94,46.15 L75.9,44.93" android:strokeColor="#FFFFFF" android:strokeAlpha="0.5" android:strokeWidth="2.4" android:strokeLineCap="round"/>
+    <path android:pathData="M74.11,50 L77.24,49.38" android:strokeColor="#FFFFFF" android:strokeAlpha="0.5" android:strokeWidth="2.4" android:strokeLineCap="round"/>
+    <path android:pathData="M74.5,54 L79.5,54" android:strokeColor="#FFFFFF" android:strokeAlpha="0.61" android:strokeWidth="2.4" android:strokeLineCap="round"/>
+    <path android:pathData="M74.11,58 L79.99,59.17" android:strokeColor="#FFFFFF" android:strokeAlpha="0.67" android:strokeWidth="2.4" android:strokeLineCap="round"/>
+    <path android:pathData="M72.94,61.85 L78.48,64.14" android:strokeColor="#FFFFFF" android:strokeAlpha="0.67" android:strokeWidth="2.4" android:strokeLineCap="round"/>
+    <path android:pathData="M71.05,65.39 L77.7,69.83" android:strokeColor="#FFFFFF" android:strokeAlpha="0.8" android:strokeWidth="2.4" android:strokeLineCap="round"/>
+    <path android:pathData="M68.5,68.5 L76.27,76.27" android:strokeColor="#FFFFFF" android:strokeAlpha="0.98" android:strokeWidth="2.4" android:strokeLineCap="round"/>
+    <path android:pathData="M65.39,71.05 L70.94,79.36" android:strokeColor="#FFFFFF" android:strokeAlpha="0.92" android:strokeWidth="2.4" android:strokeLineCap="round"/>
+    <path android:pathData="M61.85,72.94 L64.52,79.41" android:strokeColor="#FFFFFF" android:strokeAlpha="0.73" android:strokeWidth="2.4" android:strokeLineCap="round"/>
+    <path android:pathData="M58,74.11 L59.17,79.99" android:strokeColor="#FFFFFF" android:strokeAlpha="0.67" android:strokeWidth="2.4" android:strokeLineCap="round"/>
+    <path android:pathData="M54,74.5 L54,81.5" android:strokeColor="#FFFFFF" android:strokeAlpha="0.73" android:strokeWidth="2.4" android:strokeLineCap="round"/>
+    <path android:pathData="M50,74.11 L49.03,79.01" android:strokeColor="#FFFFFF" android:strokeAlpha="0.61" android:strokeWidth="2.4" android:strokeLineCap="round"/>
+    <path android:pathData="M46.15,72.94 L44.93,75.9" android:strokeColor="#FFFFFF" android:strokeAlpha="0.5" android:strokeWidth="2.4" android:strokeLineCap="round"/>
+    <path android:pathData="M42.61,71.05 L40.39,74.37" android:strokeColor="#FFFFFF" android:strokeAlpha="0.55" android:strokeWidth="2.4" android:strokeLineCap="round"/>
+    <path android:pathData="M39.5,68.5 L34.55,73.45" android:strokeColor="#FFFFFF" android:strokeAlpha="0.73" android:strokeWidth="2.4" android:strokeLineCap="round"/>
+    <path android:pathData="M36.95,65.39 L30.3,69.83" android:strokeColor="#FFFFFF" android:strokeAlpha="0.8" android:strokeWidth="2.4" android:strokeLineCap="round"/>
+    <path android:pathData="M35.06,61.85 L28.59,64.52" android:strokeColor="#FFFFFF" android:strokeAlpha="0.73" android:strokeWidth="2.4" android:strokeLineCap="round"/>
+    <path android:pathData="M33.89,58 L25.07,59.76" android:strokeColor="#FFFFFF" android:strokeAlpha="0.86" android:strokeWidth="2.4" android:strokeLineCap="round"/>
+    <path android:pathData="M33.5,54 L22.5,54" android:strokeColor="#FFFFFF" android:strokeAlpha="0.98" android:strokeWidth="2.4" android:strokeLineCap="round"/>
+    <path android:pathData="M33.89,50 L26.05,48.44" android:strokeColor="#FFFFFF" android:strokeAlpha="0.8" android:strokeWidth="2.4" android:strokeLineCap="round"/>
+    <path android:pathData="M35.06,46.15 L30.44,44.24" android:strokeColor="#FFFFFF" android:strokeAlpha="0.61" android:strokeWidth="2.4" android:strokeLineCap="round"/>
+    <path android:pathData="M36.95,42.61 L33.63,40.39" android:strokeColor="#FFFFFF" android:strokeAlpha="0.55" android:strokeWidth="2.4" android:strokeLineCap="round"/>
+    <path android:pathData="M39.5,39.5 L35.97,35.97" android:strokeColor="#FFFFFF" android:strokeAlpha="0.61" android:strokeWidth="2.4" android:strokeLineCap="round"/>
+    <path android:pathData="M42.61,36.95 L40.39,33.63" android:strokeColor="#FFFFFF" android:strokeAlpha="0.55" android:strokeWidth="2.4" android:strokeLineCap="round"/>
+    <path android:pathData="M46.15,35.06 L44.93,32.1" android:strokeColor="#FFFFFF" android:strokeAlpha="0.5" android:strokeWidth="2.4" android:strokeLineCap="round"/>
+    <path android:pathData="M50,33.89 L48.83,28.01" android:strokeColor="#FFFFFF" android:strokeAlpha="0.67" android:strokeWidth="2.4" android:strokeLineCap="round"/>
 
-        <!-- Sound waves — left -->
-        <path android:pathData="M 240,210 Q 195,300 240,390" android:strokeWidth="14" android:strokeAlpha="0.9" android:strokeLineCap="round" android:fillColor="#00000000">
-            <aapt:attr name="android:strokeColor">
-                <gradient android:type="linear" android:startX="115" android:startY="598" android:endX="555" android:endY="140" android:startColor="#8b5cf6" android:endColor="#60a5fa"/>
-            </aapt:attr>
-        </path>
-        <path android:pathData="M 200,175 Q 145,300 200,425" android:strokeWidth="11" android:strokeAlpha="0.6" android:strokeLineCap="round" android:fillColor="#00000000">
-            <aapt:attr name="android:strokeColor">
-                <gradient android:type="linear" android:startX="115" android:startY="598" android:endX="555" android:endY="140" android:startColor="#8b5cf6" android:endColor="#60a5fa"/>
-            </aapt:attr>
-        </path>
-        <path android:pathData="M 160,140 Q 90,300 160,460" android:strokeWidth="8" android:strokeAlpha="0.35" android:strokeLineCap="round" android:fillColor="#00000000">
-            <aapt:attr name="android:strokeColor">
-                <gradient android:type="linear" android:startX="115" android:startY="598" android:endX="555" android:endY="140" android:startColor="#8b5cf6" android:endColor="#60a5fa"/>
-            </aapt:attr>
-        </path>
-
-        <!-- Sound waves — right (mirror around x=340) -->
-        <path android:pathData="M 440,210 Q 485,300 440,390" android:strokeWidth="14" android:strokeAlpha="0.9" android:strokeLineCap="round" android:fillColor="#00000000">
-            <aapt:attr name="android:strokeColor">
-                <gradient android:type="linear" android:startX="115" android:startY="598" android:endX="555" android:endY="140" android:startColor="#8b5cf6" android:endColor="#60a5fa"/>
-            </aapt:attr>
-        </path>
-        <path android:pathData="M 480,175 Q 535,300 480,425" android:strokeWidth="11" android:strokeAlpha="0.6" android:strokeLineCap="round" android:fillColor="#00000000">
-            <aapt:attr name="android:strokeColor">
-                <gradient android:type="linear" android:startX="115" android:startY="598" android:endX="555" android:endY="140" android:startColor="#8b5cf6" android:endColor="#60a5fa"/>
-            </aapt:attr>
-        </path>
-        <path android:pathData="M 520,140 Q 590,300 520,460" android:strokeWidth="8" android:strokeAlpha="0.35" android:strokeLineCap="round" android:fillColor="#00000000">
-            <aapt:attr name="android:strokeColor">
-                <gradient android:type="linear" android:startX="115" android:startY="598" android:endX="555" android:endY="140" android:startColor="#8b5cf6" android:endColor="#60a5fa"/>
-            </aapt:attr>
-        </path>
-
-        <!-- Center hub (navy disc with glow ring) + play triangle -->
-        <path android:pathData="M 340,300 m -78,0 a 78,78 0 1,0 156,0 a 78,78 0 1,0 -156,0" android:fillColor="#0f3460" android:strokeWidth="3">
-            <aapt:attr name="android:strokeColor">
-                <gradient android:type="linear" android:startX="115" android:startY="598" android:endX="555" android:endY="140" android:startColor="#8b5cf6" android:endColor="#60a5fa"/>
-            </aapt:attr>
-        </path>
-        <path android:pathData="M 317,266 L 317,334 L 385,300 Z">
-            <aapt:attr name="android:fillColor">
-                <gradient android:type="linear" android:startX="115" android:startY="598" android:endX="555" android:endY="140" android:startColor="#8b5cf6" android:endColor="#60a5fa"/>
-            </aapt:attr>
-        </path>
-
-        <!-- Separator -->
-        <path android:pathData="M 340,490 L 340,590" android:strokeColor="#2a3a5e" android:strokeWidth="2" android:strokeLineCap="round"/>
-
-        <!-- Shuffle — symmetric crossing arrows (purple ↔ blue) -->
-        <path android:pathData="M 115,578 L 141,578 Q 165,578 185,558 L 225,518 Q 245,498 269,498 L 295,498" android:strokeColor="#8b5cf6" android:strokeWidth="10" android:strokeLineCap="round" android:strokeAlpha="0.92" android:fillColor="#00000000"/>
-        <path android:pathData="M 289,486 L 313,498 L 289,510 Z" android:fillColor="#8b5cf6" android:fillAlpha="0.92"/>
-        <path android:pathData="M 115,498 L 141,498 Q 165,498 185,518 L 225,558 Q 245,578 269,578 L 295,578" android:strokeColor="#60a5fa" android:strokeWidth="10" android:strokeLineCap="round" android:strokeAlpha="0.92" android:fillColor="#00000000"/>
-        <path android:pathData="M 289,566 L 313,578 L 289,590 Z" android:fillColor="#60a5fa" android:fillAlpha="0.92"/>
-
-        <!-- Share — source node + two recipient nodes -->
-        <path android:pathData="M 420,540 m -14,0 a 14,14 0 1,0 28,0 a 14,14 0 1,0 -28,0" android:fillColor="#0f3460" android:strokeColor="#8b5cf6" android:strokeWidth="3"/>
-        <path android:pathData="M 502,496 m -14,0 a 14,14 0 1,0 28,0 a 14,14 0 1,0 -28,0" android:fillColor="#0f3460" android:strokeColor="#60a5fa" android:strokeWidth="3"/>
-        <path android:pathData="M 502,584 m -14,0 a 14,14 0 1,0 28,0 a 14,14 0 1,0 -28,0" android:fillColor="#0f3460" android:strokeColor="#60a5fa" android:strokeWidth="3"/>
-        <path android:pathData="M 433,532 L 489,504" android:strokeWidth="3.5" android:strokeLineCap="round" android:strokeAlpha="0.8" android:fillColor="#00000000">
-            <aapt:attr name="android:strokeColor">
-                <gradient android:type="linear" android:startX="115" android:startY="598" android:endX="555" android:endY="140" android:startColor="#8b5cf6" android:endColor="#60a5fa"/>
-            </aapt:attr>
-        </path>
-        <path android:pathData="M 433,548 L 489,576" android:strokeWidth="3.5" android:strokeLineCap="round" android:strokeAlpha="0.8" android:fillColor="#00000000">
-            <aapt:attr name="android:strokeColor">
-                <gradient android:type="linear" android:startX="115" android:startY="598" android:endX="555" android:endY="140" android:startColor="#8b5cf6" android:endColor="#60a5fa"/>
-            </aapt:attr>
-        </path>
-    </group>
+    <!-- Play: same-colour stroke with a round join softens the corners -->
+    <path
+        android:pathData="M49.5,45 L64.5,54 L49.5,63 Z"
+        android:fillColor="#FFFFFF"
+        android:strokeColor="#FFFFFF"
+        android:strokeWidth="4"
+        android:strokeLineJoin="round"/>
 </vector>
