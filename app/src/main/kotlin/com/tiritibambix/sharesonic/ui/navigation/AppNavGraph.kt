@@ -261,7 +261,7 @@ fun AppNavGraph() {
                 onOpenLanguageSettings = { navController.navigate(Screen.LanguageSettings.route) },
                 onOpenPublicLinks = { navController.navigate(Screen.PublicLinks.route) },
                 onOpenEqualizer = { navController.navigate(Screen.EqualizerSettings.route) },
-                onOpenNowPlaying = { /* mini-bar stays collapsed; user expands manually */ },
+                onOpenNowPlaying = { if (isTV) panelState.expand() },
                 onOpenSearch = { navController.navigate(Screen.Search.route) },
                 onOpenPlaylists = { navController.navigate(Screen.Playlists.route) },
                 // Home icon in the top bar: clear the whole stack and land on
@@ -293,7 +293,7 @@ fun AppNavGraph() {
                 onOpenArtistResults = { artistName ->
                     navController.navigate(Screen.ArtistResults.createRoute(artistName))
                 },
-                onOpenNowPlaying = { /* mini-bar stays collapsed; user expands manually */ },
+                onOpenNowPlaying = { if (isTV) panelState.expand() },
                 onShareCreated = ::onShareCreated
             )
         }
@@ -324,7 +324,7 @@ fun AppNavGraph() {
                 settings = settings,
                 playerViewModel = playerVm,
                 onBack = { navController.popBackStack() },
-                onOpenNowPlaying = { /* mini-bar stays collapsed; user expands manually */ }
+                onOpenNowPlaying = { if (isTV) panelState.expand() }
             )
         }
 
@@ -370,7 +370,7 @@ fun AppNavGraph() {
                 viewModel = detailVm,
                 playerViewModel = playerVm,
                 onBack = { navController.popBackStack() },
-                onOpenNowPlaying = { /* mini-bar stays collapsed; user expands manually */ }
+                onOpenNowPlaying = { if (isTV) panelState.expand() }
             )
         }
         composable(Screen.AutoDjSettings.route) {

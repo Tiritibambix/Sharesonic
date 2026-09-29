@@ -65,6 +65,7 @@ import com.tiritibambix.sharesonic.utils.TvRowShape
 import com.tiritibambix.sharesonic.utils.TvSafeHorizontal
 import com.tiritibambix.sharesonic.utils.TvSafeVertical
 import com.tiritibambix.sharesonic.utils.rememberTvListFocus
+import com.tiritibambix.sharesonic.utils.tvBlockFocusEntry
 import com.tiritibambix.sharesonic.utils.tvFocusRing
 import com.tiritibambix.sharesonic.utils.tvFocusTrap
 import kotlin.random.Random
@@ -149,11 +150,14 @@ fun NowPlayingScreen(
     )
 
     // ── TV focus ──────────────────────────────────────────────────────────────
-    // Back on the Now Playing page (tab, back arrow, Back key): focus play/pause
-    // — the queue-only controls that may have had it are gone. While the panel
-    // is collapsed this request is refused (PlayerPanel blocks focus entry).
-    LaunchedEffect(pagerState.settledPage) {
-        if (isTV && pagerState.settledPage == PAGE_NOW_PLAYING) {
+    // Heading to the Now Playing page (tab, back arrow, Back key): focus play/pause
+    // as soon as the move STARTS (targetPage, not settledPage). Moving focus off
+    // the queue row right away stops the pager's focus-follow from fighting the
+    // scroll toward page 0 — otherwise the still-focused row tugs it back and the
+    // page jitters. While the panel is collapsed this request is refused
+    // (PlayerPanel blocks focus entry).
+    LaunchedEffect(pagerState.targetPage) {
+        if (isTV && pagerState.targetPage == PAGE_NOW_PLAYING) {
             runCatching { tvFocus.play.requestFocus() }
         }
     }
@@ -391,24 +395,37 @@ fun NowPlayingScreen(
             userScrollEnabled = !isTV,
             modifier = Modifier.fillMaxSize()
         ) { page ->
+            // TV: forbid focus from entering the page that isn't the current one.
+            // A focusable on the off-screen page would otherwise let the pager's
+            // focus-driven bring-into-view scroll pull the pager toward it, then
+            // the current page pulls it back — the fast left/right jitter. Swipe
+            // is already off (userScrollEnabled), so pages only change via the
+            // tabs / Back, which set currentPage first.
+            val pageContent = Modifier
+                .fillMaxSize()
+                .tvBlockFocusEntry(isTV) { pagerState.currentPage != page }
             when (page) {
-                PAGE_NOW_PLAYING -> NowPlayingPage(
-                    state = state,
-                    viewModel = viewModel,
-                    onCoverTap = { showCoverZoom = true },
-                    onShare = { showShareExpiryDialog = true },
-                    onAddToPlaylist = { playlistTargetSong = state.currentSong; viewModel.loadPlaylists() },
-                    onMoreActions = { showMoreSheet = true },
-                    topPadding = topPadding,
-                    tvFocus = tvFocus,
-                )
-                PAGE_QUEUE       -> QueuePage(
-                    state, viewModel, isTV,
-                    listState = queueListState,
-                    onAddToPlaylist = { song -> playlistTargetSong = song; viewModel.loadPlaylists() },
-                    topPadding = topPadding,
-                    tvFocus = tvFocus,
-                )
+                PAGE_NOW_PLAYING -> Box(modifier = pageContent) {
+                    NowPlayingPage(
+                        state = state,
+                        viewModel = viewModel,
+                        onCoverTap = { showCoverZoom = true },
+                        onShare = { showShareExpiryDialog = true },
+                        onAddToPlaylist = { playlistTargetSong = state.currentSong; viewModel.loadPlaylists() },
+                        onMoreActions = { showMoreSheet = true },
+                        topPadding = topPadding,
+                        tvFocus = tvFocus,
+                    )
+                }
+                PAGE_QUEUE       -> Box(modifier = pageContent) {
+                    QueuePage(
+                        state, viewModel, isTV,
+                        listState = queueListState,
+                        onAddToPlaylist = { song -> playlistTargetSong = song; viewModel.loadPlaylists() },
+                        topPadding = topPadding,
+                        tvFocus = tvFocus,
+                    )
+                }
             }
         }
     }
