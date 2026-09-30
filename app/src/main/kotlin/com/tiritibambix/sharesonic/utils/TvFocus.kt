@@ -81,11 +81,16 @@ val TvPillShape: Shape = RoundedCornerShape(50)
  * Visible focus for a TV remote, following the Google TV focus system (scale +
  * outline + colour): a 2 dp accent outline, a light accent wash and a small zoom.
  * The Material default (a 10 % state layer) can't be seen from the sofa.
+ *
+ * [fill] paints the accent wash behind the element — right for small controls,
+ * but pass `false` for a large text region (the wash tints the whole block and
+ * hurts readability); the outline alone then marks it focused.
  */
 fun Modifier.tvFocusRing(
     isTV: Boolean,
     shape: Shape = TvRowShape,
     focusedScale: Float = 1.05f,
+    fill: Boolean = true,
 ): Modifier = if (!isTV) this else this.composed {
     var focused by remember { mutableStateOf(false) }
     val scale by animateFloatAsState(
@@ -102,7 +107,7 @@ fun Modifier.tvFocusRing(
         .then(
             if (focused) Modifier
                 .border(2.dp, accent, shape)
-                .background(accent.copy(alpha = 0.12f), shape)
+                .then(if (fill) Modifier.background(accent.copy(alpha = 0.12f), shape) else Modifier)
             else Modifier
         )
 }

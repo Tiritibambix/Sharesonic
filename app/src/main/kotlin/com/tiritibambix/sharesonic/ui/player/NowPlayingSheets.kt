@@ -34,8 +34,10 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
@@ -104,6 +106,56 @@ fun TrackInfoDialog(
         ratingFmt?.let { add(ratingLabel to it) }
     }
 
+    if (LocalIsTV.current) {
+        // TV: a centred panel, bounded to well inside the screen (the player
+        // overlay isn't overscan-padded, so a full-width / 620 dp-tall card
+        // spilled to the edges and past the top/bottom of a 540 dp screen).
+        val cfg = LocalConfiguration.current
+        val maxW = minOf(680, cfg.screenWidthDp - 120).dp
+        val maxH = (cfg.screenHeightDp - 72).coerceAtLeast(320).dp
+        val scroll = rememberScrollState()
+        androidx.compose.material3.Surface(
+            modifier = Modifier.width(maxW).heightIn(max = maxH),
+            shape = androidx.compose.foundation.shape.RoundedCornerShape(20.dp),
+            color = MaterialTheme.colorScheme.surface,
+            tonalElevation = 6.dp,
+            border = androidx.compose.foundation.BorderStroke(
+                width = 1.dp,
+                color = MaterialTheme.colorScheme.primary.copy(alpha = 0.18f),
+            ),
+        ) {
+            Column(modifier = Modifier.padding(horizontal = 30.dp, vertical = 26.dp)) {
+                // The text region takes focus and scrolls with Up / Down; the
+                // focus outline has NO background wash (fill = false) so it never
+                // tints the text, and the content isn't selectable — nothing to
+                // select with a remote. Close sits outside so the D-pad reaches it.
+                Column(
+                    modifier = Modifier
+                        .weight(1f, fill = false)
+                        .tvFocusRing(true, RoundedCornerShape(12.dp), focusedScale = 1f, fill = false)
+                        .clip(RoundedCornerShape(12.dp))
+                        .tvScrollKeys(true, scroll)
+                        .verticalScroll(scroll)
+                        .padding(horizontal = 6.dp, vertical = 8.dp),
+                    verticalArrangement = Arrangement.spacedBy(14.dp),
+                ) {
+                    TrackInfoBody(song, rows, selectable = false)
+                }
+                Spacer(Modifier.height(18.dp))
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.End,
+                ) {
+                    TextButton(
+                        onClick = onDismiss,
+                        modifier = Modifier.tvFocusRing(true, TvPillShape)
+                    ) { Text(stringResource(R.string.common_close)) }
+                }
+            }
+        }
+        return
+    }
+
     androidx.compose.material3.Surface(
         modifier = Modifier
             .fillMaxWidth()
@@ -120,35 +172,6 @@ fun TrackInfoDialog(
             color = MaterialTheme.colorScheme.primary.copy(alpha = 0.18f),
         ),
     ) {
-        if (LocalIsTV.current) {
-            // TV: the text block itself takes focus and scrolls with Up / Down
-            // (it's taller than a 540 dp screen); Close sits outside it — inside
-            // a focusable block it couldn't be reached with the D-pad.
-            val scroll = rememberScrollState()
-            Column(modifier = Modifier.padding(horizontal = 22.dp, vertical = 20.dp)) {
-                Column(
-                    modifier = Modifier
-                        .weight(1f, fill = false)
-                        .tvFocusRing(true, RoundedCornerShape(10.dp), 1f)
-                        .tvScrollKeys(true, scroll)
-                        .verticalScroll(scroll),
-                    verticalArrangement = Arrangement.spacedBy(14.dp),
-                ) {
-                    TrackInfoBody(song, rows)
-                }
-                Spacer(Modifier.height(14.dp))
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.End,
-                ) {
-                    TextButton(
-                        onClick = onDismiss,
-                        modifier = Modifier.tvFocusRing(true, TvPillShape)
-                    ) { Text(stringResource(R.string.common_close)) }
-                }
-            }
-            return@Surface
-        }
             Column(
                 modifier = Modifier
                     .padding(horizontal = 22.dp, vertical = 20.dp)
@@ -169,7 +192,12 @@ fun TrackInfoDialog(
 
 /** Header, metadata grid and file path of [TrackInfoDialog]. */
 @Composable
-private fun TrackInfoBody(song: EntryDto, rows: List<Pair<String, String>>) {
+private fun TrackInfoBody(
+    song: EntryDto,
+    rows: List<Pair<String, String>>,
+    /** Phone lets the path be selected/copied; a TV remote can't, so it's off there. */
+    selectable: Boolean = true,
+) {
                 // ── Header: title + artist + album ──
                 Text(
                     text = (song.title ?: song.name).orEmpty(),
@@ -230,7 +258,7 @@ private fun TrackInfoBody(song: EntryDto, rows: List<Pair<String, String>>) {
                             color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.10f),
                         ),
                     ) {
-                        SelectionContainer {
+                        val pathText: @Composable () -> Unit = {
                             Text(
                                 path,
                                 style = MaterialTheme.typography.bodySmall.copy(
@@ -240,6 +268,7 @@ private fun TrackInfoBody(song: EntryDto, rows: List<Pair<String, String>>) {
                                 modifier = Modifier.padding(horizontal = 12.dp, vertical = 10.dp),
                             )
                         }
+                        if (selectable) SelectionContainer { pathText() } else pathText()
                     }
                 }
 }
